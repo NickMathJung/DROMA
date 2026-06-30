@@ -17,7 +17,6 @@ Ts_sim   = Ts_inner;                % Fixed-step Grundschrittweite (ode4)
 Ts_mocap = rate_outer2inner*Ts_inner;              % 1/f_base = 1/100 s (100 Hz) - Optitrack
 Ts_gcs   = rate_outer2inner*Ts_inner;              % 1/f_base = 1/100 s (100 Hz) - Beobachter + Positionsregler
 Ts_link  = rate_outer2inner*Ts_inner;              % 1/f_base = 1/100 s (100 Hz) - Funkstrecke
-% =================================================================================
 
 %% -------------------------------------------------------------- Modellparameter
 g   = 9.81;                  % m/s^2
@@ -66,7 +65,6 @@ Gamma = 1.2*Gamma;
 tau_m   = 0.030;             % Motorzeitkonstante  TODO: measure 
 rotors_min   = 0;            % rad/s
 rotors_max   = 30000;        % rad/s  
-% =================================================================================
 
 %% ------------------------------------------ IMU: MPU-6050 (Datenblatt)
 % Vollausschlag (FSR) -> externe Saettigung; Auswahl konfigurierbar
@@ -110,7 +108,6 @@ mocap.att_noise = 0.5*pi/180;% rad RMS
 mocap.Ts_mocap  = Ts_mocap;  % s, Sample-Periode (= 1/f_base) - used by sensors.slx
 mocap.t_delay   = 0.008;     % s, optional Transportverzoegerung (latency model)
 mocap.dropout_p = 0.01;      % Wahrscheinlichkeit Markerausfall pro Sample
-% =================================================================================
 
 %% --------------------------------------------------------- Funkstrecke
 % --- Transportlatenz (ganzzahliger Delay @ Ts_inner) ---
@@ -150,7 +147,6 @@ link_params.flags_init = [uint8(0); boolean(0)];
 % Eingang ist 19x1 -> IC muss [21, 1, N_delay] (3-D) sein. Letzte Dim = Delay-Laenge.
 link_params.pkt_init_delay = repmat(link_params.pkt_init, [1, 1, link_params.N_delay]);
 link_params.flags_init_delay = repmat(link_params.flags_init, [1, 1, link_params.N_delay]);
-% =================================================================================
 
 
 %% ------------------------------------------------------------- Regler
@@ -167,7 +163,6 @@ Kp = diag(m * omega_n_pos.^2);
 Kd =  diag(2 * zeta * m * omega_n_pos);
 % kd_diag = 2.75*[1; 1; 1.1];
 % Kd = diag(kd_diag);
-% =================================================================================
 
 %% ------------------------------------------------------------ Safety
 % Schwelle: ueber max(|Omega_ref|) + Marge,
@@ -179,12 +174,15 @@ safety.debounce_N = uint16(4);
  
 % Detektor-Modus: false = per-Achse |Omega_i| (empfohlen, achsselektiv),
 %                 true  = Euklidische Norm ||Omega||.
-safety.use_norm   = true;
+safety.use_norm   = false;
  
-% Quittung:
+% Quittungs-Quellen (onboard ge-OR-t, §9/§13.1):
 %   ack_combined = ack_button_edge | Bus_Cmd.ack
 % In reiner Sim ist ack_button=false -> ack kommt nur ueber den Uplink.
-% Teensy-Taster-Pin: OFFEN.
+% Teensy-Taster-Pin: OFFEN (§15).
+ 
+% Optionaler Re-Arm-Idle-Interlock (NICHT aktiv, siehe safety_overspeed.m):
+% safety.F_rearm_idle = 0.2*m*g_const;   % Throttle-Proxy statt Boden-Schaetzung
 % =================================================================================
 
 
@@ -232,7 +230,6 @@ Bd_y    = Bd(:,4:6);    % column block for position measurement
 % Discrete-time eigenvalues — useful sanity check
 fprintf('Discrete-time observer eigenvalues |z| (ZOH, dt=%.4g):\n', Ts_gcs);
 disp(sort(abs(eig(Ad))).');
-% =================================================================================
 
 %% ------------------------------------------------------------ Trajektorie
 % Wegpunkte (NED, z nach unten -> negativ = Hoehe). Beispiel: Quadrat in 1m Hoehe.
@@ -262,7 +259,6 @@ prm_traj.J = J;
 
 fprintf('Trajektorie: %d Wegpunkte, Gesamtdauer %.2f s\n', ...
         size(traj.P,2), sum(traj.Tseg)+sum(traj.Tdwell));
-% =================================================================================
 
 function schiefsym = skew(r)
 %VEE gibt die schiefsymmetrische Matrix schiefsym zu r zurück
