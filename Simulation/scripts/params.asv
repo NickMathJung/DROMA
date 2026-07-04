@@ -29,6 +29,9 @@ l   = 0.124;  % m, Armlaenge
 c_T  = 1.134e-3; % N/(rad/s)^2   
 c_tau  = 7.398e-6; % Nm/(rad/s)^2 
 
+quadcop.m = m;
+quadcop.g = g;
+quadcop.J = J;
 
 % Motordrehzaheln -> Schubkraft und Drehmomente:  [F; tau_x; tau_y; tau_z] = Gamma * [w1^2; w2^2; w3^2; w4^2] 
 % momentan fliegt Quadrkopter in X-Konfiguration
@@ -64,7 +67,7 @@ Gamma = 1.2*Gamma;
 
 
 % Motor (PT1) + Saettigung
-tau_m   = 0.030;             % Motorzeitkonstante  TODO: measure 
+quadcop.tau_m   = 0.030;             % Motorzeitkonstante  TODO: measure 
 rotors_min   = 0;            % rad/s
 rotors_max   = 30000;        % rad/s  
 % =================================================================================
@@ -236,10 +239,10 @@ disp(sort(abs(eig(Ad))).');
 % =================================================================================
 
 %% ------------------------------------------------------------ Trajektorie
-% Wegpunkte (NED, z nach unten -> negativ = Hoehe). Beispiel: Quadrat in 1m Hoehe.
-traj.P = [  0   1   1   0   0 ;     % x [m]
-            0   0   1   1   0 ;     % y [m]
-            0   1   1   1   1 ];    % z [m]  
+% Quadrat in 1m Hoehe:
+traj.P = [  0   1   1   0   0 ; % x [m]
+            0   0   1   1   0 ; % y [m]
+            0   1   1   1   1 ]; % z [m]  
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
 traj.yaw    = deg2rad([ 0   0   0   0 ]);
@@ -301,27 +304,25 @@ safety.g = g;
 
 %% ------------------------------------------------------------ Supervisor (Soft-Land)
 % geregeltes Soft-Land mit ~0.3..0.5 m/s 
-supervisor.v_sink = 0.35; % [m/s]  Soll-Sinkrate
+supervisor.v_sink = 0.15; % [m/s]  Soll-Sinkrate
 
 % Falls Mocap-z-Null nicht am Boden liegt, hier den realen Bodenwert setzen.
 supervisor.z_ground = 0.0; % [m]  z-Koordinate des Bodens 
 
-% Disarm-Marge ueber Grund: Cutoff (estop=2) bei z_est >= z_ground + margin.
-% Aufschlaggeschwindigkeit nach Cut:  v_imp = sqrt(v_sink^2 + 2*g*margin)
+% Disarm-Marge ueber Grund: Cutoff (estop=2) bei z_est <= z_ground + margin.
+% Aufschlaggeschwindigkeit:  v_imp = sqrt(v_sink^2 + 2*g*margin)
 %   margin=0.08, v_sink=0.35 -> v_imp ~ 1.29 m/s
-%   margin=0.05, v_sink=0.30 -> v_imp ~ 1.05 m/s
-% Kleiner margin => sanfter, aber naeher an Bodeneffekt/Propstrike. HW-final.
-supervisor.disarm_margin = 0.08;       % [m]
+% Kleiner margin => sanfter, aber mehr Bodeneffekte. 
+supervisor.disarm_margin = 0.2;       % [m]
 
-% Takt (fuer die z-Rampe zref += v_sink*Ts). MUSS = GCS-Takt sein.
-supervisor.Ts = Ts_gcs;                % [s]
+supervisor.Ts = Ts_gcs; % [s]
 
-% --- Info-Ausgabe / Sanity ---
+% --- Info-Ausgabe ---
 v_imp = sqrt(supervisor.v_sink^2 + 2*g*supervisor.disarm_margin);
 fprintf(['Supervisor: v_sink=%.2f m/s, margin=%.3f m, z_ground=%.2f m ' ...
          '-> v_impact~%.2f m/s\n'], supervisor.v_sink, supervisor.disarm_margin, ...
          supervisor.z_ground, v_imp);
-assert(supervisor.v_sink > 0, 'v_sink muss > 0 sein (NED: Sinken = +z).');
+assert(supervisor.v_sink > 0, 'v_sink muss > 0 sein.');
 assert(supervisor.disarm_margin > 0, 'disarm_margin muss > 0 sein.');
 % =================================================================================
 

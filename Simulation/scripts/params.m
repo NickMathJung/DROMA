@@ -29,6 +29,15 @@ l   = 0.124;  % m, Armlaenge
 c_T  = 1.134e-3; % N/(rad/s)^2   
 c_tau  = 7.398e-6; % Nm/(rad/s)^2 
 
+quadcop.m = m;
+quadcop.g = g;
+quadcop.J = J;
+quadcop.D = D;
+
+quadcop.x0 = [0;0;0];
+quadcop.v0 = [0;0;0];
+quadcop.q0 = [1;0;0;0];
+quadcop.w0 = [0;0;0];
 
 % Motordrehzaheln -> Schubkraft und Drehmomente:  [F; tau_x; tau_y; tau_z] = Gamma * [w1^2; w2^2; w3^2; w4^2] 
 % momentan fliegt Quadrkopter in X-Konfiguration
@@ -57,16 +66,16 @@ F = [c_T  c_T  c_T  c_T];
 f_i = [0; 0; c_T];
 tau_i = [0; 0; c_tau];
 tau = [skew(r1)*f_i-tau_i  skew(r2)*f_i+tau_i  skew(r3)*f_i-tau_i  skew(r4)*f_i+tau_i];
-Gamma = [F; tau];
+quadcop.Gamma = [F; tau];
 
-Gamma_inv = inv(Gamma);
-Gamma = 1.2*Gamma;
+quadcop.Gamma_inv = inv(quadcop.Gamma);
+quadcop.Gamma = 1.2*quadcop.Gamma;
 
 
 % Motor (PT1) + Saettigung
-tau_m   = 0.030;             % Motorzeitkonstante  TODO: measure 
-rotors_min   = 0;            % rad/s
-rotors_max   = 30000;        % rad/s  
+quadcop.tau_m   = 0.030;             % Motorzeitkonstante  TODO: measure 
+quadcop.rotors_min   = 0;            % rad/s
+quadcop.rotors_max   = 30000;        % rad/s  
 % =================================================================================
 
 %% ------------------------------------------ IMU: MPU-6050 (Datenblatt)
@@ -92,25 +101,25 @@ imu.gyro_wn    = 2*pi*30;                 % rad/s
 imu.gyro_zeta  = 0.707;
  
 % --- Accelerometer ---
-% Messbias (Zero-G: X/Y +-50 mg, Z +-80 mg); repraesentativ:
-imu.acc_bias   = 1.0*[0.05; -0.05; 0.08]*g;    % m/s^2
+% Messbias (Zero-G: X/Y +-50 mg, Z +-80 mg):
+imu.acc_bias   = 1.0*[0.05; -0.05; 0.08]*g; % m/s^2
 % Rauschen: Power Spectral Density 400 ug/sqrt(Hz)
-imu.acc_ASD    = 400e-6*g;                 % (m/s^2)/sqrt(Hz)
-imu.acc_PSD    = imu.acc_ASD^2;            % (m/s^2)^2/Hz    -> Band-Limited White Noise "Noise power"
+imu.acc_ASD    = 400e-6*g; % (m/s^2)/sqrt(Hz)
+imu.acc_PSD    = imu.acc_ASD^2; % (m/s^2)^2/Hz -> Band-Limited White Noise "Noise power"
 % Skalenfaktor-Toleranz +-3 %, Kreuzachsen +-2 %, Nichtlinearitaet 0.5 %
 imu.acc_M      = [ 1.03  0.02  0.02;
                   -0.02  0.97  0.02;
                    0.02 -0.02  1.03];
 % Bandbreite (DLPF, hier 100 Hz)
-imu.acc_wn     = 2*pi*8;                 % rad/s
+imu.acc_wn     = 2*pi*8; % rad/s
 imu.acc_zeta   = 0.707;
 
 % Motive @ Ts_mocap   (TODO: aus OptiTrack-Spezifikation/Messung)
-mocap.pos_noise = 1e-3;      % m RMS
-mocap.att_noise = 0.5*pi/180;% rad RMS
-mocap.Ts_mocap  = Ts_mocap;  % s, Sample-Periode (= 1/f_base) - used by sensors.slx
-mocap.t_delay   = 0.008;     % s, optional Transportverzoegerung (latency model)
-mocap.dropout_p = 0.01;      % Wahrscheinlichkeit Markerausfall pro Sample
+mocap.pos_noise = 1e-3; % RMS
+mocap.att_noise = 0.5*pi/180; % RMS
+mocap.Ts_mocap  = Ts_mocap; % Sample-Periode (= 1/f_base)
+mocap.t_delay   = 0.008; % optional Transportverzoegerung 
+mocap.dropout_p = 0.01; % Wahrscheinlichkeit ausfall pro Sample
 % =================================================================================
 
 %% --------------------------------------------------------- Funkstrecke
@@ -163,19 +172,14 @@ zeta = 0.707;
 kR = diag(J * omega_n_Lage.^2);
 kOmega =  diag(2 * zeta * J * omega_n_Lage);
 Kp = diag(m * omega_n_pos.^2);
-% kp_diag = 6*[1; 1; 1.9];
-% Kp = diag(kp_diag);
 Kd =  diag(2 * zeta * m * omega_n_pos);
-% kd_diag = 2.75*[1; 1; 1.1];
-% Kd = diag(kd_diag);
 % =================================================================================
 
 %% ------------------------------------------------------------ Safety
-% Schwelle: ueber max(|Omega_ref|) + Marge,
-% Start 10 rad/s (~573 deg/s) per Achse. Spaeter ggf. per-Achse differenzieren
-safety.omega_max  = 10.0;          % [rad/s]
+% 10 rad/s (~573 deg/s) per Achse ggf. per-Achse differenzieren
+safety.omega_max  = 10.0; % [rad/s]
 
-% Entprellung: N aufeinanderfolgende Samples gegen Gyro-Spikes.
+% N aufeinanderfolgende Samples gegen Gyro-Spikes
 safety.debounce_N = uint16(4);
  
 % Detektor-Modus: false = per-Achse |Omega_i| (empfohlen, achsselektiv),
@@ -236,10 +240,13 @@ disp(sort(abs(eig(Ad))).');
 % =================================================================================
 
 %% ------------------------------------------------------------ Trajektorie
-% Wegpunkte (NED, z nach unten -> negativ = Hoehe). Beispiel: Quadrat in 1m Hoehe.
-traj.P = [  0   1   1   0   0 ;     % x [m]
-            0   0   1   1   0 ;     % y [m]
-            0   1   1   1   1 ];    % z [m]  
+% Quadrat in 1m Hoehe:
+traj.P = [  0   1   1   0   0 ; % x [m]
+            0   0   1   1   0 ; % y [m]
+            0   1   1   1   1 ]; % z [m]  
+% traj.P = [  0   0   0   0   0 ; % x [m]
+%             0   0   0   0   0 ; % y [m]
+%             0   0   0   0   0 ]; % z [m]  
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
 traj.yaw    = deg2rad([ 0   0   0   0 ]);
@@ -301,7 +308,7 @@ safety.g = g;
 
 %% ------------------------------------------------------------ Supervisor (Soft-Land)
 % geregeltes Soft-Land mit ~0.3..0.5 m/s 
-supervisor.v_sink = 0.35; % [m/s]  Soll-Sinkrate
+supervisor.v_sink = 0.15; % [m/s]  Soll-Sinkrate
 
 % Falls Mocap-z-Null nicht am Boden liegt, hier den realen Bodenwert setzen.
 supervisor.z_ground = 0.0; % [m]  z-Koordinate des Bodens 
