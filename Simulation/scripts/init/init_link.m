@@ -26,7 +26,7 @@ link_params.qmin = int16(-32768);
 link_params.fs =  [ 40; ... % F_des [N] Hover ~10
                     1; 1; 1; 1; ... % q_des [-] Einheitsquaternion
                     1; 1; 1; 1; ... % q_ref [-] Einheitsquaternion
-                    20; 20; 20; ... % Omega_ref [rad/s]  
+                    10; 10; 10; ... % Omega_ref [rad/s]  
                     2; 2; 2 ; ... % tau_ref [N*m]
                     1; 1; 1; 1]; % q_ext [-]
  

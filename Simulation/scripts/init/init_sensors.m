@@ -12,14 +12,13 @@ arguments (Output)
     mocap struct % holding mocap parameters for simulation
 end
 
-imu.gyro_FSR = deg2rad(500);            % rad/s  (FS_SEL=1: +-500 deg/s, 65.5 LSB/(deg/s))
-imu.acc_FSR  = 4*quadcop.g;                     % m/s^2  (AFS_SEL=2: +-8 g, 4096 LSB/g)
-imu.Ts       = Ts_inner;                % Update-Periode des IMU-Blocks (Sekunden)
+imu.gyro_FSR = deg2rad(500); % rad/s  (FS_SEL=1: +-500 deg/s, 65.5 LSB/(deg/s))
+imu.Ts = Ts_inner; % Update-Periode des IMU-Blocks (Sekunden)
+imu.location = [-0.014; -0.015; 0.045];
  
 % --- Gyroskop ---
 % Messbias (ZERO-Initialtoleranz +-20 deg/s, vor Kalibrierung); repraesentativ:
 imu.gyro_bias  = deg2rad([10; -10; 10]);   % rad/s   (Spec-Grenze +-0.349 rad/s)
-% Rauschen: Rate Noise Spectral Density 0.005 deg/s/sqrt(Hz)
 imu.gyro_ASD   = deg2rad(0.005);           % rad/s/sqrt(Hz)  (Amplituden-Spektraldichte)
 imu.gyro_PSD   = imu.gyro_ASD^2;           % (rad/s)^2/Hz    -> Band-Limited White Noise "Noise power"
 % Skalenfaktor-Toleranz +-3 %, Kreuzachsen-Empfindlichkeit +-2 % -> 3x3-Matrix
@@ -33,6 +32,7 @@ imu.gyro_wn    = 2*pi*30;                 % rad/s
 imu.gyro_zeta  = 0.707;
  
 % --- Accelerometer ---
+imu.acc_FSR = 4*quadcop.g; % m/s^2  (AFS_SEL=1: +-4 g, 8192 LSB/g)
 % Messbias (Zero-G: X/Y +-50 mg, Z +-80 mg):
 imu.acc_bias   = 1.0*[0.05; -0.05; 0.08]*quadcop.g; % m/s^2
 % Rauschen: Power Spectral Density 400 ug/sqrt(Hz)

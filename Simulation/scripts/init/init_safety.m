@@ -5,8 +5,8 @@ arguments (Output)
     safety struct % holding parameters for the safety function
 end
 
-% 10 rad/s (~573 deg/s) per Achse ggf. per-Achse differenzieren
-safety.omega_max = 10.0; % [rad/s]
+% 8.5 rad/s (~487 deg/s) per Achse ggf. per-Achse differenzieren
+safety.omega_max = 8.5; % [rad/s]
 
 % N aufeinanderfolgende Samples gegen Gyro-Spikes
 safety.debounce_N = uint16(4);
