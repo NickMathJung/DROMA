@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/googletest-populate"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/607b15cfee4f0b2b91086d40635398f6/googletest-populate.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/e025ee86cdbc75cb6f13e8ab1fe36edc/googletest-populate-complete.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-build.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-configure.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-download.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-install.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-patch.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-test.rule"
+		},
+		{
+			"file" : "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/CMakeFiles/b932fdd7b0b09482961a0c770f7f0bbc/googletest-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"googletest-populate"
+		],
+		"name" : "googletest-populate"
+	}
+}

@@ -1,0 +1,135 @@
+{
+  "tests": 21,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "Overspeed",
+      "tests": 8,
+      "testsuite": [
+        {
+          "name": "S1_NoOverspeed",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 68
+        },
+        {
+          "name": "S2_Nminus1_NoLatch",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 73
+        },
+        {
+          "name": "S3_TripAtNth_Holds",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 79
+        },
+        {
+          "name": "S4_AckDuringOverspeed_NoRearm",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 88
+        },
+        {
+          "name": "S5_AckEdge_Rearms",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 95
+        },
+        {
+          "name": "S6_HeldAck_NoAutoRearm",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 104
+        },
+        {
+          "name": "S7_HardKill_Immediate",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 111
+        },
+        {
+          "name": "S8_KillDominatesLand",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 120
+        }
+      ]
+    },
+    {
+      "name": "Tilt",
+      "tests": 4,
+      "testsuite": [
+        {
+          "name": "T1_TripAtNth_Holds",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 153
+        },
+        {
+          "name": "T2_BelowThreshold_NoTrip",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 163
+        },
+        {
+          "name": "T3_ShortTilt_NoTrip",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 170
+        },
+        {
+          "name": "T4_NoRearmWhileTilted",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 179
+        }
+      ]
+    },
+    {
+      "name": "Button",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "BT1_EdgeKills",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 192
+        },
+        {
+          "name": "BT2_HeldBlocksRearm",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 202
+        },
+        {
+          "name": "BT3_ButtonDoesNotRearmOverspeed",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 211
+        }
+      ]
+    },
+    {
+      "name": "Battery",
+      "tests": 6,
+      "testsuite": [
+        {
+          "name": "B1_ColdStart_NoFalseTrip",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 239
+        },
+        {
+          "name": "B2_Ramp_Escalation",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 244
+        },
+        {
+          "name": "B3_Hysteresis_NoChatter",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 257
+        },
+        {
+          "name": "B4_FloorLatch_Sticky",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 263
+        },
+        {
+          "name": "B5_EMA_FiltersShortSag",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 272
+        },
+        {
+          "name": "B6_CountRange",
+          "file": "C:\\Users\\Rakete\\Documents\\Drohnenversuchsstand\\DROMA\\Simulation\\scripts\\sitl\\test\\test_safety.cpp",
+          "line": 279
+        }
+      ]
+    }
+  ]
+}

@@ -1,20 +1,19 @@
 function [q_hat, Omega_hat] = mahony_filter(imu_gyro, imu_acc, q_ext, ka, kE, Ts, q_init)
 %#codegen
-% MAHONY_FILTER  Expliziter Komplementaerfilter auf SO(3), zeitdiskret.
-%   Mahony/Hamel/Pflimlin (TAC 2008)). km = 0 (kein Magnetometer)
+% mahony_filter  Expliziter Komplementaerfilter auf SO(3), zeitdiskret.
+%   Nach Mahony/Hamel/Pflimlin (TAC 2008), ohne Magnetometer (km = 0). Der
+%   Accel misst die spezifische Kraft; im Hover [0;0;-g], also Richtung
+%   v0 = [0;0;-1].
 %
-%     - Accel misst spezifische Kraft; im Hover [0;0;-g] -> Richtung
-%       v0 = [0;0;-1].
+%   Der Gyro-Eingang imu_gyro ist schon bias-korrigiert. Der Bias wird
+%   ausschliesslich in der HAL abgezogen (drone_hal.cpp, 3-s-Startup-Mittelung);
+%   in der Sim bildet sensors.slx diese Stufe nach (Abzug von imu.gyro_bias_hat
+%   hinter dem Gyro-Block). Der fruehere Eingang b_ground ist entfallen, weil er
+%   auf der Hardware ein zweites Mal abgezogen hat, noch dazu mit einem fiktiven
+%   Wert. Bitte nicht wieder einfuehren: die Firmware traegt keine Bias-Logik.
 %
-%   GYRO-BIAS (Session 9): imu_gyro ist BEREITS bias-korrigiert. Die Kompensation
-%   sitzt ausschliesslich in der HAL (drone_hal.cpp Z.281, 3-s-Startup-Mittelung);
-%   in der Sim bildet sensors.slx diese HAL-Stufe nach (Abzug von imu.gyro_bias_hat
-%   hinter dem Gyro-Block). Der fruehere Eingang b_ground ist deshalb ENTFALLEN —
-%   er hat auf HW ein zweites Mal (und mit einem fiktiven Wert) abgezogen.
-%   NICHT wieder einfuehren: die Firmware darf keine Bias-Logik enthalten.
-%
-%   EIN-/AUSGAENGE:
-%     imu_gyro [rad/s] (3x1)  : gemessene Koerperdrehrate, BIAS-KORRIGIERT (HAL)
+%   Ein-/Ausgaenge:
+%     imu_gyro [rad/s] (3x1)  : gemessene Koerperdrehrate, bias-korrigiert (HAL)
 %     imu_acc  [m/s^2] (3x1)  : gemessene spezifische Kraft (Koerper)
 %     q_ext    (4x1)          : externe Mocap-Lage
 %     ka, kE   (Skalar)       : Tilt-, Externreferenz-Gain

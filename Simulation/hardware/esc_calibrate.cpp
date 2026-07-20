@@ -1,18 +1,18 @@
 // esc_calibrate.cpp — ESC-Einlernen + Motor-Test (Bench, Serial-gefuehrt).
 //
 // Einmaliges Anlernen der Gas-Endpunkte (OneShot125: 512..1024 count = 125..250 us),
-// damit die Flug-Firmware (drone_hal) NUR noch armen muss. Steckrichtung der 3
-// Motorphasen ist beim Einlernen EGAL (nur Endpunkte werden gelernt); Drehrichtung
-// danach ueber die Phasenreihenfolge stellen.
+// damit die Flug-Firmware (drone_hal) nur noch armen muss. Die Steckrichtung der 3
+// Motorphasen spielt beim Einlernen keine Rolle (es werden nur die Endpunkte
+// gelernt); die Drehrichtung stellt man danach ueber die Phasenreihenfolge.
 //
 // !!! PROPELLER AB !!!  Beim MAX-Schritt und beim Test drehen die Motoren.
 //
 // Ablauf (Zeichen im Serial-Monitor senden, 115200):
-//   C = Kalibrieren: MAX setzen -> DANN Akku anstecken, ESC-Beeps (max) abwarten
+//   C = Kalibrieren: MAX setzen -> dann Akku anstecken, ESC-Beeps (max) abwarten
 //   m = MIN setzen -> ESC-Beeps (fertig), ESC ist scharf/kalibriert
 //   0 = alle Motoren waehlen | 1..4 = einzelnen Motor waehlen
 //   + / - = Test-Gas +/-5% auf Auswahl (gedeckelt auf 40 %)
-//   x = ALLE STOP (min)   |   h = Hilfe
+//   x = alle stop (min)   |   h = Hilfe
 #include <Arduino.h>
 
 static const uint8_t PIN_PWM[4] = {33, 2, 4, 3};   // M1 CCW, M2 CW, M3 CCW, M4 CW

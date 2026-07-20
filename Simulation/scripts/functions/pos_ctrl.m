@@ -1,10 +1,10 @@
 function [F_des, F_des_vec, q_des] = pos_ctrl(x, v, x_ref, v_ref, a_ref, yaw_ref, Kp, Kd, m, g)
 %#codegen
-% pos_ctrl PD-Positionsregler.
+% pos_ctrl  PD-Positionsregler.
 %   Erzeugt Sollschub F, Solllage q_ref und (fuer den Beobachter) die
 %   kommandierte Inertialbeschleunigung a_cmd.
 %
-%   EIN-/AUSGAENGE:
+%   Ein-/Ausgaenge:
 %     x, v            : Position/Geschwindigkeit
 %     x_d, v_d, a_d   : Solltrajektorie (Pos/Geschw/Beschl, inertial)
 %     yaw_d           : Soll-Heading 

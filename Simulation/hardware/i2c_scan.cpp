@@ -1,6 +1,6 @@
 // i2c_scan.cpp — I2C-Scanner (Bench). Bestaetigt die MPU-6050-Adresse:
-//   0x68 = ADO->GND (Bodge R8 bestueckt, SOLL).  0x69 = ADO floatet (Bodge fehlt).
-// Wire(0) = SDA18/SCL19, 400 kHz — identisch zur HAL.
+//   0x68 = ADO->GND (Bodge R8 bestueckt, so soll es sein).  0x69 = ADO floatet
+//   (Bodge fehlt). Wire(0) = SDA18/SCL19, 400 kHz — identisch zur HAL.
 #include <Arduino.h>
 #include <Wire.h>
 

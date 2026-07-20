@@ -1,8 +1,8 @@
 // diag_mcu_replay.cpp — Ursachenanalyse fuer Golden-Divergenz.
 // Replay des generierten MCU-Codes gegen golden_mcu_io.csv; findet den ersten
 // Tick mit |dq|>TOL und zeigt: (a) ob es ein Einzelspike oder dauerhaft ist,
-// (b) got-vs-exp um den Tick herum, (c) WELCHE Eingangsspalten sich an genau
-// diesem Tick gegenueber dem Vortick aendern (-> das koinzidente Ereignis).
+// (b) got-vs-exp um den Tick herum, (c) welche Eingangsspalten sich an genau
+// diesem Tick gegenueber dem Vortick aendern, also das koinzidente Ereignis.
 #include <array>
 #include <cstdio>
 #include <cmath>

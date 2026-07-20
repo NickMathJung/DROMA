@@ -1,19 +1,18 @@
 function setup_motive_path()
-%SETUP_MOTIVE_PATH  Pfade fuer die Motive/NatNet-Anbindung setzen.
-%   Muss VOR dem Start von bench.slx einmal pro MATLAB-Session laufen
-%   (oder ins Projekt-StartupFcn von DROMA.prj eintragen).
+%setup_motive_path  Pfade fuer die Motive/NatNet-Anbindung setzen.
+%   Einmal pro MATLAB-Session vor dem Start von bench.slx aufrufen (oder ins
+%   Projekt-StartupFcn von DROMA.prj eintragen).
 %
 %   Legt auf den Pfad:
 %     scripts\motive\                       -> MotiveMocap (System object)
 %     ...\Motive\OptiTrack_MATLAB_Plugin_1.1.0\Matlab\  -> natnet, quaternion
 %
-%   Das Plugin liegt bewusst AUSSERHALB des Repos (Third-Party + DLLs) unter
+%   Das Plugin liegt bewusst ausserhalb des Repos (Third-Party plus DLLs) unter
 %   DROMA\Motive\ und ist nicht versioniert.
 %
-%   Hinweis zum DLL-Pfad: natnet.getLastAssemblyPath liest
-%   <plugin>\Matlab\assemblypath.txt. Fehlt die Datei, oeffnet
-%   natnet.setAssemblyPath ein uigetfile-FENSTER und blockiert die Simulation.
-%   Diese Funktion legt sie bei Bedarf automatisch an.
+%   Zum DLL-Pfad: natnet.getLastAssemblyPath liest <plugin>\Matlab\assemblypath.txt.
+%   Fehlt die Datei, oeffnet natnet.setAssemblyPath ein uigetfile-Fenster und
+%   blockiert die Simulation. Diese Funktion legt sie bei Bedarf automatisch an.
 
     here   = fileparts(mfilename('fullpath'));            % ...\scripts\motive
     sim    = fileparts(fileparts(here));                  % ...\Simulation

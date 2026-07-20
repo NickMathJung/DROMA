@@ -1,15 +1,15 @@
 %% dump_link_codec_golden.m — Golden fuer den Codec-Cross-Check (Sim == HW).
-%  Erzeugt eine breite CSV: pro Zeile EIN Bus_Cmd, durch die MASSGEBLICHE
+%  Erzeugt eine breite CSV: pro Zeile ein Bus_Cmd, durch die massgebliche
 %  MATLAB-Kette link_tx -> link_rx gejagt (= chart_40/chart_50 in link.slx).
 %  Der Host-Test test_link_codec vergleicht dagegen den C++-Codec pkt::pack/
 %  pkt::unpack (mcu_packet.hpp).
 %
 %  Zwei Vergleichsebenen (siehe test_link_codec.cpp):
-%    L1 (Wire):   tx_i16[7], tx_q[3], flags  BIT-EXAKT vs pkt::pack.
-%    L2 (decode): rx_* : F/Om/tau bit-exakt, Quats tol 1e-12 vs pkt::unpack.
+%    L1 (Wire):   tx_i16[7], tx_q[3], flags  bit-exakt gegen pkt::pack.
+%    L2 (decode): rx_* : F/Om/tau bit-exakt, Quats tol 1e-12 gegen pkt::unpack.
 %
-%  WICHTIG: pdrop = 0 -> Codec ISOLIERT (kein Bernoulli-Drop / ZOH). Der
-%  xorshift/ZOH-Pfad ist Kanalverhalten, nicht Codec, und hat kein C++-Pendant.
+%  pdrop = 0 isoliert den Codec (kein Bernoulli-Drop / ZOH). Der xorshift/ZOH-
+%  Pfad ist Kanalverhalten, nicht Codec, und hat kein C++-Pendant.
 %
 %  int16-Reihenfolge im tx_i16 (aus link_tx: v=[F; Omega_ref(3); tau_ref(3)]):
 %    tx_i16 = [F | Om1 Om2 Om3 | tau1 tau2 tau3].
@@ -122,7 +122,7 @@ fprintf('link_codec_golden geschrieben: %s  (%d Zeilen, %d Datenspalten)\n', ...
 
 %% --- lokale Helfer -----------------------------------------------------------
 function s = mk(id,F,qd,qr,Om,tr,qe,estop,ack)
-% Feldreihenfolge MUSS der C-Praeallokation entsprechen (Zuweisung per Position).
+% Feldreihenfolge muss zur C-Praeallokation passen (Zuweisung per Position).
     s = struct('id',id,'F',F, ...
                'qd',qd(:).','qr',qr(:).', ...
                'Om',Om(:).','tr',tr(:).','qe',qe(:).', ...

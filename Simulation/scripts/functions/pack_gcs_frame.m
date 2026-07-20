@@ -1,7 +1,7 @@
 function frame = pack_gcs_frame(cmd, id)
 %pack_gcs_frame  GS-USB-Frame [sync|id|Bus_Cmd(float32)|estop|ack|crc8] (82 B).
-%   SSOT-Spiegel von gcs_frame.hpp (build). Zugleich die Byte-Spec fuer die
-%   Simulink-Serial-Send-Seite: EXAKT dieses Layout in der GCS erzeugen.
+%   Spiegelt gcs_frame.hpp (build) und ist zugleich die Byte-Spec fuer die
+%   Simulink-Serial-Send-Seite: die GCS muss genau dieses Layout erzeugen.
 %
 %   cmd: struct mit F_des, q_des(4), q_ref(4), Omega_ref(3), tau_ref(3),
 %        q_ext(4), estop(0/1/2), ack(0/1). id: Ziel-Drohne (uint8, 0..15).

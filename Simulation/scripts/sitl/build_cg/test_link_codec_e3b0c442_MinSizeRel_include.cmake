@@ -1,0 +1,5 @@
+if(EXISTS "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/test_link_codec_e3b0c442_MinSizeRel_tests.cmake")
+  include("C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/test_link_codec_e3b0c442_MinSizeRel_tests.cmake")
+else()
+  add_test(test_link_codec_NOT_BUILT test_link_codec_NOT_BUILT)
+endif()

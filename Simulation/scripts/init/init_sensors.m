@@ -17,28 +17,27 @@ imu.Ts = Ts_inner; % Update-Periode des IMU-Blocks (Sekunden)
 imu.location = [-0.014; -0.015; 0.045];
  
 % --- Gyroskop ---
-% GYRO-BIAS: roher Sensor-Bias, wie er im MPU-Register steht (vor Kalibrierung).
-% Messbias (ZERO-Initialtoleranz +-20 deg/s); repraesentativ:
+% Roher Sensor-Bias, wie er im MPU-Register steht (vor Kalibrierung). Die
+% Zero-Initialtoleranz liegt bei +-20 deg/s; dieser Wert ist repraesentativ:
 imu.gyro_bias  = deg2rad([10; -10; 10]);   % rad/s   (Spec-Grenze +-0.349 rad/s)
 
-% Bias-Schaetzung der HAL == was drone_hal.cpp (Z.281) im 3-s-Startup mittelt und
-% vom Rohwert abzieht, BEVOR imu_gyro die MCU erreicht.
+% Was die HAL schaetzt: drone_hal.cpp mittelt den Bias im 3-s-Startup und zieht
+% ihn vom Rohwert ab, bevor imu_gyro die MCU erreicht.
 %
-% WO DAS WIRKT (Session 9, gelockt — Reihenfolge ist sicherheitsrelevant):
-%   sensors.slx 'Three-axis Gyroscope' praegt gyro_bias auf und SAETTIGT DANACH
-%   bei +-gyro_FSR (der Bias liegt VOR der Saturation, wie auf echter HW).
-%   Erst dahinter zieht der HAL-Nachbau (Sum 'HAL gyro bias' -> Bus Creator)
-%   gyro_bias_hat ab. mcu.slx zieht NICHTS mehr ab (kein Constant1/Subtract,
-%   kein Mahony-b_ground) — sonst waere es die doppelte Subtraktion von §3h,
-%   die auf HW 10 deg/s Schein-Drehrate erzeugte.
+% Die Reihenfolge ist sicherheitsrelevant, deshalb fest verdrahtet:
+%   sensors.slx ('Three-axis Gyroscope') praegt gyro_bias auf und saettigt erst
+%   danach bei +-gyro_FSR. Der Bias liegt also vor der Saturation, wie auf echter
+%   Hardware. Erst dahinter zieht der HAL-Nachbau (Sum 'HAL gyro bias' -> Bus
+%   Creator) gyro_bias_hat wieder ab. mcu.slx zieht nichts mehr ab (kein
+%   Constant1/Subtract, kein Mahony-b_ground) — sonst wuerde der Bias doppelt
+%   subtrahiert, genau der Bug, der auf HW 10 deg/s Schein-Drehrate erzeugt hat.
 %
-% WARUM NICHT einfach gyro_bias=0: dann saehe die Saturation den Bias nicht.
-% Die ist hier knapp — FSR 8.727 vs safety.omega_max 8.5 rad/s = 0.227 Marge,
-% davon frisst |bias|=0.175 rund 77 %. Mit gyro_bias=0 waere die Sim also
-% OPTIMISTISCHER als die Hardware (Overspeed-Detektion).
+% gyro_bias=0 waere keine Vereinfachung, sondern zu optimistisch: dann saehe die
+% Saturation den Bias nicht. Die Marge ist hier knapp (FSR 8.727 gegen
+% safety.omega_max 8.5 rad/s = 0.227 Marge), davon frisst |bias|=0.175 rund 77 %.
 %
-% gyro_bias_hat == gyro_bias  <=>  perfekte Kalibrierung (Default).
-% Fuer den Kalibrier-RESTFEHLER hier abweichen lassen, z.B.
+% gyro_bias_hat == gyro_bias bedeutet perfekte Kalibrierung (Default). Fuer den
+% Kalibrier-Restfehler hier abweichen lassen, z.B.
 %   imu.gyro_bias_hat = imu.gyro_bias + deg2rad([0.05; -0.03; 0.04]);
 imu.gyro_bias_hat = imu.gyro_bias;         % rad/s   (HAL-Schaetzung)
 imu.gyro_ASD   = deg2rad(0.005);           % rad/s/sqrt(Hz)  (Amplituden-Spektraldichte)
@@ -76,19 +75,19 @@ mocap.t_delay   = 0.008; % optional Transportverzoegerung
 mocap.dropout_p = 0.01; % Wahrscheinlichkeit ausfall pro Sample
 
 % --- Reales Mocap (OptiTrack/Motive via NatNet) -----------------------------
-% Nur fuer den Pruefstand bench.slx (Block "Motive" = MotiveMocap). In der
-% reinen Simulation (quadcop.slx) ungenutzt — dort modelliert sensors.slx die
+% Nur fuer den Pruefstand bench.slx (Block "Motive" = MotiveMocap). Die reine
+% Simulation (quadcop.slx) nutzt das nicht, dort modelliert sensors.slx die
 % Mocap mit den Rauschwerten oben.
-% Ein Rechner (Motive + MATLAB): beide IPs 127.0.0.1. Sonst host_ip = Motive-
-% Rechner, client_ip = dieser Rechner.
+% Laufen Motive und MATLAB auf einem Rechner, sind beide IPs 127.0.0.1. Sonst
+% ist host_ip der Motive-Rechner und client_ip dieser Rechner.
 mocap.host_ip      = '127.0.0.1';
 mocap.client_ip    = '127.0.0.1';
-% Streaming-ID des Drohnen-Rigid-Body in Motive (Assets-Pane). MUSS zur
-% Drohne passen, die geflogen wird.
+% Streaming-ID des Drohnen-Rigid-Body in Motive (Assets-Pane); muss zur
+% geflogenen Drohne passen.
 mocap.streaming_id = 1;
-% ⚠️ Motive MUSS auf **Z-Up** streamen (Settings -> Streaming -> Up Axis = Z);
-% das Projekt ist z-up (Handover §1). MotiveMocap transformiert BEWUSST NICHT —
-% eine zweite Korrekturstelle waere genau der Fehler aus §3h (doppelte
-% Kompensation). NatNet liefert Meter und Quaternionen SCALAR-LAST; die
-% Umsortierung auf scalar-first [w x y z] passiert einmalig in MotiveMocap.
+% Motive muss auf Z-Up streamen (Settings -> Streaming -> Up Axis = Z), passend
+% zum z-up-Projekt. MotiveMocap transformiert absichtlich nicht: eine zweite
+% Korrekturstelle waere wieder eine doppelte Kompensation. NatNet liefert Meter
+% und Quaternionen scalar-last; die Umsortierung auf scalar-first [w x y z]
+% passiert einmalig in MotiveMocap.
 end

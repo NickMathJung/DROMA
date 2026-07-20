@@ -1,29 +1,25 @@
 function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj_gen(t, traj, quadcop)
 %#codegen
-% TRAJ_GEN  Minimum-Snap Punkt-zu-Punkt-Trajektorie
+% traj_gen  Minimum-Snap Punkt-zu-Punkt-Trajektorie.
 %
-%   Liefert die Trajektorien für die flachen Ausgänge beim Arbeitspunktwechsel 
-%   und daraus die Vorsteuerung. 
+%   Liefert die Trajektorien für die flachen Ausgänge beim Arbeitspunktwechsel
+%   und daraus die Vorsteuerung.
 %
-%   VERDRAHTUNG (2-DOF):
+%   Verdrahtung (2-DOF):
 %     x_ref, v_ref, a_ref, yaw_ref  -> Positionsfolgeregler (äußere Kaskade)
-%     q_ref, Omega_ref, tau_ff     -> Bus_Cmd   (reine Vorsteuerung)
+%     q_ref, Omega_ref, tau_ff      -> Bus_Cmd   (reine Vorsteuerung)
 %     F_ref   -> nur Debug/Verifikation (optional, unverbunden ok)
 %
-%   INPUTS
+%   Eingaenge:
 %     t    : Simulationszeit [s]  (z.B. Clock-Block)
-%     traj : struct
-%                  .P      3 x N      Wegpunkte 
+%     traj : struct, N >= 2
+%                  .P      3 x N      Wegpunkte
 %                  .yaw    1 x (N-1)  Yaw je Segment (konstant je Segment)
-%                  .Tseg   1 x (N-1)  Bewegungsdauer je Segment 
-%                  .Tdwell 1 x N      Rastdauer je Wegpunkt 
-%            ANNAHME: N >= 2
-%     quadcop  : struct 
-%                  .m 
-%                  .g  
-%                  .J 
+%                  .Tseg   1 x (N-1)  Bewegungsdauer je Segment
+%                  .Tdwell 1 x N      Rastdauer je Wegpunkt
+%     quadcop  : struct  .m  .g  .J
 %
-%   OUTPUTS
+%   Ausgaenge:
 %     x_ref,v_ref,a_ref 3x1 Soll-Pos/Geschw/Beschl 
 %     yaw_ref     1x1 Soll-Yaw 
 %     Omega_ref   3x1 Vorsteuer-Drehrate (Body) 
@@ -35,7 +31,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
     g_grav = [0; 0; quadcop.g];
     N = size(traj.P, 2);
 
-    % ======================= Phase bestimmen =============================
+    % --- Phase bestimmen ---
     % Phasenfolge: dwell(1), move(1), dwell(2), move(2), ..., dwell(N)
     mode    = int8(2); % 0=Rast, 1=Bewegung, 2=End-Halt (Default)
     sel_wp  = N; % aktiver Wegpunkt (Rast/Halt)
@@ -71,7 +67,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
         % kein break -> mode bleibt 2 (End-Halt an WP N)
     end
 
-    % ===================== Trajektoriengenerierung =======================
+    % --- Trajektorie erzeugen ---
     if mode == int8(1) % fliegt Trajektoriensegment ab
         k  = sel_seg;
         T  = traj.Tseg(k);
@@ -104,8 +100,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
         yaw_ref = traj.yaw(N-1);
     end
 
-    % ================= Umrechnung von flachen Ausgängen und dessen Ableitungen 
-    %               auf zugehörige Sollzustände =============================
+    % --- Flache Ausgänge und ihre Ableitungen in die Sollzustände umrechnen ---
     % Schubachse:  F*z_B = m*alpha,  alpha = a_ref - g_grav
     alpha = a_ref + g_grav;
     alphad = j_ref;
@@ -144,7 +139,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
 
     % [Omega]x = Rd' * Rdd <-> Rdd = Rd * [Omega]x
     Om_hat   = Rd.' * Rdd;
-    Omega_ref = vee(0.5*(Om_hat - Om_hat.')); % force Om_hat back onto SO(3)
+    Omega_ref = vee(0.5*(Om_hat - Om_hat.')); % schiefsymmetrischen Anteil nehmen
     % [Omegadot]x = Rd'*Rddd - [Omega]x^2
     Omd_hat  = Rd.' * Rddd - Om_hat*Om_hat;
     Omega_dot = vee(0.5*(Omd_hat - Omd_hat.'));
@@ -154,7 +149,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
     q_ref  = dcm2quat_local(Rd.');            % Rd' = R_{b<-n}
 end
 
-% =========================== Lokale Helfer ===============================
+% --- Lokale Helfer ---
 
 % function [s0,s1,s2,s3,s4] = restpoly(tau)
 % % Minimum-Snap rest-to-rest Einheitsprofil 0->1 ueber tau in [0,1].
@@ -178,9 +173,9 @@ end
 % end
 function [s0,s1,s2,s3,s4] = restpoly(tau)
 % Minimum-Crackle rest-to-rest Einheitsprofil 0->1 ueber tau in [0,1].
-% s sowie die ersten VIER Ableitungen (v,a,j,s) = 0 an beiden Enden.
-% -> Grad 9. Snap ist STETIG (==0) an den Enden => tau_ref springt
-%    an Wegpunktuebergaengen nicht
+% s und die ersten vier Ableitungen (v,a,j,s) sind an beiden Enden null,
+% also Grad 9. Der Snap ist an den Enden stetig (==0), damit tau_ref an den
+% Wegpunktuebergaengen nicht springt.
     if tau < 0
         tau = 0;
     elseif tau > 1
@@ -207,7 +202,7 @@ end
 
 function q = dcm2quat_local(R)
 % Shepperd, Skalar zuerst, R = Inertial->Koerper (R_{b<-n}).
-% MUSS mit deiner Projektversion identisch sein (Vorzeichen!).
+% Muss vorzeichengleich zur Projektversion bleiben.
     r11=R(1,1); r22=R(2,2); r33=R(3,3);
     tr = r11+r22+r33;
     if tr > 0

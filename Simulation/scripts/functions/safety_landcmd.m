@@ -2,11 +2,11 @@ function [q_des, Omega_ref, F_cmd, tau_ref, q_ref] = ...
          safety_landcmd(F_in, q_des_in, q_ref_in, Omega_ref_in, tau_ref_in, ...
                         batt_land, safety)
 %#codegen
-% SAFETY_LANDCMD  Onboard BLINDE harte Landung
+% safety_landcmd  Onboard blinde harte Landung.
 %
-% Sitzt im Pfad VOR geo_attitude_ctrl. Bei batt_land = true ueberschreibt
-% er den empfangenen Kommandosatz durch einen blinden Sinkflug.
-% BLIND, weil onboard KEINE Pos/Vel-Schaetzung existiert. 
+% Sitzt im Pfad vor geo_attitude_ctrl. Ist batt_land = true, ueberschreibt er
+% den empfangenen Kommandosatz durch einen Sinkflug. Blind deshalb, weil es
+% onboard keine Pos/Vel-Schaetzung gibt.
 %
 % Eingaenge: 
 %   F_in         : scalar  Schub-Kommando an geo_attitude_ctrl (F = F_des)

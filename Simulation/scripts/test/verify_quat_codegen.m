@@ -1,19 +1,19 @@
 %% verify_quat_codegen.m  -- SITL-Codegen der Quaternion-Helfer
-%  SITL-Vorstufe: sicherstellen, dass die aus mcu.slx generierten C++-Helfer 
-%  äquivalent zu MATLAB rechnen bevor mcu.slx als Firmware geflasht wird.
+%  SITL-Vorstufe: sicherstellen, dass die aus mcu.slx generierten C++-Helfer
+%  äquivalent zu MATLAB rechnen, bevor mcu.slx als Firmware geflasht wird.
 %  Prueft die Helfer (und optional die codegen-erzeugte MEX/C++-Version)
 %  gegen die eingefrorenen Test-Vektoren aus verify_quat_codegen.py.
 %
-%  ABLAUF:
+%  Ablauf:
 %   1) golden_quat.csv laden (id, R(9), q(4), branch).
-%   2) MATLAB == Testdatensatz:  dcm2quat_local(R) ~ +-q  UND  quat2dcm_local(q) ~ R.
+%   2) MATLAB gegen Testdatensatz:  dcm2quat_local(R) ~ +-q  und  quat2dcm_local(q) ~ R.
 %   3) Property-Round-Trips ueber Zufalls-Rotationen mit den echten Helfern.
-%   4) (optional) CODEGEN: MEX bauen und Schritte 2-3 gegen die MEX wiederholen
-%      -> zertifiziert, dass der generierte Code == Referenz (== MATLAB).
+%   4) (optional) Codegen: MEX bauen und die Schritte 2-3 gegen die MEX wiederholen,
+%      um zu zeigen, dass der generierte Code == Referenz (== MATLAB) ist.
 %
-%  VORAUSSETZUNG auf dem Pfad:
-%   - dcm2quat_local.m  
-%   - quat2dcm_local.m  
+%  Muss auf dem Pfad liegen:
+%   - dcm2quat_local.m
+%   - quat2dcm_local.m
 clear; clc;
 tol_m = 1e-15;   % MATLAB vs. Testdatensatz
 tol_c = 1e-15;   % Codegen (C++) vs. Testdatensatz
@@ -71,7 +71,7 @@ pass = pass & run_quatops(@quatMul_mex,@quatConj_mex,@quatRotate_mex, tol_c, 'MA
 
 fprintf('==== GESAMT: %s ====\n', tern(pass,'ALLE GRUEN','FEHLER'));
 
-%% =============================== Helfer ===============================
+%% --- Helfer ---
 function pass = run_test(d2q, have_q2d, ids, Rrows, Qref, tol, tag)
     pass = true; N = size(Rrows,1); worst_d=0; worst_f=0; bad='';
     for k=1:N

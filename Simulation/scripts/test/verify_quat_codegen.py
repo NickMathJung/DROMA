@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# verify_quat_codegen.py -- SITL-Codegen-Treue der Quaternion-Helfer (§12.2)
+# verify_quat_codegen.py -- SITL-Codegen-Treue der Quaternion-Helfer
 #
-# Zweck: einen EINGEFRORENEN Testdaten-Vektor-Satz erzeugen, den sowohl MATLAB als
-# auch der generierte C++/MEX-Code exakt treffen muessen. Zusaetzlich Property-
-# Tests (Round-Trip, Zweig-Abdeckung, Norm/Orthonormalitaet) und eine UNABHAENGIGE
-# Kreuzvalidierung der Ports gegen scipy -> damit sind die Testdaten vertrauenswuerdig.
+# Zweck: einen eingefrorenen Testdaten-Vektor-Satz erzeugen, den sowohl MATLAB als
+# auch der generierte C++/MEX-Code exakt treffen muessen. Dazu Property-Tests
+# (Round-Trip, Zweig-Abdeckung, Norm/Orthonormalitaet) und eine unabhaengige
+# Kreuzvalidierung der Ports gegen scipy, damit die Testdaten vertrauenswuerdig sind.
 #
 # Konvention (aus dcm2quat_local-Doc): R = DCM(q) = Inertial->Koerper (Aerospace),
 # q = [q0 q1 q2 q3] skalar-zuerst. dcm2quat_local ist die Inverse von quat2dcm_local.
@@ -12,9 +12,7 @@ import numpy as np
 import json
 from scipy.spatial.transform import Rotation as Rot
 
-# =====================================================================
-# 1) EXAKTE PORTS (bit-treu zur MATLAB-Quelle)
-# =====================================================================
+# --- 1) Exakte Ports (bit-treu zur MATLAB-Quelle) ---
 def dcm2quat_local(R):
     """Exakter Port der Shepperd-Methode aus pos_ctrl.m. Gibt (q, branch) zurueck.
     branch: 0=trace, 1=R11, 2=R22, 3=R33  (fuer Abdeckungsanalyse)."""
@@ -59,11 +57,9 @@ def quat2dcm_local(q):
         [2*(q1*q2-q0*q3),         q0*q0-q1*q1+q2*q2-q3*q3, 2*(q2*q3+q0*q1)],
         [2*(q1*q3+q0*q2),         2*(q2*q3-q0*q1),         q0*q0-q1*q1-q2*q2+q3*q3]])
 
-# =====================================================================
-# 2) UNABHAENGIGE KREUZVALIDIERUNG gegen scipy (Ports korrekt?)
+# --- 2) Unabhaengige Kreuzvalidierung gegen scipy (Ports korrekt?) ---
 #    scipy: skalar-zuletzt [x,y,z,w]; as_matrix() = aktive Rotation (Koerper->Inertial)
 #    -> Aerospace-DCM (Inertial->Koerper) = as_matrix().T
-# =====================================================================
 def sp_quat2dcm(q):     # q skalar-zuerst -> Aerospace DCM
     r = Rot.from_quat([q[1],q[2],q[3],q[0]])
     return r.as_matrix().T
@@ -94,9 +90,7 @@ for _ in range(20000):
 ck(f"quat2dcm_local == scipy (max |dR|={max_q2d:.2e})", max_q2d < 1e-12)
 ck(f"dcm2quat_local == scipy (max |dq|={max_d2q:.2e})", max_d2q < 1e-9)
 
-# =====================================================================
-# 3) PROPERTY-TESTS ueber Zufalls-Rotationen + adversariale Faelle
-# =====================================================================
+# --- 3) Property-Tests ueber Zufalls-Rotationen + adversariale Faelle ---
 print("="*70); print("2) Property-Tests (Round-Trip, Norm, Zweig-Abdeckung)"); print("="*70)
 
 def eye_close(R, tol=1e-9): return np.max(np.abs(R - np.eye(3))) < tol
@@ -167,11 +161,9 @@ for _ in range(20000):
     if b == 0 and qo[0] < -1e-15: neg_q0_trace += 1
 ck("Trace-Zweig: q0>=0 (Hemisphaeren-Konsistenz)", neg_q0_trace == 0)
 
-# =====================================================================
-# 4) Testdaten-VEKTOREN erzeugen (deterministisch) -> csv + json
+# --- 4) Testdaten-Vektoren erzeugen (deterministisch) -> csv + json ---
 #    Deckt alle 4 Zweige + Kanten ab. Format je Zeile:
 #    id, R11..R33 (row-major, 9), q0..q3 (4), branch
-# =====================================================================
 print("="*70); print("3) Testdaten-Vektoren schreiben"); print("="*70)
 test_data = []
 # adversariale zuerst (deckt Zweige 0..3 + Kanten sicher ab)
@@ -207,9 +199,7 @@ print(f"  {len(test_data)} Testdaten-Faelle geschrieben (test_data_quat.csv / .j
 print(f"  Zweig-Verteilung der Testdaten: trace={bh[0]} R11={bh[1]} R22={bh[2]} R33={bh[3]}")
 ck("Testdaten decken alle 4 Zweige ab", np.all(bh>0))
 
-# =====================================================================
-# 5) WEITERE HELFER: quatMul (Hamilton), quatConj, quatRotate
-# =====================================================================
+# --- 5) Weitere Helfer: quatMul (Hamilton), quatConj, quatRotate ---
 def quatMul(a, c):     # Hamilton-Produkt r = a (x) c, skalar-zuerst
     return np.array([
         a[0]*c[0]-a[1]*c[1]-a[2]*c[2]-a[3]*c[3],
@@ -285,9 +275,7 @@ dcm_order = "quat2dcm(c)*quat2dcm(a)" if e_o1<e_o2 else "quat2dcm(a)*quat2dcm(c)
 print(f"  DCM-Komposition: quat2dcm_local(quatMul(a,c)) == {dcm_order}  "
       f"(Fehler {min(e_o1,e_o2):.2e})")
 
-# =====================================================================
-# 6) Testdaten fuer die drei Helfer -> je eigene csv
-# =====================================================================
+# --- 6) Testdaten fuer die drei Helfer -> je eigene csv ---
 print("="*70); print("5) Testdaten fuer quatMul/quatConj/quatRotate schreiben"); print("="*70)
 rg = np.random.default_rng(99)
 def rand_uq():

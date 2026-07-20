@@ -1,8 +1,8 @@
 function verify_battery()
-%VERIFY_BATTERY  Standalone-Scaffold fuer safety_battery.m (kein Modell noetig).
+%verify_battery  Standalone-Scaffold fuer safety_battery.m (kein Modell noetig).
 % Vor jedem Szenario 'clear safety_battery' (persistenter EMA-/Latch-Zustand).
-% Deckt: Kaltstart ohne Fehltrip, LED-Eskalation 0->1->2 an den Schwellen,
-% Hysterese (kein Flattern), Floor-Latch sticky (kein Auto-Release -> verhindert
+% Deckt ab: Kaltstart ohne Fehltrip, LED-Eskalation 0->1->2 an den Schwellen,
+% Hysterese (kein Flattern), Floor-Latch bleibt sticky (kein Auto-Release, sonst
 % Sink<->Hover-Grenzzyklus), EMA filtert kurzen Last-Sag, count-Bereich.
 %
 % Hinweis EMA-Einschwingen: tau~0.7 s @100 Hz -> ~3*tau ≈ 2 s (200 Samples) bis
@@ -45,7 +45,7 @@ ok = check(ok, all(leds==1), 'B3 Hysterese: led bleibt WARN, kein Flattern');
 
 % B4 ---------- Floor-Latch sticky: haelt trotz V-Erholung (kein Grenzzyklus)
 % Modelliert genau den Descent-Fall: V faellt unter Floor (Latch), dann erholt
-% sich V (weniger Last im Sinkflug) -> Latch MUSS halten, sonst Sink<->Hover.
+% sich V (weniger Last im Sinkflug); der Latch muss halten, sonst Sink<->Hover.
 clear safety_battery
 for i=1:50,  safety_battery(v2c(12.5), safety); end
 land=false;
@@ -65,7 +65,7 @@ ok = check(ok, ~land, sprintf('B5 50ms-Sag auf 11V: V_filt=%.2f bleibt > floor',
 ok = check(ok, v2c(13.2)==901 && v2c(16.8)==1147, ...
            sprintf('B6 count %d..%d == 901..1147', v2c(13.2), v2c(16.8)));
 
-fprintf('\n%s\n', tern(ok, '==> ALLE INVARIANTEN ERFUELLT', '==> FEHLER: siehe FAIL'));
+fprintf('\n%s\n', tern(ok, '==> Alle Invarianten erfuellt', '==> Fehler: siehe FAIL'));
 end
 
 % -- Helfer ---------------------------------------------------------------
@@ -73,7 +73,7 @@ function safety = make_safety(m, g)
 Ts_batt = 1/100;  tau = 0.7;
 safety = struct();
 safety.m = m;  safety.g = g;
-safety.batt_k = 3.3*18.182/4095;     % V/count (ideal, b=0). HW-Cal: §15 offen.
+safety.batt_k = 3.3*18.182/4095;     % V/count (ideal, b=0). HW-Kalibrierung noch offen.
 safety.batt_b = 0.0;
 safety.batt_alpha = 1 - exp(-Ts_batt/tau);
 safety.V_warn  = 14.0;

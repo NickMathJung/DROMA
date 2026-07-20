@@ -1,8 +1,8 @@
-%% dump_gcs_frame_golden.m — Golden fuer den GS-Frame-Cross-Check (§3d).
-%  Pro Zeile: EIN Bus_Cmd + Ziel-id, durch pack_gcs_frame -> 82-B-Frame.
+%% dump_gcs_frame_golden.m — Golden fuer den GS-Frame-Cross-Check.
+%  Pro Zeile ein Bus_Cmd samt Ziel-id, durch pack_gcs_frame zum 82-B-Frame.
 %  Der Host-Test test_gcs_frame parst die Bytes via gcs::parse (gcs_frame.hpp)
-%  und vergleicht gegen die float32-gerundeten Bus_Cmd-Werte -> zertifiziert
-%  "Simulink-Schreiber == Sende-Teensy-Leser".
+%  und vergleicht gegen die float32-gerundeten Bus_Cmd-Werte; das zeigt, dass
+%  Simulink-Schreiber und Sende-Teensy-Leser identisch sind.
 %
 %  Spalten (nach id-Label): in_id, in_F, in_qd1..4, in_qr1..4, in_Om1..3,
 %    in_tr1..3, in_qe1..4, in_estop, in_ack, frame0..frame81.

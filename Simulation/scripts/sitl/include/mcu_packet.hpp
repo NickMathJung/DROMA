@@ -1,16 +1,16 @@
-// mcu_packet.hpp — OTA-Codec (Single Source of Truth, Host + Firmware).
+// mcu_packet.hpp — OTA-Codec, gemeinsame Quelle fuer Host und Firmware.
 //
 // Serialisiert Bus_Cmd in das 29-Byte-OTA-Paket und zurueck. Bit-identisch zur
-// MATLAB-Kette link_tx/link_rx (chart_40/chart_50 in link.slx) + pack_quat_sm3/
+// MATLAB-Kette link_tx/link_rx (chart_40/chart_50 in link.slx) plus pack_quat_sm3/
 // unpack_quat_sm3. Der Host-Test test_link_codec.cpp verifiziert das gegen die
 // Golden-CSV aus dump_link_codec_golden.m.
 //
-// GELOCKTE Entscheidungen (Handover Teil 7 §1/§0.2 + Session):
+// Festgelegte Entscheidungen:
 //   * Ziel-HW Teensy 4.1 (Cortex-M7), double behalten.
 //   * Quaternionen scalar-first [w x y z].
 //   * int16 nur fuer [F_des | Omega_ref(3) | tau_ref(3)], fs/qmax wie init_link.
-//   * Multibyte-Felder LITTLE-ENDIAN (beide Enden ARM-LE, internes Protokoll).
-//   * MATLAB round == half-away-from-zero  -> std::lround (NICHT nearbyint).
+//   * Multibyte-Felder little-endian (beide Enden ARM-LE, internes Protokoll).
+//   * MATLAB round == half-away-from-zero  -> std::lround (nicht nearbyint).
 //
 // Byte-Layout (29 B):
 //   [0]     id
@@ -37,7 +37,7 @@ constexpr int ID = 0, FLAGS = 1, SEQ = 2, F = 3, QD = 5, QR = 9, QE = 13,
               OM = 17, TAU = 23;
 }  // namespace off
 
-// ---- int16-Quantisierung (MUSS init_link.m entsprechen) ---------------------
+// ---- int16-Quantisierung (muss zu init_link.m passen) -----------------------
 //   fs-Reihenfolge im 7er-Vektor: [F_des | Omega_ref(3) | tau_ref(3)].
 constexpr double QMAX = 32767.0;
 constexpr double QMIN = -32768.0;
@@ -57,7 +57,7 @@ struct Cmd {
     bool ack;
 };
 
-// ============================ intern: LE-Bytezugriff ==========================
+// --- intern: LE-Bytezugriff ---
 namespace detail {
 
 inline void put_i16(uint8_t* p, int16_t v) {
@@ -151,7 +151,7 @@ inline void unpack_quat(uint32_t code, double q_out[4]) {
 
 }  // namespace detail
 
-// ================================ API ========================================
+// --- API ---
 
 // Bus_Cmd + id/seq -> 29-Byte-OTA-Puffer.
 inline void pack(const Cmd& c, uint8_t id, uint8_t seq, uint8_t buf[SIZE]) {

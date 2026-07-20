@@ -1,13 +1,13 @@
 function [pkt_i16, pkt_q, flags] = link_tx(cmd_in, link_params)
 %#codegen
-% TX-Seite Funkkanal (GCS->Drohne) @ Ts_gcs.
+% link_tx  TX-Seite des Funkkanals (GCS->Drohne) @ Ts_gcs.
 %   Skalare/Vektoren: [F_des; Omega_ref(3); tau_ref(3)] -> int16 (7x1), saturiert.
 %   Quaternionen: q_des, q_ref, q_ext -> smallest-three (uint32 3x1).
-%   flags: [estop(0/1/2); ack] 
-%   Bernoulli-Paketverlust (xorshift32): bei Verlust ganzes Paket halten (ZOH),
-%   int16-Teil + Quat-Teil + flags werden gemeinsam gesendet
+%   flags: [estop(0/1/2); ack].
+%   Bernoulli-Paketverlust (xorshift32): bei Verlust das ganze Paket halten (ZOH);
+%   int16-Teil, Quat-Teil und flags gehen gemeinsam raus.
 %
-%   Benoetigt pack_quat_sm3.m auf dem MATLAB-Pfad.
+%   Braucht pack_quat_sm3.m auf dem MATLAB-Pfad.
 
     persistent last_i16 last_q last_flags rs init_done
     if isempty(init_done)
@@ -40,7 +40,7 @@ function [pkt_i16, pkt_q, flags] = link_tx(cmd_in, link_params)
     % --- flags (verlustfrei) ---
     flags_now = [double(cmd_in.estop); double(cmd_in.ack)];
 
-    % --- Bernoulli-Verlust: ein Draw gated das GANZE Paket ---
+    % --- Bernoulli-Verlust: ein Zufallswert entscheidet ueber das ganze Paket ---
     [u, rs] = xorshift01(rs);
     if u >= link_params.pdrop
         last_i16   = i16_now;

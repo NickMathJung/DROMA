@@ -4,8 +4,8 @@ clear;
 clc;
 close all;
 %% ------------------------------------------------------------------ Raten
-% BASE RATE = Ts_inner. Every other sample time in the model MUST be an
-% integer multiple of Ts_inner so the ode4 fixed-step scheduler is valid.
+% Base rate = Ts_inner. Every other sample time in the model has to be an
+% integer multiple of Ts_inner, otherwise the ode4 fixed-step scheduler is invalid.
 f_base = 100; % Grundrate
 rate_outer2inner = 10; % factor by how much the controller on the drone is sampled faster compared to the ground station
 Ts_inner = 1/(rate_outer2inner*f_base);            
@@ -16,7 +16,6 @@ Ts_mocap = rate_outer2inner*Ts_inner; % Optitrack
 Ts_gcs = rate_outer2inner*Ts_inner; % Beobachter + Positionsregler
 Ts_link = rate_outer2inner*Ts_inner; % Funkstrecke
 Ts_batt = 100*Ts_gcs; % Rate der Batterieüberwachungsfunktion
-% =================================================================================
 
 %% -------------------------------------------------------------- Modellparameter
 quadcop = init_quadcop();

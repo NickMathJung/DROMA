@@ -1,12 +1,12 @@
 function prune_mcu_configs(mdl)
 %prune_mcu_configs  Config-Set-Wildwuchs auf mcu.slx aufraeumen (Modell-Hygiene).
-%   Entfernt NUR die nummerierten Duplikate 'ert_cpp_sitl<N>' / 'ert_cpp_arm<N>'
-%   (entstanden durch wiederholtes configure_mcu_codegen bei Namenskollision).
-%   Behaelt die kanonischen 'ert_cpp_sitl' + 'ert_cpp_arm' und JEDEN anderen
-%   Config (z.B. den Modell-Default) unangetastet. Loescht einen Straggler nur,
-%   wenn der zugehoerige kanonische Name existiert -> nie den letzten strippen.
+%   Entfernt nur die nummerierten Duplikate 'ert_cpp_sitl<N>' / 'ert_cpp_arm<N>'
+%   (entstehen, wenn configure_mcu_codegen bei Namenskollision wiederholt laeuft).
+%   Die kanonischen 'ert_cpp_sitl' und 'ert_cpp_arm' sowie jeder andere Config
+%   (z.B. der Modell-Default) bleiben unangetastet. Ein Straggler faellt nur weg,
+%   wenn der zugehoerige kanonische Name existiert, damit nie der letzte verschwindet.
 %
-%   Voraussetzung: mcu darf NICHT interaktiv offen sein (Skript speichert).
+%   Voraussetzung: mcu darf nicht interaktiv offen sein (das Skript speichert).
 %   Aufruf z.B.:  openProject('DROMA.prj'); prune_mcu_configs('mcu')
 if nargin < 1, mdl = 'mcu'; end
 load_system(mdl);

@@ -1,8 +1,8 @@
 // quat_helpers_ref.cpp — bit-treue Referenz-Portierung der MATLAB-Quelle.
 //
-// Zweck: (1) Der C++-Golden-Test laeuft OHNE MATLAB gruen (CI, host-side loop).
-//        (2) Diese Datei ist das exakte Vorbild, gegen das der spaeter generierte
-//            Code diffen muss — Divergenz Golden<->Codegen = Codegen-Bug.
+// Zweck: (1) Der C++-Golden-Test laeuft ohne MATLAB gruen (CI, host-side loop).
+//        (2) Diese Datei ist das Vorbild, gegen das der spaeter generierte Code
+//            diffen muss; weicht Golden von Codegen ab, ist es ein Codegen-Bug.
 //
 // Indexierung column-major:  Rm(i,j) == R(i+1,j+1) in MATLAB-Notation.
 #include "quat_helpers.h"

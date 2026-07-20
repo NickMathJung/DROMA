@@ -1,0 +1,5 @@
+if(EXISTS "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/test_safety_e3b0c442_Debug_tests.cmake")
+  include("C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/test_safety_e3b0c442_Debug_tests.cmake")
+else()
+  add_test(test_safety_NOT_BUILT test_safety_NOT_BUILT)
+endif()

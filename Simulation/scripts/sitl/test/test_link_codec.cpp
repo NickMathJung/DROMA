@@ -1,11 +1,11 @@
 // test_link_codec.cpp — Codec-Cross-Check: MATLAB link_tx/link_rx == C++ pkt.
 //
-// Golden aus dump_link_codec_golden.m (data/link_codec_golden.csv). Pro Zeile:
-// EIN Bus_Cmd durch die MATLAB-Kette; hier durch pkt::pack/pkt::unpack.
+// Golden aus dump_link_codec_golden.m (data/link_codec_golden.csv). Pro Zeile
+// ein Bus_Cmd durch die MATLAB-Kette; hier durch pkt::pack/pkt::unpack.
 //
-//   L1 (Wire):   int16[7], uint32[3] (sm3), flags  BIT-EXAKT vs pkt::pack.
-//   L2 (decode): F/Om/tau bit-exakt, Quats tol 1e-12 vs pkt::unpack.
-//   + id/seq: reiner C++-Round-Trip (MATLAB-Kette traegt sie nicht).
+//   L1 (Wire):   int16[7], uint32[3] (sm3), flags  bit-exakt gegen pkt::pack.
+//   L2 (decode): F/Om/tau bit-exakt, Quats tol 1e-12 gegen pkt::unpack.
+//   + id/seq: reiner C++-Round-Trip (die MATLAB-Kette traegt sie nicht).
 //
 // Schliesst "Sim == HW" fuer den OTA-Codec formal.
 #include "mcu_packet.hpp"

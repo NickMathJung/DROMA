@@ -57,8 +57,8 @@ TEST(QuatGolden, Dcm2Quat_MatchesGolden) {
 }
 
 // ---------------------------------------------------------------- quat2dcm
-// Nur aktiv, wenn quat2dcm_local aus dem echten mcu-Code stammt (Handover §5,
-// OFFEN). Der Standin nutzt dieselbe Aerospace-Formel -> Test ist scharf.
+// Nur aussagekraeftig, wenn quat2dcm_local aus dem echten mcu-Code stammt (noch
+// offen). Der Standin nutzt dieselbe Aerospace-Formel, der Test ist also scharf.
 TEST(QuatGolden, Quat2Dcm_MatchesGolden) {
     auto rows = sitl::read_csv(gpath("test_data_quat.csv"));
     double worst = 0;

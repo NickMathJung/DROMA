@@ -1,4 +1,4 @@
-// test_gcs_frame.cpp — GS-Frame-Cross-Check (§3d): Simulink-Schreiber == Teensy-Leser.
+// test_gcs_frame.cpp — GS-Frame-Cross-Check: Simulink-Schreiber == Teensy-Leser.
 //
 // Golden aus dump_gcs_frame_golden.m (MATLAB pack_gcs_frame). Hier: gcs::parse
 // (gcs_frame.hpp) parst die Bytes und muss die float32-gerundeten Bus_Cmd-Werte

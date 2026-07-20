@@ -1,0 +1,5 @@
+if(EXISTS "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/test_quat_golden_e3b0c442_RelWithDebInfo_tests.cmake")
+  include("C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/test_quat_golden_e3b0c442_RelWithDebInfo_tests.cmake")
+else()
+  add_test(test_quat_golden_NOT_BUILT test_quat_golden_NOT_BUILT)
+endif()

@@ -1,15 +1,14 @@
 // quat_helpers.h — ABI der Quaternion-Helfer.
 //
-// Diese Signaturen identisch zu dem, was MATLAB Coder
-// aus dcm2quat_local.m / quat2dcm_local.m / quatMul.m / quatConj.m /
-// quatRotate.m erzeugt.
+// Diese Signaturen sind identisch zu dem, was MATLAB Coder aus dcm2quat_local.m /
+// quat2dcm_local.m / quatMul.m / quatConj.m / quatRotate.m erzeugt.
 //
-// SPEICHERORDNUNG (kritisch): R[9] ist COLUMN-MAJOR, wie von MATLAB Coder
-// emittiert:  R[i + 3*j] == R(i+1, j+1)  (0-basiert i,j).
-// Die Testvektoren-CSV speichert R hingegen ROW-MAJOR (R11,R12,R13,R21,...). Die
-// Umrechnung passiert AUSSCHLIESSLICH im CSV-Adapter (test/csv.hpp), nie hier.
+// Speicherordnung, wichtig: R[9] ist column-major, so wie MATLAB Coder es
+// emittiert:  R[i + 3*j] == R(i+1, j+1)  (0-basiert i,j). Die Testvektoren-CSV
+// speichert R dagegen row-major (R11,R12,R13,R21,...). Diese Umrechnung passiert
+// nur im CSV-Adapter (test/csv.hpp), nie hier.
 //
-// q = [q0 q1 q2 q3], quat2dcm_local(q) ist die DCM Inertial->Koerper; 
+// q = [q0 q1 q2 q3], quat2dcm_local(q) ist die DCM Inertial->Koerper;
 // dcm2quat_local ist deren Inverse.
 #ifndef QUAT_HELPERS_H
 #define QUAT_HELPERS_H

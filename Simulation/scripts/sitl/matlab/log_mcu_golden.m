@@ -1,31 +1,29 @@
 %% log_mcu_golden.m — Golden-I/O an der MCU-Blockgrenze aufzeichnen (Modell-SITL).
-%  Laeuft den geschlossenen Kreis (Strecke + MCU) EINMAL in Simulink und
-%  schreibt die Signale an der MCU-Grenze als breite CSV auf dem BASISRASTER
-%  (Ts_inner), damit der Host-Harness den generierten step() tickweise dagegen
-%  diffen kann.  [Handover Teil 6, Entscheidungen M1/M4/M5]
+%  Laeuft den geschlossenen Kreis (Strecke + MCU) einmal in Simulink und schreibt
+%  die Signale an der MCU-Grenze als breite CSV auf dem Basisraster (Ts_inner),
+%  damit der Host-Harness den generierten step() tickweise dagegen diffen kann.
 %
-%  Spaltennamen = ExtU/ExtY-Feldpfade -> Host mappt 1:1:
+%  Spaltennamen = ExtU/ExtY-Feldpfade, der Host mappt sie 1:1:
 %     in:  Bus_IMU, Bus_Cmd, batt_count
 %     out: rotor_cmd, led
 %  z.B.  Bus_Cmd.q_ref.1..4 , Bus_IMU.imu_gyro.1..3 , rotor_cmd.1..N , led.1
 %
 %  Prinzip (analog zur Leaf-Golden-Stufe):
 %    - Line-Logging an In-/Out-Ports des MCU-Blocks, benannt nach Portname.
-%    - sim() (normale Modell-Simulation, KEIN Codegen).
+%    - sim() als normale Modell-Simulation, ohne Codegen.
 %    - Busse rekursiv zu Skalar-Spalten flatten (Vektoren column-major .1 .2 ..).
-%    - ALLES per Zero-Order-Hold auf t = 0:Ts_inner:Tstop (so haelt auch der
+%    - alles per Zero-Order-Hold auf t = 0:Ts_inner:Tstop (so haelt auch der
 %      generierte step() langsame Eingaenge zwischen Updates).
 %
-%  === ANPASSEN ===============================================================
+%  --- Anpassen ---
 TOP_MODEL = 'quadcop';
 MCU_BLOCK = 'quadcop/running on the quadrocopter MCU';
 T_STOP    = 5.0;                  % [s] Simulationsdauer
-% Portnamen in EXAKTER Blockport-Reihenfolge (== ExtU/ExtY-Feldnamen).
+% Portnamen in genau der Blockport-Reihenfolge (== ExtU/ExtY-Feldnamen).
 % Bestaetigt: rein Bus_IMU, Bus_Cmd, batt_count, btn_ack ; raus rotor_cmd, led.
 IN_NAMES  = {'Bus_IMU','Bus_Cmd','batt_count','btn_ack'};
 OUT_NAMES = {'rotor_cmd','led','throttle'};  % led=Batterie-FSM-state (uint8); throttle[4]=[0,100] (OneShot125-Vorstufe).
 OUT_CSV   = fullfile(fileparts(mfilename('fullpath')),'..','data','golden_mcu_io.csv');
-% ============================================================================
 
 load_system(TOP_MODEL);
 assert(evalin('base','exist(''Ts_inner'',''var'')'), ...
@@ -33,10 +31,11 @@ assert(evalin('base','exist(''Ts_inner'',''var'')'), ...
 Ts_inner = evalin('base','Ts_inner');
 
 %% --- GS-Serial-Bloecke (Design A) fuer die headless Golden-Sim auskommentieren --
-%  'Serial Configuration'/'Serial Send' oeffnen beim Sim-Start einen COM-Port ->
-%  Fehler "No ports selected" headless. Sie sind GS-Ausgang und beeinflussen die
-%  MCU-Grenze NICHT. In-memory auskommentieren, nach der Sim wiederherstellen
-%  (Modell wird NICHT gespeichert -> deine GS-Seite bleibt auf Disk unangetastet).
+%  'Serial Configuration'/'Serial Send' oeffnen beim Sim-Start einen COM-Port und
+%  scheitern headless mit "No ports selected". Sie sind GS-Ausgang und beruehren
+%  die MCU-Grenze nicht. Also in-memory auskommentieren und nach der Sim
+%  wiederherstellen; das Modell wird nicht gespeichert, die GS-Seite auf Disk
+%  bleibt unangetastet.
 serialBlks = find_system(TOP_MODEL,'LookUnderMasks','on','FollowLinks','on', ...
                          'RegExp','on','Name','[Ss]erial');
 serialPrev = get_param(serialBlks,'Commented');
@@ -98,9 +97,9 @@ fprintf(['\nWeiter: mcu.h/mcu_types.h + Codegen-Report an den Host-Harness ' ...
          '(test_mcu_model) — Spaltennamen mappen 1:1 auf ExtU/ExtY.\n']);
 
 
-%% ===================== lokale Funktionen =====================================
+%% --- lokale Funktionen ---
 function tags = add_port_logging(portHandles, names, tags)
-% Signal-Logging wird am ERZEUGENDEN Output-Port gesetzt (nicht an der Linie!):
+% Signal-Logging haengt am erzeugenden Output-Port, nicht an der Linie:
 %   - MCU-Ausgang  -> Quelle ist der MCU-Outport selbst
 %   - MCU-Eingang  -> Quelle ist der speisende Block-Outport (SrcPortHandle)
 % DataLogging/-NameMode/-Name sind Eigenschaften des Output-Port-Handles.
@@ -139,10 +138,10 @@ function cols = flatten_and_zoh(vals, prefix, t, cols)
 end
 
 function y = zoh_resample(tt, x, tq)
-% Index-basiertes ZOH (robust gegen FP-Drift zwischen Simulink-Zeit und Raster):
+% Index-basiertes ZOH, robust gegen FP-Drift zwischen Simulink-Zeit und Raster:
 % jeden geloggten Sample auf seinen ganzzahligen Basistakt-Index runden, dann
-% Luecken mit dem letzten gueltigen Wert fuellen. KEIN interp1 auf Fliesskomma-
-% Zeit -> keine 'previous'-Fehlwahl an Sample-Grenzen.
+% Luecken mit dem letzten gueltigen Wert fuellen. Kein interp1 auf
+% Fliesskomma-Zeit, damit an Sample-Grenzen kein 'previous' danebengreift.
 %   - Basisrate (1 kHz): jeder Tick hat ein Sample -> 1:1, keine Luecken.
 %   - langsame Kanaele (z.B. 100 Hz): Sample alle 10 Ticks -> ZOH dazwischen.
     tt = double(tt(:)); x = double(x(:));

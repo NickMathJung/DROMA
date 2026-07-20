@@ -5,15 +5,15 @@ function code = pack_quat_sm3(q)
 %   Nutzt |q|=1 und q == -q: die betragsgroesste Komponente (>= 1/sqrt(2))
 %   wird weggelassen und aus den drei anderen rekonstruiert.
 %
-%   Bit-Layout (MUSS mit unpack_quat_sm3.m UND dem C++-Codec uebereinstimmen):
+%   Bit-Layout (muss zu unpack_quat_sm3.m und dem C++-Codec passen):
 %     [31:30] Index imax der weggelassenen (groessten) Komponente, 0..3
 %     [29:20] Komponente a   (Offset-Binary 10-bit)
 %     [19:10] Komponente b
 %     [ 9: 0] Komponente c
 %   je Komponente:  u = qi + 512 ,  qi = clamp(round(c * 511*sqrt(2)), -511, 511)
 %
-%   Reihenfolge von q (z.B. scalar-first [w x y z]) ist BELIEBIG, aber muss auf
-%   Encoder-, Decoder- und C++-Seite IDENTISCH indiziert sein.
+%   Die Komponentenreihenfolge von q (z.B. scalar-first [w x y z]) ist frei
+%   waehlbar, muss aber auf Encoder-, Decoder- und C++-Seite gleich indiziert sein.
 
 q = q(:);
 n = sqrt(q(1)*q(1) + q(2)*q(2) + q(3)*q(3) + q(4)*q(4));

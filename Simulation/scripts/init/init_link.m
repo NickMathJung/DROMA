@@ -19,9 +19,9 @@ assert(abs(link_params.N_delay*Ts_inner - link_params.latency) < 1e-12, ...
 link_params.pdrop = 0.02;            % Verlustwahrscheinlichkeit
 link_params.seed  = uint32(12345);   % xorshift32-Seed (!= 0)
 
-% --- int16-Quantisierung: NUR Skalare/Vektoren --------------------------------
+% --- int16-Quantisierung, nur Skalare/Vektoren --------------------------------
 % Reihenfolge (7x1): [F_des(1) | Omega_ref(3) | tau_ref(3)]
-% Quaternionen q_des/q_ref/q_ext laufen ueber smallest-three (uint32), NICHT int16.
+% Die Quaternionen q_des/q_ref/q_ext laufen ueber smallest-three (uint32), nicht int16.
 link_params.qmax = int16(32767);
 link_params.qmin = int16(-32768);
 link_params.fs = [ 40; ...        % F_des [N]        (Hover ~ m*g)
@@ -43,8 +43,8 @@ link_params.q_init = [id_code; id_code; id_code];
 link_params.flags_init = [uint8(0); boolean(0)]; % [estop=0; ack=false]
 
 % --- Delay-Buffer-ICs (InputProcessing='Elements as channels (sample based)') --
-% Der Kanal traegt jetzt DREI Signale -> je Signal ein eigener IC.
-% Letzte Dim = Delay-Laenge N_delay. Alle drei mit demselben Delay verzoegern!
+% Der Kanal traegt drei Signale, also je Signal ein eigener IC. Die letzte
+% Dimension ist die Delay-Laenge N_delay; alle drei bekommen denselben Delay.
 link_params.pkt_init_delay   = repmat(link_params.pkt_init,   [1, 1, link_params.N_delay]); % int16  7x1
 link_params.q_init_delay     = repmat(link_params.q_init,     [1, 1, link_params.N_delay]); % uint32 3x1
 link_params.flags_init_delay = repmat(link_params.flags_init, [1, 1, link_params.N_delay]); % 2x1

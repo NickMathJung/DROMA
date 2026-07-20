@@ -1,0 +1,10 @@
+^C:\USERS\RAKETE\DOCUMENTS\DROHNENVERSUCHSSTAND\DROMA\SIMULATION\SCRIPTS\SITL\BUILD_CG\CMAKEFILES\E01C09242EAD147ED46A058F7D4873F1\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl -BC:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/sitl_golden.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -4,18 +4,18 @@
 //   USB-Serial: gcs-Frame [sync|id|Bus_Cmd(float32)|estop|ack|crc8] (gcs_frame.hpp)
 //   -> gcs::parse -> pkt::pack(Bus_Cmd, id, seq[id]) (mcu_packet.hpp)
 //   -> radio.write(buf,29) auf gemeinsame Broadcast-Adresse.
-// Haelt seq PRO Drohne. Quantisierung (float32 -> int16/sm3) passiert erst hier.
+// Haelt seq pro Drohne. Die Quantisierung (float32 -> int16/sm3) passiert erst hier.
 //
-// GELOCKT: nRF-Params IDENTISCH zum Drohnen-HAL (drone_hal.cpp) —
-//   Adresse 0xE7E7E7E7E7, Kanal 76, RF24_1MBPS, Auto-Ack AUS, 29-B-Payload.
-//   SPI1 (SCK27/MOSI26/MISO1), CE14, CSN0 (Wiring des Sende-Teensy-Boards;
-//   an dessen Schaltplan bestaetigen).
+// Die nRF-Params sind identisch zum Drohnen-HAL (drone_hal.cpp):
+//   Adresse 0xE7E7E7E7E7, Kanal 76, RF24_1MBPS, Auto-Ack aus, 29-B-Payload.
+//   SPI1 (SCK27/MOSI26/MISO1), CE14, CSN0 (Wiring des Sende-Teensy-Boards, an
+//   dessen Schaltplan bestaetigen).
 
 #include <Arduino.h>
 #include <SPI.h>
 #include <RF24.h>
 #include "gcs_frame.hpp"    // gcs::parse / GcsCmd
-#include "mcu_packet.hpp"   // pkt::pack / Cmd  (SSOT, geteilt mit Drohne)
+#include "mcu_packet.hpp"   // pkt::pack / Cmd  (gemeinsame Quelle mit der Drohne)
 
 static constexpr uint8_t  PIN_NRF_CE = 14, PIN_NRF_CSN = 0, PIN_NRF_IRQ = 9;
 static constexpr uint8_t  NRF_CHANNEL = 76;
@@ -44,7 +44,7 @@ static void forward_frame(const uint8_t frame[gcs::SIZE]) {
     pkt::Cmd cmd; widen(gc, cmd);
     uint8_t buf[pkt::SIZE];
     pkt::pack(cmd, id, g_seq[id]++, buf);       // seq pro Drohne, dann inkrementieren
-    g_radio.write(buf, pkt::SIZE);              // Auto-Ack AUS -> kehrt nach TX zurueck
+    g_radio.write(buf, pkt::SIZE);              // Auto-Ack aus -> kehrt nach TX zurueck
 
     // Bring-up-Heartbeat: LED toggelt nur bei gueltigen (Sync+CRC-ok) Frames von
     // Simulink -> blinkt = USB+Parse ok (Problem ggf. RF); dunkel = USB/Format-Problem.

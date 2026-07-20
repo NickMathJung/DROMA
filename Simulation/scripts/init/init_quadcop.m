@@ -13,7 +13,7 @@ l = 0.124;  % Armlaenge
 
 % c_T = 1.134e-3; % (MA-Finn)  
 % c_T = 7.433e-5; % N/(s)^2 (selbst aus Datenblatt ohne Faktor 2pi und mit anderem Fit (polyfit)
-% ================ Schubkonstante aus Datenblatt GEMFAN 51499 =============
+% --- Schubkonstante aus Datenblatt GEMFAN 51499 ---
 % Aus dem Datenblatt (inklusive 0-Punkt)
 rpm = [0, 4957, 9256, 12419, 15418, 18497, 20977, 23272, 25355, 27260, 28597];
 thrust_g = [0, 48.2, 168.1, 314.5, 496.0, 722.2, 932.4, 1141.5, 1357.9, 1590.0, 1690.8];
@@ -27,10 +27,9 @@ T_col = T';
 c_T = omega_sq \ T_col;
 % Zur Kontrolle: Die berechnete Konstante anzeigen
 disp(['Schubkonstante c_T: ', num2str(c_T), ' Ns^2/rad^2']);
-% =========================================================================
 
-% c_tau = 7.398e-6; % (MA-Finn) 
-% ================ Gierkonstante aus Datenblatt GEMFAN 51499 ==============
+% c_tau = 7.398e-6; % (MA-Finn)
+% --- Gierkonstante aus Datenblatt GEMFAN 51499 ---
 U = 22.2;
 I = [0.44, 1.68, 3.55, 6.36, 10.50, 14.95, 20.01, 27.35, 35.50, 42.20];
 rpm_Q = [4957, 9256, 12419, 15418, 18497, 20977, 23272, 25355, 27260, 28597];
@@ -41,9 +40,8 @@ P_mech = (eta .* U .* I)';
 omega_cube = (omega_Q.^3)';
 c_tau = omega_cube \ P_mech;
 disp(['Gierkonstante c_tau: ', num2str(c_tau), ' Nms^2/rad^2']);
-% =========================================================================
 
-% ============ Umrechnung von Omega^2 zu Throttle =========================
+% --- Umrechnung von Omega^2 zu Throttle ---
 throttle_data = [10, 20, 30, 40, 50, 60, 70, 80, 90]; % Zuordnung aus Datenblatt
 omega_sq_data = omega(2:end-1).^2; % omega wurde bereits berechnet
 % Fit eines Polynoms 2. Grades: Throttle = p1*(omega^2)^2 + p2*(omega^2) + p3
@@ -53,7 +51,6 @@ x_fit = linspace(0,9e6,1000);
 y_fit = polyval(quadcop.p_from_omega_sq, x_fit);
 figure;
 plot(omega_sq_data, throttle_data ,'r-', x_fit, y_fit, 'b--');
-% =========================================================================
 
 % Motorwinkelgeschwindigkeiten -> Schubkraft und Drehmomente:  [F; tau_x; tau_y; tau_z] = Gamma * [w1^2; w2^2; w3^2; w4^2] 
 % momentan fliegt Quadrkopter in X-Konfiguration
@@ -98,10 +95,10 @@ quadcop.w0 = [0;0;0];
 
 end
 
-% =============================== Helfer ==================================
+% --- Helfer ---
 
 function schiefsym = skew(r)
-%VEE gibt die schiefsymmetrische Matrix schiefsym zu r zurück
+% skew gibt die schiefsymmetrische Matrix schiefsym zu r zurück
 
 arguments (Input)
     r (3,1) double

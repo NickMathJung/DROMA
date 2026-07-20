@@ -38,8 +38,8 @@ inline std::vector<Row> read_csv(const std::string& path) {
     return rows;
 }
 
-// Golden speichert R ROW-major (R11,R12,R13,R21,...). Der Codegen-ABI erwartet
-// R COLUMN-major. Diese Funktion baut aus 9 aufeinanderfolgenden CSV-Werten
+// Golden speichert R row-major (R11,R12,R13,R21,...). Die Codegen-ABI erwartet
+// R column-major. Diese Funktion baut aus 9 aufeinanderfolgenden CSV-Werten
 // (ab Offset off) das column-major Array, das dcm2quat_local(...) erwartet.
 inline void row9_to_colmajor(const std::vector<double>& v, std::size_t off,
                              double R_col[9]) {

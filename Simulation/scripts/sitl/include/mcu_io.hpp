@@ -1,6 +1,6 @@
 // mcu_io.hpp — Adapter Golden-CSV <-> generierte MCU-ABI (mcu_types.h).
-// EINZIGE Reconcile-Stelle gegen den Coder-Output: die Feldnamen unten
-// (ExtU: Bus_IMU_k / Bus_Cmd_l / batt_count ; ExtY: rotor_cmd[4]).
+// Die einzige Stelle, die gegen den Coder-Output abgeglichen werden muss: die
+// Feldnamen unten (ExtU: Bus_IMU_k / Bus_Cmd_l / batt_count ; ExtY: rotor_cmd[4]).
 #ifndef SITL_MCU_IO_HPP
 #define SITL_MCU_IO_HPP
 #include <cmath>

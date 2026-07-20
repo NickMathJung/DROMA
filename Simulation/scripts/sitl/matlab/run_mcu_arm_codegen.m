@@ -1,9 +1,10 @@
 function run_mcu_arm_codegen(proj_root)
-% run_mcu_arm_codegen — §3f: mcu.slx fuer Teensy 4.1 / Cortex-M7 generieren.
-%   GenCodeOnly (Kompilat spaeter via Teensy/PlatformIO-Toolchain, NICHT aus
-%   MATLAB). Output -> hardware\mcu_arm\  (eigener CodeGen-/Cache-Ordner), damit
-%   das SITL-zertifizierte scripts\sitl\mcu_ert_rtw\ (x86, Gate B) unberuehrt bleibt.
-%   Funktion, damit lokale Vars den 'clear' in params.m (quadcop-PreLoadFcn) ueberleben.
+% run_mcu_arm_codegen — mcu.slx fuer Teensy 4.1 / Cortex-M7 generieren.
+%   Nur GenCodeOnly; kompiliert wird spaeter ueber die Teensy/PlatformIO-Toolchain,
+%   nicht aus MATLAB. Output nach hardware\mcu_arm\ (eigener CodeGen-/Cache-Ordner),
+%   damit das SITL-zertifizierte scripts\sitl\mcu_ert_rtw\ (x86, Gate B) unberuehrt
+%   bleibt. Als Funktion geschrieben, damit die lokalen Vars den 'clear' in params.m
+%   (quadcop-PreLoadFcn) ueberleben.
 armdir = fullfile(proj_root,'hardware','mcu_arm');
 
 openProject(fullfile(proj_root,'DROMA.prj'));

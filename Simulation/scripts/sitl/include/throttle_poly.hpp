@@ -1,4 +1,4 @@
-// GENERIERT von run_mcu_recert.m aus quadcop.p_from_omega_sq — NICHT editieren.
+// Generiert von run_mcu_recert.m aus quadcop.p_from_omega_sq — bitte nicht editieren.
 // throttle = clamp(polyval(P_THROTTLE, rotor_cmd^2), 0, 100).
 #ifndef THROTTLE_POLY_HPP
 #define THROTTLE_POLY_HPP

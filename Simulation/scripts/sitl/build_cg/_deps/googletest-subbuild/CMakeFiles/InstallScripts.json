@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/_deps/googletest-subbuild/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

@@ -1,18 +1,17 @@
 function [F, tau] = geo_attitude_ctrl(q, Omega, q_des, q_ref, Omega_ref, F_des, tau_ref, kR, kOmega)
 %#codegen
-% GEO_ATTITUDE_CTRL Geometrischer Lageregler auf SO(3).
-%   Lee/Leok/McClamroch (CDC 2010), 2-DOF Error-Feedback:
+% geo_attitude_ctrl  Geometrischer Lageregler auf SO(3).
+%   Nach Lee/Leok/McClamroch (CDC 2010), 2-DOF-Fehlerrueckfuehrung:
 %       tau = tau_ff - kR*eR - kOmega*eOmega
 %
-%   ZWEI getrennte Referenzen (NICHT identisch!):
-%     q_des : Solllage aus dem Folgeregler pos_ctrl (mit Positionsrueckfuehrung)
-%             -> bestimmt den Lagefehler e_R.
-%     q_ref : nominelle Solllage aus traj_gen (reine Vorsteuerung)
-%             -> Frame, in dem Omega_ref definiert ist ([Om_ref]x = R_ref' R^T_ref)
-%             -> Transport von Omega_ref in den aktuellen Body-Frame.
+%   Es gibt zwei verschiedene Referenzen:
+%     q_des : Solllage aus dem Folgeregler pos_ctrl (mit Positionsrueckfuehrung).
+%             Sie bestimmt den Lagefehler e_R.
+%     q_ref : nominelle Solllage aus traj_gen (reine Vorsteuerung). Sie liefert
+%             den Frame, in dem Omega_ref definiert ist ([Om_ref]x = R_ref' R^T_ref),
+%             und transportiert Omega_ref in den aktuellen Body-Frame.
 %
-%
-%   EIN-/AUSGAENGE:
+%   Ein-/Ausgaenge:
 %     q, Omega         : aktuelle Lage/Drehrate
 %     q_des            : Solllage aus pos_ctrl
 %     q_ref            : Solllage aus traj_gen 

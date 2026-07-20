@@ -1,13 +1,14 @@
-// gcs_frame.hpp — USB-Frame GS(Simulink) -> Sende-Teensy (Design A, SSOT).
+// gcs_frame.hpp — USB-Frame GS(Simulink) -> Sende-Teensy (Design A).
 //
 // Vollpraeziser (float32) Bus_Cmd-Frame ueber USB-Serial. Der Sende-Teensy parst
 // ihn, haelt seq pro Drohne und quantisiert via pkt::pack (mcu_packet.hpp) in das
-// 29-B-OTA-Paket. Dieser Header ist die SSOT fuer BEIDE Enden; die Simulink-Seite
-// (Serial Send) repliziert exakt dieses Byte-Layout. Cross-Check: test_gcs_frame.
+// 29-B-OTA-Paket. Dieser Header ist die gemeinsame Quelle fuer beide Enden; die
+// Simulink-Seite (Serial Send) repliziert genau dieses Byte-Layout. Cross-Check:
+// test_gcs_frame.
 //
-// GELOCKT (Session 8): float32, little-endian (Win-x86 GS + Cortex-M7, beide LE),
+// Festgelegt: float32, little-endian (Win-x86 GS und Cortex-M7 sind beide LE),
 //   fixe Laenge, Sync 0xAA55, CRC-8/SMBus (Poly 0x07, Init 0x00) ueber id+Payload.
-//   nRF-HW-CRC deckt die Funkstrecke separat; dieses CRC schuetzt den USB-Frame.
+//   Die nRF-HW-CRC deckt die Funkstrecke separat ab; dieses CRC schuetzt den USB-Frame.
 //
 // Byte-Layout (82 B):
 //   [0]      0xAA          Sync high

@@ -6,35 +6,33 @@ classdef MotiveMocap < matlab.System
 %     mocap_quat (4x1, SCALAR-FIRST [w x y z])
 %     valid      (bool) - false, wenn kein frischer Frame mit StreamingID kam
 %
-%   ===================== KONVENTIONEN (WICHTIG) =========================
-%   1) QUATERNION: NatNet liefert qx,qy,qz,qw = SCALAR-LAST. Dieses Projekt
-%      nutzt durchgaengig SCALAR-FIRST [w x y z] (Handover §1). Die Umsortierung
-%      passiert HIER, an genau EINER Stelle:  [qw; qx; qy; qz].
-%      -> NICHT nochmal downstream drehen (Lehre aus dem Gyro-Bias-Bug §3h:
-%         Kompensation gehoert an EINE Stelle, sonst wirkt sie doppelt).
-%   2) UP-AXIS: Motive MUSS auf **Z-Up** streamen
-%      (Motive: Settings -> Streaming -> "Up Axis" = Z). Das Projekt ist z-up
-%      (Handover §1). Dieser Block transformiert BEWUSST NICHT — sonst gaebe es
-%      wieder zwei Stellen, die dasselbe korrigieren. Steht Motive auf Y-Up,
-%      ist die Pose falsch; das faellt im Plausibilitaets-Check auf (siehe
-%      Inbetriebnahme unten).
-%   3) EINHEIT: NatNet liefert METER (das OptiSample multipliziert nur fuer die
+%   Konventionen (wichtig, sonst stimmt die Pose nicht):
+%   1) Quaternion: NatNet liefert qx,qy,qz,qw (scalar-last). Das Projekt nutzt
+%      durchgaengig scalar-first [w x y z]. Die Umsortierung [qw; qx; qy; qz]
+%      passiert nur hier, an einer Stelle. Bitte downstream nicht noch einmal
+%      drehen, sonst wirkt die Korrektur doppelt.
+%   2) Up-Axis: Motive muss auf Z-Up streamen (Settings -> Streaming ->
+%      "Up Axis" = Z), passend zum z-up-Projekt. Dieser Block transformiert
+%      absichtlich nicht, sonst gaebe es wieder zwei Stellen, die dasselbe
+%      korrigieren. Steht Motive auf Y-Up, ist die Pose falsch; das faellt im
+%      Plausibilitaets-Check unten auf.
+%   3) Einheit: NatNet liefert Meter (das OptiSample multipliziert nur fuer die
 %      mm-Anzeige mit 1000). Kein Skalieren noetig.
 %
-%   ===================== INBETRIEBNAHME =================================
+%   Inbetriebnahme:
 %   - Motive: Streaming aktiv, "Up Axis"=Z, Rigid Body angelegt, dessen
 %     Streaming-ID hier als StreamingID eintragen.
 %   - Bei Verbindungsproblemen: HostIP = IP des Motive-Rechners, ClientIP = IP
-%     dieses Rechners. Auf EINEM Rechner reicht 127.0.0.1/Multicast.
+%     dieses Rechners. Auf einem Rechner reicht 127.0.0.1/Multicast.
 %   - Plausibilitaet (Drohne ruhig am Boden, Body-Origin am Boden kalibriert):
 %       mocap_pos ~ [x; y; ~0]   und mocap_quat ~ [1;0;0;0] bei Nullrotation.
-%     Zeigt stattdessen die Y-Komponente die Hoehe -> Motive steht auf Y-Up.
+%     Zeigt stattdessen die Y-Komponente die Hoehe, steht Motive auf Y-Up.
 %
-%   Der NatNet-Client ist .NET-basiert (NatNetML.dll) und NICHT codegen-faehig
-%   -> im "MATLAB System"-Block auf **Interpreted execution** stellen.
-%   Der DLL-Pfad kommt aus Matlab\assemblypath.txt neben natnet.m (vorab
-%   geschrieben), sonst oeffnet natnet.setAssemblyPath ein uigetfile-Fenster
-%   und blockiert die Simulation.
+%   Der NatNet-Client ist .NET-basiert (NatNetML.dll) und nicht codegen-faehig,
+%   der "MATLAB System"-Block laeuft deshalb interpretiert (siehe
+%   getSimulateUsingImpl weiter unten). Der DLL-Pfad kommt aus vorab
+%   geschriebenem Matlab\assemblypath.txt neben natnet.m; sonst oeffnet
+%   natnet.setAssemblyPath ein uigetfile-Fenster und blockiert die Simulation.
 
     properties (Nontunable)
         HostIP        = '127.0.0.1'   % IP des Motive-Rechners
@@ -57,8 +55,8 @@ classdef MotiveMocap < matlab.System
 
     methods
         function obj = MotiveMocap(varargin)
-            % Name-Value-Konstruktor: matlab.System liefert den NICHT von
-            % selbst — ohne setProperties scheitert der Aufruf mit
+            % Name-Value-Konstruktor: den liefert matlab.System nicht von
+            % selbst, ohne setProperties scheitert der Aufruf mit
             % "No matching constructor found for superclass".
             setProperties(obj, nargin, varargin{:});
         end
@@ -66,9 +64,9 @@ classdef MotiveMocap < matlab.System
 
     methods (Access = private)
         function s = resolveIP(~, v)
-            %RESOLVEIP  IP-Literal oder base-Workspace-Variable aufloesen.
-            % Simulink wertet NUMERISCHE Dialogfelder eines MATLAB-System-Blocks
-            % aus (StreamingID='mocap.streaming_id' -> 1), CHAR-Felder aber NICHT:
+            %resolveIP  IP-Literal oder base-Workspace-Variable aufloesen.
+            % Simulink wertet numerische Dialogfelder eines MATLAB-System-Blocks
+            % aus (StreamingID='mocap.streaming_id' -> 1), char-Felder aber nicht:
             % dort kam wortwoertlich 'mocap.host_ip' an. Damit params.m die
             % einzige Konfigurationsstelle bleibt (statt IPs im binaeren .slx zu
             % vergraben), loesen wir hier selbst auf:
@@ -115,8 +113,8 @@ classdef MotiveMocap < matlab.System
                     fprintf('[MotiveMocap] verbunden (Host %s, ID %d)\n', ...
                             host, obj.StreamingID);
                 else
-                    % KEIN Abbruch: die Sim laeuft weiter mit valid=false, damit
-                    % der Pruefstand ohne Motive testbar bleibt.
+                    % Kein Abbruch: die Sim laeuft mit valid=false weiter, damit
+                    % der Pruefstand auch ohne Motive testbar bleibt.
                     fprintf(['[MotiveMocap] NICHT verbunden -> valid=false, ' ...
                              'Pose bleibt auf dem letzten Wert.\n']);
                 end
@@ -140,7 +138,7 @@ classdef MotiveMocap < matlab.System
                     if rb.ID ~= obj.StreamingID
                         continue;
                     end
-                    % NatNet: Meter, Quaternion SCALAR-LAST -> hier scalar-first.
+                    % NatNet: Meter, Quaternion scalar-last -> hier scalar-first.
                     p = [double(rb.x); double(rb.y); double(rb.z)];
                     q = [double(rb.qw); double(rb.qx); double(rb.qy); double(rb.qz)];
                     nq = norm(q);
@@ -197,11 +195,11 @@ classdef MotiveMocap < matlab.System
     end
 
     methods (Static, Access = protected)
-        % Der NatNet-Client ist .NET (NatNetML.dll) und NICHT codegen-faehig
-        % (schon try/catch scheitert: "Try and catch are not supported for code
-        % generation"). Deshalb wird der Modus HIER erzwungen statt nur am Block
-        % gesetzt — so kann er nicht versehentlich auf 'Code generation'
-        % zurueckfallen (und die Option wird im Blockdialog ausgeblendet).
+        % Der NatNet-Client ist .NET (NatNetML.dll) und nicht codegen-faehig
+        % (schon try/catch scheitert mit "Try and catch are not supported for
+        % code generation"). Der Modus wird deshalb hier erzwungen statt nur am
+        % Block gesetzt, damit er nicht versehentlich auf 'Code generation'
+        % zurueckfallen kann; die Option wird im Blockdialog ausgeblendet.
         function simMode = getSimulateUsingImpl()
             simMode = 'Interpreted execution';
         end

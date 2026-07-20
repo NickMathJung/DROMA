@@ -2,20 +2,19 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, estop, mode] = ...
         gcs_supervisor(estop_cmd, p_est, x_ref_traj, v_ref_traj, a_ref_traj, ...
                        yaw_ref_traj, tau_ref_traj, supervisor, Omega_ref_traj)
 %#codegen
-% GCS_SUPERVISOR Zustandsautomat
+% gcs_supervisor  Zustandsautomat der Bodenstation.
 %
-% Supervisor-MUX VOR pos_ctrl: waehlt die Sollwertquelle (Trajektorie vs.
-% geregelter Soft-Land) und setzt das estop-Feld des Bus_Cmd aktiv. 
+% Mux vor pos_ctrl: waehlt die Sollwertquelle (Trajektorie oder geregelter
+% Soft-Land) und setzt das estop-Feld des Bus_Cmd.
 %
-% ZUSTAENDE (mode):
-%   0 NORMAL     : Sollwerte = Trajektorie estop=0
-%   1 SOFT_LAND  : x/y eingefrieren, z-Ref rampt mit v_sink runter, v_ref=+v_sink,
-%                  yaw halten. estop=1 (onboard sieht Soft-Land flag)
-%   2 DISARMED   : Grund erreicht -> estop=2 -> onboard-Cutoff (rotors_cmd=0)
-%   3 KILL       : Hard-Kill (estop_cmd==2 von ueberall) -> estop=2
+% Zustaende (mode):
+%   0 NORMAL     : Sollwerte aus der Trajektorie, estop=0.
+%   1 SOFT_LAND  : x/y einfrieren, z-Ref rampt mit v_sink runter, v_ref=+v_sink,
+%                  yaw halten. estop=1 (onboard sieht das Soft-Land-Flag).
+%   2 DISARMED   : Grund erreicht, estop=2, onboard-Cutoff (rotors_cmd=0).
+%   3 KILL       : Hard-Kill (estop_cmd==2 aus jedem Zustand), estop=2.
 %
-%
-% EINGAENGE:
+% Eingaenge:
 %   estop_cmd       : uint8  Bediener-Wunsch  0 normal / 1 soft-land / 2 hard-kill
 %   p_est           : 3x1    Positionsschaetzung [x;y;z] aus Luenberger
 %   x_ref_traj      : 3x1    Trajektorien-Sollposition (Durchleitung in NORMAL)
@@ -26,7 +25,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, estop, mode] = ...
 %   tau_ref_traj    : 3x1    Trajektorien-Sollmomente 
 %   sup             : struct .v_sink .z_ground .disarm_margin .Ts
 %
-% AUSGAENGE (-> pos_ctrl bzw. Bus_Cmd):
+% Ausgaenge (-> pos_ctrl bzw. Bus_Cmd):
 %   x_ref, v_ref, a_ref : 3x1    selektierte Sollwerte fuer pos_ctrl
 %   yaw_ref             : double selektierter Soll-Yaw
 %   Omega_ref, tau_ref  : 3x1    Lage-Vorsteuerung 
