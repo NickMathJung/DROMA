@@ -9,7 +9,41 @@ Nächster Block: Codec-Cross-Check, SITL-Re-Zert für `throttle`, ARM-Codegen.*
 
 ---
 
-## 0a. TL;DR Session 9 (zuletzt) — Re-Arm/F_des-Sweep → Gyro-Bias-Bug
+## 0aa. TL;DR Session 10 (zuletzt) — Taster-Kill umgewidmet + Tilt-Cutoff
+
+1. **`btn_ack` umgewidmet: Quittung → lokaler Kill.** Re-Armen läuft **nur** noch
+   über die steigende Flanke von `Bus_Cmd.ack`. Eine steigende Taster-Flanke
+   **latcht throttle→0** (`fault_src=4`); solange der Taster **gehalten** wird, ist
+   Re-Armen gesperrt. ⇒ Akku sicher absteckbar, ohne dass die Props anlaufen. Das
+   frühere OR (`btn_ack || Bus_Cmd.ack`) in `mcu.slx` ist **entfernt**.
+2. **Tilt-Cutoff neu.** Kippwinkel **> 80° für 80 Zyklen (80 ms @1 kHz)** → gleicher
+   Kill-Latch (`fault_src=3`), aus der geschätzten Lage `q_hat`:
+   `cos(tilt) = w²−x²−y²+z²` (normiert, transponierungssicher). Schwellen als
+   Parameter in `init_safety.m` (`tilt_max_deg=80`, `tilt_cos_min=cosd(80)`,
+   `tilt_debounce_N=80`). `q_hat` (Mahony-Ausgang) ist dafür **neu** an
+   `safety_overspeed` verdrahtet.
+3. **`safety_overspeed` = 4 Kill-Quellen in einem Latch:** `1` Overspeed ·
+   `2` Hard-Kill · `3` Tilt · `4` Taster. Re-Arm nur bei `Bus_Cmd.ack`-Flanke
+   **und** ohne aktive Fehlerbedingung (kein Overspeed, kein Tilt, `estop≠2`,
+   Taster los). Neue Signatur:
+   `safety_overspeed(gyro_corr, q_hat, estop, ack, btn, safety)`.
+4. **`mcu.slx`-Umbau** (headless, **ohne** `openProject` — Falle aus §0a.8): OR-Block
+   raus, Wrapper `MATLAB Function` auf 6 Args, `q_hat`/`btn`/`Bus_Cmd.ack` neu
+   verdrahtet. Danach Host- + ARM-Codegen, `throttle_poly`, Golden und
+   `gen_lib_codegen` (Leaf-Signatur) neu.
+5. **✅ Gate B grün: `ref` 40/40, `codegen` 39/39** (S9 wie immer ausgeblendet).
+   Neue Regressionen: `test_safety` **T1–T4** (Tilt) + **BT1–BT3** (Taster);
+   modellweit **`McuOverspeed`** (Bus-ack-Re-Arm), **`McuButton`**, **`McuTilt`**
+   (letzterer beweist die `q_hat`-Verdrahtung: Estimator via `q_ext` in 85° gezogen,
+   Kill greift). `verify_overspeed.m`-Scaffold grün.
+6. ⚠️ **Flug-Erinnerung (unverändert):** `drone_hal.cpp` `#define HAL_SELFTEST`
+   auskommentieren + neu flashen. Der neue ARM-Code liegt in `hardware/mcu_arm/`.
+   HAL-Code selbst unverändert (`btn_ack` + `Bus_Cmd.ack` gingen schon getrennt in
+   die MCU); nur der Kommentar bei Pkt. „3b) btn_ack" ist nachgezogen.
+
+---
+
+## 0a. TL;DR Session 9 — Re-Arm/F_des-Sweep → Gyro-Bias-Bug
 
 1. **⛔ Sim≠HW-Bug gefunden + gefixt: doppelte Gyro-Bias-Subtraktion.** Die HAL
    zieht den echten Bias ab, `mcu.slx` zog zusätzlich den *fiktiven* Sim-Bias ab
@@ -149,11 +183,25 @@ Nächster Block: Codec-Cross-Check, SITL-Re-Zert für `throttle`, ARM-Codegen.*
 - **ESC-Einlernen + Arming:** Startup-FSM am Boden (max→min→arm), Endpunkte
   = Flug-Endpunkte 512/1024.
 - **Failsafe:** kein gültiges Paket seit **100 ms** → `estop=2` (Hard-Kill,
-  `safety_overspeed` latcht rotors=0; Re-Arm nur am Boden via ack-Flanke).
+  `safety_overspeed` latcht rotors=0; Re-Arm nur über die `Bus_Cmd.ack`-Flanke).
   Soft-Land (estop=1) ist GCS-getrieben → bei Link-Verlust unmöglich, daher
   estop=2 die einzige kohärente Onboard-Aktion.
-- **Overspeed:** `safety.omega_max=8.5 rad/s` < Gyro-FSR 8.727 rad/s → detektierbar
-  (Sättigung 8.727 > 8.5). Margin dünn, aber Entprellung robust.
+- **Onboard-Kill-Latch `safety_overspeed` (Session 10 gelockt) — 4 Quellen, 1 Latch,
+  1 Re-Arm:**
+  - `1` **Overspeed:** `safety.omega_max=8.5 rad/s` < Gyro-FSR 8.727 rad/s →
+    detektierbar (Sättigung 8.727 > 8.5), über `debounce_N=4` entprellt. Margin
+    dünn, aber Entprellung robust.
+  - `2` **Hard-Kill:** `estop==2` (Uplink oder Link-Watchdog), sofort.
+  - `3` **Tilt:** Kippwinkel > `tilt_max_deg=80°` über `tilt_debounce_N=80` Zyklen,
+    aus `q_hat` (`cos(tilt)=w²−x²−y²+z²`). Fängt langsames Umkippen/Liegen, das die
+    Drehraten-Schwelle nie überschreitet.
+  - `4` **Taster:** steigende Flanke von `btn_ack` (lokaler Teensy-Taster, Pin 21).
+    Lokaler „Motoren-jetzt-aus"-Knopf fürs sichere Akku-Abstecken.
+  - **Re-Arm** (Fault→Armed) **nur** bei steigender `Bus_Cmd.ack`-Flanke **und**
+    ohne aktive Fehlerbedingung: `~over_inst & ~tilt_inst & estop≠2 & ~btn`. Der
+    Taster ist damit **keine Quittung mehr** (früher OR mit `Bus_Cmd.ack`), sondern
+    Auslöser + Re-Arm-Sperre solange gehalten. `fault_src` (LED/Debug):
+    0 keine / 1 overspeed / 2 hard-kill / 3 tilt / 4 taster.
 
 ---
 

@@ -20,8 +20,8 @@
 using namespace sitl;
 
 // throttle-Invariante: clamp(polyval(P, x), 0, 100), Horner wie MATLAB polyval.
-// NICHT bit-exakt gegen den generierten Code moeglich (Polyval-Eingang im Modell
-// ist das vorzeichenbehaftete omega_sq VOR abs; rotor_cmd=sqrt(abs(omega_sq)) ->
+// Gegen den generierten Code nicht bit-exakt (der Polyval-Eingang im Modell ist
+// das vorzeichenbehaftete omega_sq vor abs; rotor_cmd=sqrt(abs(omega_sq)), und
 // sqrt(x)^2 weicht ~1 ULP von x ab). Beobachtet |d|<=7.1e-15, Schranke 1e-9.
 static double throttle_ref(double x) {
     double y = mcuref::P_THROTTLE[0];
@@ -100,10 +100,11 @@ TEST(McuGolden, DeterministicAcrossFreshInstances) {
             EXPECT_DOUBLE_EQ(a[r][i], b[r][i]) << "divergenz Zeile " << r << " ch " << i;
 }
 
-// Failsafe: estop==2 -> latched -> BEIDE Aktuator-Ausgaenge auf 0.
-// Regression fuer den §3b-Bug: der throttle-Outport war NICHT vom latched-Gate
-// erfasst -> der HAL (esc_write_all(throttle)) haette die Motoren bei Link-Verlust
-// NICHT gestoppt. Braucht kein Golden (konstruiert die Eingaenge selbst).
+// Failsafe: estop==2 -> latched -> beide Aktuator-Ausgaenge auf 0.
+// Regression fuer einen frueheren Bug: der throttle-Outport war nicht vom
+// latched-Gate erfasst, sodass der HAL (esc_write_all(throttle)) die Motoren bei
+// Link-Verlust nicht gestoppt haette. Braucht kein Golden, die Eingaenge sind
+// hier selbst konstruiert.
 TEST(McuFailsafe, Estop2KillsThrottleAndRotor) {
     MCU obj; obj.initialize();
     MCU::ExtU_mcu_T u{};
@@ -123,18 +124,19 @@ TEST(McuFailsafe, Estop2KillsThrottleAndRotor) {
 }
 
 // Overspeed-Latch im generierten Code: ||gyro||>omega_max(8.5) fuer > debounce_N(4)
-// Ticks -> Kill (rotor/throttle=0). Latch HAELT ohne ack-Flanke; eine Taster-Flanke
-// re-armt — UNABHAENGIG vom befohlenen Schub (der Arming-Idle-Interlock wurde in
-// Session 9 verworfen, siehe safety_overspeed.m). Deckt die generierte ack-OR
-// (Bus_Cmd.ack || btn_ack) + safety_overspeed ab.
-TEST(McuOverspeed, KillHoldsAndReArmsOnAckEdge) {
+// Ticks -> Kill (rotor/throttle=0). Der Latch haelt ohne ack-Flanke; re-armt wird
+// jetzt ausschliesslich ueber die steigende Flanke von Bus_Cmd.ack (der Taster ist
+// keine Quittung mehr, siehe McuButton). Deckt die neue Verdrahtung
+// (Bus_Cmd.ack -> ack, getrennt vom Taster) plus safety_overspeed ab.
+TEST(McuOverspeed, KillHoldsAndReArmsOnBusAckEdge) {
     MCU obj; obj.initialize();
     MCU::ExtU_mcu_T u{};
     u.Bus_IMU_k.imu_acc[2] = 9.81;                  // Schwerkraft -> Estimator level
     u.Bus_Cmd_l.q_des[0] = 1.0;
     u.Bus_Cmd_l.q_ref[0] = 1.0;
     u.Bus_Cmd_l.q_ext[0] = 1.0;
-    u.Bus_Cmd_l.estop = 0;                          // KEIN Hard-Kill (isolier Overspeed)
+    u.Bus_Cmd_l.estop = 0;                          // kein Hard-Kill (Overspeed isolieren)
+    u.Bus_Cmd_l.ack = false;
     u.batt_count = 944.0;                           // ~15.74 V -> Batterie NORMAL
     u.btn_ack = false;
     const double F_HOVER = 9.4666;                  // ~m*g
@@ -151,35 +153,114 @@ TEST(McuOverspeed, KillHoldsAndReArmsOnAckEdge) {
         }
     }
 
-    // Phase 2a: gyro 0, aber KEIN Taster -> Latch muss halten.
+    // Phase 2a: gyro 0, aber keine ack-Flanke -> Latch muss halten.
     u.Bus_IMU_k.imu_gyro[0] = 0.0;
     for (int k = 0; k < 10; ++k) { obj.setExternalInputs(&u); obj.step(); }
     {
         const auto& y = obj.getExternalOutputs();
         double s = 0.0; for (int i = 0; i < 4; ++i) s += y.throttle[i];
-        EXPECT_EQ(0.0, s) << "Latch darf ohne ack-Flanke NICHT selbst freigeben";
+        EXPECT_EQ(0.0, s) << "Latch darf ohne ack-Flanke nicht selbst freigeben";
     }
 
-    // Phase 2b: Taster-Flanke bei HOVER-Schub -> Re-Arm geht durch. Regression fuer
-    // die Session-9-Entscheidung: KEIN F_des-Interlock mehr (frueher blockiert).
-    u.btn_ack = true;
+    // Phase 2b: steigende Bus_Cmd.ack-Flanke bei Hover-Schub -> Re-Arm geht durch.
+    u.Bus_Cmd_l.ack = true;
     for (int k = 0; k < 10; ++k) { obj.setExternalInputs(&u); obj.step(); }
     {
         const auto& y = obj.getExternalOutputs();
         double s = 0.0; for (int i = 0; i < 4; ++i) s += y.throttle[i];
-        EXPECT_GT(s, 0.0) << "ack-Flanke muss re-armen, auch bei Hover-Schub "
-                             "(Idle-Interlock ist entfallen)";
+        EXPECT_GT(s, 0.0) << "Bus_Cmd.ack-Flanke muss re-armen (kein F_des-Interlock)";
     }
 
     // Phase 2c: gehaltenes ack erzeugt keine neue Flanke -> ein frischer Overspeed
     // muss trotzdem latchen (ack-Pegel darf den Trip nicht sofort wieder loeschen).
-    u.Bus_IMU_k.imu_gyro[0] = 9.0;                  // erneut Overspeed, ack bleibt HIGH
+    u.Bus_IMU_k.imu_gyro[0] = 9.0;                  // erneut Overspeed, ack bleibt high
     for (int k = 0; k < 10; ++k) { obj.setExternalInputs(&u); obj.step(); }
     {
         const auto& y = obj.getExternalOutputs();
         for (int i = 0; i < 4; ++i)
             EXPECT_EQ(0.0, y.throttle[i])
                 << "gehaltenes ack darf einen frischen Trip nicht loeschen";
+    }
+}
+
+// Lokaler Taster im generierten Code: eine steigende btn_ack-Flanke killt (Motoren
+// 0), damit der Bediener vor Ort sicher den Akku abstecken kann. Der Taster ist
+// KEINE Quittung mehr; geloest wird nur ueber Bus_Cmd.ack, und ein gehaltener
+// Taster sperrt das Re-Armen. Deckt die umgewidmete btn_ack-Verdrahtung ab.
+TEST(McuButton, EdgeKillsHeldBlocksRearmBusAckClears) {
+    MCU obj; obj.initialize();
+    MCU::ExtU_mcu_T u{};
+    u.Bus_IMU_k.imu_acc[2] = 9.81;
+    u.Bus_Cmd_l.q_des[0] = 1.0;
+    u.Bus_Cmd_l.q_ref[0] = 1.0;
+    u.Bus_Cmd_l.q_ext[0] = 1.0;
+    u.Bus_Cmd_l.estop = 0;
+    u.Bus_Cmd_l.ack = false;
+    u.batt_count = 944.0;
+    u.btn_ack = false;
+    u.Bus_Cmd_l.F_des = 9.4666;                     // Hover-Schub -> ohne Kill waere throttle>0
+
+    // Phase A: Taster-Flanke -> Kill.
+    u.btn_ack = true;
+    for (int k = 0; k < 10; ++k) { obj.setExternalInputs(&u); obj.step(); }
+    {
+        const auto& y = obj.getExternalOutputs();
+        double s = 0.0; for (int i = 0; i < 4; ++i) s += y.throttle[i];
+        EXPECT_EQ(0.0, s) << "Taster-Flanke muss killen";
+    }
+
+    // Phase B: Taster gehalten + Bus_Cmd.ack-Flanke -> darf NICHT re-armen.
+    u.Bus_Cmd_l.ack = true;
+    for (int k = 0; k < 10; ++k) { obj.setExternalInputs(&u); obj.step(); }
+    {
+        const auto& y = obj.getExternalOutputs();
+        double s = 0.0; for (int i = 0; i < 4; ++i) s += y.throttle[i];
+        EXPECT_EQ(0.0, s) << "gehaltener Taster muss das Re-Armen sperren";
+    }
+
+    // Phase C: Taster los, neue Bus_Cmd.ack-Flanke -> re-armt.
+    u.btn_ack = false;
+    u.Bus_Cmd_l.ack = false;
+    for (int k = 0; k < 3; ++k) { obj.setExternalInputs(&u); obj.step(); }  // ack senken
+    u.Bus_Cmd_l.ack = true;                                                 // neue Flanke
+    for (int k = 0; k < 10; ++k) { obj.setExternalInputs(&u); obj.step(); }
+    {
+        const auto& y = obj.getExternalOutputs();
+        double s = 0.0; for (int i = 0; i < 4; ++i) s += y.throttle[i];
+        EXPECT_GT(s, 0.0) << "Taster los + ack-Flanke muss re-armen";
+    }
+}
+
+// Tilt-Cutoff im generierten Code: der Estimator wird ueber die Mocap-Referenz
+// (Bus_Cmd.q_ext) plus passenden Accel in eine 85-deg-Kippung gezogen; nach der
+// Entprellung (80 Ticks) muss der Kill greifen. Das prueft zugleich, dass q_hat
+// ueberhaupt an safety_overspeed verdrahtet ist.
+TEST(McuTilt, SustainedTiltKills) {
+    MCU obj; obj.initialize();
+    MCU::ExtU_mcu_T u{};
+    const double d2r = 3.14159265358979323846 / 180.0;
+    const double phi = 85.0 * d2r;                  // Rollwinkel um x
+    u.Bus_Cmd_l.q_des[0] = 1.0;
+    u.Bus_Cmd_l.q_ref[0] = 1.0;
+    // Mocap-Referenz: 85 deg Roll (scalar-first [w x 0 0]).
+    u.Bus_Cmd_l.q_ext[0] = std::cos(phi / 2);
+    u.Bus_Cmd_l.q_ext[1] = std::sin(phi / 2);
+    // Accel passend zur Kippung (Body-Up-Richtung), damit der Accel-Term nicht
+    // gegen die Referenz zieht: [0; g*sin(phi); g*cos(phi)].
+    u.Bus_IMU_k.imu_acc[1] = 9.81 * std::sin(phi);
+    u.Bus_IMU_k.imu_acc[2] = 9.81 * std::cos(phi);
+    u.Bus_Cmd_l.estop = 0;
+    u.Bus_Cmd_l.ack = false;
+    u.btn_ack = false;
+    u.batt_count = 944.0;
+    u.Bus_Cmd_l.F_des = 9.4666;
+
+    // Estimator konvergieren lassen (kE stark) + Entprellung.
+    for (int k = 0; k < 2000; ++k) { obj.setExternalInputs(&u); obj.step(); }
+    const auto& y = obj.getExternalOutputs();
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_EQ(0.0, y.throttle[i])  << "throttle["  << i << "] nicht gekillt bei >80 deg Tilt";
+        EXPECT_EQ(0.0, y.rotor_cmd[i]) << "rotor_cmd[" << i << "] nicht gekillt bei >80 deg Tilt";
     }
 }
 

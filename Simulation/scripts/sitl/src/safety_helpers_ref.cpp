@@ -3,25 +3,30 @@
 #include "safety_helpers.h"
 #include <cmath>
 
-// ======================= safety_overspeed ===============================
+// --- safety_overspeed ---
 namespace {
 bool     os_latched  = false;
 uint16_t os_cnt      = 0;
+uint16_t os_tcnt     = 0;
 bool     os_ack_prev = false;
+bool     os_btn_prev = false;
 uint8_t  os_src      = 0;
 bool     os_inited   = false;
 }
 
 void overspeed_reset(void) {
-    os_latched = false; os_cnt = 0; os_ack_prev = false; os_src = 0;
+    os_latched = false; os_cnt = 0; os_tcnt = 0;
+    os_ack_prev = false; os_btn_prev = false; os_src = 0;
     os_inited = false;
 }
 
-void overspeed_step(const double gyro_corr[3], uint8_t estop, bool ack,
+void overspeed_step(const double gyro_corr[3], const double q_hat[4],
+                    uint8_t estop, bool ack, bool btn,
                     const OverspeedParams* p,
                     bool* kill, uint8_t* fault_src, double dbg[3]) {
     if (!os_inited) {  // entspricht 'isempty(latched)' beim ersten Aufruf
-        os_latched = false; os_cnt = 0; os_ack_prev = false; os_src = 0;
+        os_latched = false; os_cnt = 0; os_tcnt = 0;
+        os_ack_prev = false; os_btn_prev = false; os_src = 0;
         os_inited = true;
     }
     const double g0 = gyro_corr[0], g1 = gyro_corr[1], g2 = gyro_corr[2];
@@ -40,16 +45,35 @@ void overspeed_step(const double gyro_corr[3], uint8_t estop, bool ack,
     else           { os_cnt = 0; }
     const bool over_deb = os_cnt >= Nreq;
 
-    const bool hard_kill = (estop == 2);
+    // Tilt: cos(Kippwinkel) = (w^2 - x^2 - y^2 + z^2) / |q|^2, normiert.
+    const double qw = q_hat[0], qx = q_hat[1], qy = q_hat[2], qz = q_hat[3];
+    const double n2 = qw*qw + qx*qx + qy*qy + qz*qz;
+    bool tilt_inst;
+    if (n2 < 1e-12) {
+        tilt_inst = false;
+    } else {
+        const double cos_tilt = (qw*qw - qx*qx - qy*qy + qz*qz) / n2;
+        tilt_inst = cos_tilt < p->tilt_cos_min;
+    }
+    const uint16_t Ntilt = p->tilt_debounce_N;
+    if (tilt_inst) { if (os_tcnt < Ntilt) os_tcnt = static_cast<uint16_t>(os_tcnt + 1); }
+    else           { os_tcnt = 0; }
+    const bool tilt_deb = os_tcnt >= Ntilt;
 
-    if (over_deb && !os_latched) { os_latched = true; os_src = 1; }
-    if (hard_kill && !os_latched){ os_latched = true; os_src = 2; }
+    const bool hard_kill = (estop == 2);
+    const bool btn_edge  = btn && !os_btn_prev;
+
+    if (over_deb  && !os_latched) { os_latched = true; os_src = 1; }
+    if (hard_kill && !os_latched) { os_latched = true; os_src = 2; }
+    if (tilt_deb  && !os_latched) { os_latched = true; os_src = 3; }
+    if (btn_edge  && !os_latched) { os_latched = true; os_src = 4; }
 
     const bool ack_edge = ack && !os_ack_prev;
-    if (os_latched && ack_edge && !over_inst && (estop != 2)) {
-        os_latched = false; os_cnt = 0; os_src = 0;
+    if (os_latched && ack_edge && !over_inst && !tilt_inst && (estop != 2) && !btn) {
+        os_latched = false; os_cnt = 0; os_tcnt = 0; os_src = 0;
     }
     os_ack_prev = ack;
+    os_btn_prev = btn;
 
     *kill      = os_latched;
     *fault_src = os_src;
@@ -58,7 +82,7 @@ void overspeed_step(const double gyro_corr[3], uint8_t estop, bool ack,
     dbg[2] = ack_edge  ? 1.0 : 0.0;
 }
 
-// ======================= safety_battery =================================
+// --- safety_battery ---
 namespace {
 double  bt_Vf     = 0.0;
 uint8_t bt_state  = 0;

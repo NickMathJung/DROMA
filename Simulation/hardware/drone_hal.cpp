@@ -1,30 +1,31 @@
 // drone_hal.cpp — Teensy 4.1 Firmware-Mantel um den generierten MCU::step().
-// Baustein-Skelett (Teensyduino / PlatformIO). Verdrahtet die Sensorik/Aktorik
-// an die MCU-Grenze (Bus_IMU / Bus_Cmd / batt_count -> rotor_cmd/led/throttle),
-// taktet MCU::step() bei 1 kHz. Codegen-Code (Klasse MCU) bleibt unberuehrt.
+// Baustein-Skelett (Teensyduino / PlatformIO). Verdrahtet Sensorik und Aktorik
+// an die MCU-Grenze (Bus_IMU / Bus_Cmd / batt_count -> rotor_cmd/led/throttle)
+// und taktet MCU::step() bei 1 kHz. Der Codegen-Code (Klasse MCU) bleibt unberuehrt.
 //
-// GELOCKTE ENTSCHEIDUNGEN (Handover Teil 6 + Step-4-Session):
-//   - Rate: 1 kHz Basistakt (Ts_inner=1e-3). Ein step() pro Tick (SingleTasking).
+// Festgelegte Entscheidungen:
+//   - Rate: 1 kHz Basistakt (Ts_inner=1e-3), ein step() pro Tick (SingleTasking).
 //   - IMU MPU-6050 @ Wire(0)=Pin18/19, 0x68 (ADO->GND), 400 kHz.
 //        Gyro FS_SEL=1 (+-500 dps, 65.5 LSB/dps);  Acc AFS_SEL=1 (+-4 g, 8192 LSB/g).
 //        Achsdrehung Body<-Sensor R_bs: [x_b;y_b;z_b] = [ y_s; -x_s; z_s ].
-//        Gyro-Bias: 3 s Startup-Mittelung (Drohne still) -> abziehen.
-//        Acc: hebelarm-ROH durchreichen (Kompensation sitzt bewusst NICHT hier).
-//   - Batterie: analogRead(41)=SPANNUNG (A17, Platine umgeloetet), 12 bit, ROHE counts ->
-//        batt_count (Volt-Umrechnung im Modell, S6). Strom (Pin40/A16) = nur Telemetrie.
+//        Gyro-Bias: 3 s Startup-Mittelung (Drohne still), dann abziehen.
+//        Acc: Hebelarm roh durchreichen (die Kompensation sitzt bewusst nicht hier).
+//   - Batterie: analogRead(41) = Spannung (A17, Platine umgeloetet), 12 bit, rohe
+//        counts -> batt_count (Volt-Umrechnung im Modell). Strom (Pin40/A16) ist nur
+//        Telemetrie.
 //   - ESC: OneShot125 via analogWriteFrequency(1000)+analogWriteResolution(12):
 //        count = 512 + throttle*5.12  ->  125..250 us  (throttle bereits [0,100]).
-//        Boot: NUR Arming (min-Halten), KEINE Kalibrierung. ESCs extern
+//        Beim Boot nur Arming (min halten), keine Kalibrierung. Die ESCs sind extern
 //        vorkalibriert, Endpunkte 512/1024.
-//   - Status-LED: led = 3-Zustands-Warn-FSM (0 NORMAL / 1 WARN / 2 CRIT), KEIN
+//   - Status-LED: led = 3-Zustands-Warn-FSM (0 NORMAL / 1 WARN / 2 CRIT), kein
 //        Ladebalken. Pin5 = WARN (state>=1), Pin10 = CRIT (state==2).
 //   - nRF24L01 @ SPI1 (SCK27/MOSI26/MISO1), CE14, CSN0, IRQ9. Design A:
-//        Broadcast, Auto-Ack AUS, 29-Byte-Payload, App-ID-Gate via BCD.
-//        begin(&SPI1) (Fallback fuer aeltere Lib im Code kommentiert).
+//        Broadcast, Auto-Ack aus, 29-Byte-Payload, App-ID-Gate via BCD.
+//        begin(&SPI1) (Fallback fuer aeltere Lib im Code auskommentiert).
 //   - Failsafe: kein gueltiges Paket seit 100 ms -> estop=2 (Hard-Kill, safety_overspeed).
 //
-// OFFEN (HW-Bestaetigung noetig): ADO->GND-Bodge (R8) fuer 0x68; ESC-Endpunkte
-// extern eingelernt; Timing-Budget im Betrieb pruefen (Serial [tick]-Report).
+// Noch per HW zu bestaetigen: ADO->GND-Bodge (R8) fuer 0x68; extern eingelernte
+// ESC-Endpunkte; Timing-Budget im Betrieb (Serial [tick]-Report).
 
 #include <Arduino.h>
 #include <Wire.h>
@@ -37,9 +38,9 @@
 #include "mcu_packet.hpp"  // pkt::unpack / id_matches (single source of truth)
 
 // ---- Bench-Selbsttest -------------------------------------------------------
-// Einkommentieren -> Pruefstand-Firmware: Motoren bleiben SICHER auf min, die
+// Aktiviert die Pruefstand-Firmware: die Motoren bleiben sicher auf min, und die
 // Drohne printet stattdessen alle I/O-Pfade (Gyro/Acc/Batt/Link/estop/throttle/
-// Timing) ~10x/s ueber Serial. Fuer den Flug AUSKOMMENTIERT lassen.
+// Timing) ~10x/s ueber Serial. Fuer den Flug auskommentiert lassen.
 #define HAL_SELFTEST
 
 // ------------------------------ Pinbelegung (PCB Drohne_Teensy) --------------
@@ -52,7 +53,7 @@ static constexpr uint8_t PIN_BCD[4]    = {17, 16, 39, 38}; // BCD 1/2/4/8, INPUT
 static constexpr uint8_t PIN_NRF_CE    = 14;
 static constexpr uint8_t PIN_NRF_CSN   = 0;
 static constexpr uint8_t PIN_NRF_IRQ   = 9;            // optional (hier gepollt)
-static constexpr uint8_t PIN_BTN       = 21;           // Taster: active-low (INPUT_PULLUP) -> btn_ack (Latch-Reset)
+static constexpr uint8_t PIN_BTN       = 21;           // Taster: active-low (INPUT_PULLUP) -> btn_ack (lokaler Kill)
 
 // ------------------------------ Konstanten -----------------------------------
 static constexpr double  G        = 9.80665;
@@ -90,7 +91,7 @@ static void mpu_write(uint8_t reg, uint8_t val) {
     Wire.beginTransmission(MPU_ADDR); Wire.write(reg); Wire.write(val); Wire.endTransmission();
 }
 // Burst-Read 0x3B..: liefert Gyro & Acc bereits in {B} (R_bs) und SI-Einheiten.
-// gyro[rad/s], acc[m/s^2]. KEINE Bias-Subtraktion hier (macht der Caller).
+// gyro[rad/s], acc[m/s^2]. Keine Bias-Subtraktion hier, das macht der Caller.
 static void mpu_read_body(double gyro[3], double acc[3]) {
     Wire.beginTransmission(MPU_ADDR); Wire.write(MPU_ACCEL_XOUT_H); Wire.endTransmission(false);
     Wire.requestFrom((int)MPU_ADDR, 14);
@@ -129,9 +130,9 @@ static inline void esc_write_all(const double throttle[4]) {
 
 // ------------------------------ Status-LED -----------------------------------
 static void drive_leds(uint8_t state) {
-    // led = Batterie-Warn-FSM (mcu_DW.state), 3 Zustaende — KEIN Ladebalken:
+    // led = Batterie-Warn-FSM (mcu_DW.state), 3 Zustaende, kein Ladebalken:
     //   0 = NORMAL, 1 = WARN (Vf<=14.0 V), 2 = CRIT (Vf<=13.4 V).
-    // Mapping (gelockt): Pin5 = WARN aktiv (state>=1), Pin10 = CRIT (state==2).
+    // Mapping: Pin5 = WARN aktiv (state>=1), Pin10 = CRIT (state==2).
     digitalWrite(PIN_LED,      state >= 1 ? HIGH : LOW);   // gelb: handeln
     digitalWrite(PIN_STAT_100, state == 2 ? HIGH : LOW);   // rot: kritisch
 }
@@ -150,9 +151,10 @@ static void nrf_poll() {
 
 // ------------------------------ Startup-FSM ----------------------------------
 static void esc_arm() {
-    // Gelockt: KEINE Boot-Kalibrierung (kein throttle-max-Sweep -> sicher mit Props).
-    // ESCs sind extern vorkalibriert; Endpunkte MUESSEN 512/1024 (=125/250 us) sein.
-    // Hier nur scharfschalten: min-Signal halten, bis die ESCs armen (Piep).
+    // Keine Boot-Kalibrierung (kein throttle-max-Sweep, damit es mit Props sicher
+    // bleibt). Die ESCs sind extern vorkalibriert, die Endpunkte muessen 512/1024
+    // (=125/250 us) sein. Hier nur scharfschalten: min-Signal halten, bis die ESCs
+    // armen (Piep).
     for (int i=0;i<4;++i) analogWrite(PIN_PWM[i], ESC_MIN);
     delay(ARM_MS);
 }
@@ -220,9 +222,10 @@ void setup() {
 
     g_own_id = read_bcd_id();
 
-    // nRF Broadcast, Auto-Ack AUS (Design A) auf SPI1 (26/1/27 = Default-SPI1-Pins).
-    // Teensy: SPI1-Pins EXPLIZIT setzen + SPI1.begin() VOR RF24::begin(&SPI1),
-    // sonst haengt der erste SPI-Transfer in RF24::begin (peripherie nicht enabled).
+    // nRF Broadcast, Auto-Ack aus (Design A) auf SPI1 (26/1/27 = Default-SPI1-Pins).
+    // Auf dem Teensy die SPI1-Pins explizit setzen und SPI1.begin() vor
+    // RF24::begin(&SPI1) aufrufen, sonst haengt der erste SPI-Transfer in
+    // RF24::begin (Peripherie noch nicht enabled).
 #if defined(HAL_SELFTEST) && defined(SELFTEST_SKIP_NRF)
     Serial.println("[boot] 3 nRF UEBERSPRUNGEN (SELFTEST_SKIP_NRF)");
 #else
@@ -292,11 +295,14 @@ void loop() {
     g_U.Bus_Cmd_l.estop = g_cmd.estop;
     g_U.Bus_Cmd_l.ack   = g_cmd.ack;
 
-    // 3) batt_count: rohe 12-bit counts (Volt-Umrechnung macht S6 im Modell)
+    // 3) batt_count: rohe 12-bit counts (die Volt-Umrechnung macht das Modell)
     g_U.batt_count = (double)analogRead(PIN_BATT_V);
 
-    // 3b) btn_ack: Taster active-low (gedrueckt=LOW). Im Modell mit Bus_Cmd.ack
-    //     ge-OR-t -> loest den safety_overspeed-Latch (nur bei ~over_inst & estop!=2).
+    // 3b) btn_ack: Taster active-low (gedrueckt=LOW). Im Modell ist der Taster
+    //     jetzt eine eigene Kill-Quelle: seine steigende Flanke latcht den
+    //     safety_overspeed-Kill (Motoren 0), und solange er gehalten wird, bleibt
+    //     das Re-Armen gesperrt. Geloest wird ausschliesslich ueber Bus_Cmd.ack.
+    //     So drehen die Propeller beim Akkuwechsel garantiert nicht an.
     g_U.btn_ack = (digitalRead(PIN_BTN) == LOW);
 
     // 4) Ein step()
@@ -306,7 +312,7 @@ void loop() {
 
     // 5) Aktorik: throttle -> OneShot125, led-state -> LEDs
 #ifdef HAL_SELFTEST
-    for (int i=0;i<4;++i) analogWrite(PIN_PWM[i], ESC_MIN);  // Selbsttest: Motoren SICHER (min)
+    for (int i=0;i<4;++i) analogWrite(PIN_PWM[i], ESC_MIN);  // Selbsttest: Motoren sicher auf min
     drive_leds(y.led);
     selftest_report(y);
 #else

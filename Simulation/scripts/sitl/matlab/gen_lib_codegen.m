@@ -1,26 +1,26 @@
 %% gen_lib_codegen.m — Codegen der mcu.slx-Leaf-Funktionen als linkbare C-Quellen.
-%  Erzeugt GEN-ONLY C-Source (kein Build) je Funktion, die der C++-Golden-Test
-%  direkt einbindet (CMake -DQUAT_IMPL=codegen -DSAFETY_IMPL=codegen).
+%  Erzeugt je Funktion reine C-Source (kein Build), die der C++-Golden-Test direkt
+%  einbindet (CMake -DQUAT_IMPL=codegen -DSAFETY_IMPL=codegen).
 %
-%  WICHTIG — das ist NICHT dasselbe wie:
-%   (a) dein verify_quat_codegen.m: baut MEX (in MATLAB laufender Binaer) fuer den
-%       MATLAB<->Coder-Check. Laeuft NUR in MATLAB.
+%  Das ist etwas anderes als:
+%   (a) verify_quat_codegen.m: baut ein MEX (in MATLAB laufender Binaer) fuer den
+%       MATLAB<->Coder-Check und laeuft nur in MATLAB.
 %   (b) mcu.slx-Modell-Codegen (configure_mcu_codegen.m): absorbiert die Leafs in
-%       EINE C++-Klasse 'MCU' -> keine standalone-Entry-Points je Funktion.
-%  Diese Datei erzeugt jede Leaf-Funktion als EIGENE standalone C-Quelle, damit der
+%       eine C++-Klasse 'MCU', ohne standalone-Entry-Points je Funktion.
+%  Diese Datei erzeugt jede Leaf-Funktion als eigene standalone C-Quelle, damit der
 %  C++-Test ihre reine Numerik isoliert gegen die Golden-Vektoren diffen kann.
 %
-%  SPEICHERORDNUNG: Coder legt Matrizen COLUMN-major ab. dcm2quat_local(R) erwartet
-%  daher R column-major, quat2dcm_local(q) liefert R column-major. Genau darauf ist
-%  include/quat_helpers.h + test/csv.hpp (row->col-Adapter) ausgelegt.
+%  Speicherordnung: Coder legt Matrizen column-major ab. dcm2quat_local(R) erwartet
+%  R daher column-major, quat2dcm_local(q) liefert R column-major. Genau darauf sind
+%  include/quat_helpers.h und test/csv.hpp (row->col-Adapter) ausgelegt.
 %
-%  === AN DEINE STRUKTUR ANGEPASST ===
+%  Pfade:
 %  Erwartet: dieses Skript liegt in  Simulation\scripts\sitl\matlab\
 %  Quellen in:                       Simulation\scripts\functions\
 %  Ausgabe nach:                     Simulation\scripts\sitl\codegen\lib\<fn>\
 %
-%  HINWEIS: Alle codegen-Aufrufe in FUNKTIONS-Syntax (codegen('name',...)). Das
-%  vermeidet die Whitespace-Fallen der Command-Syntax (z.B. '}-d' -> Subtraktion).
+%  Alle codegen-Aufrufe sind in Funktions-Syntax (codegen('name',...)); das
+%  vermeidet die Whitespace-Fallen der Command-Syntax (z.B. '}-d' als Subtraktion).
 
 clear; clc;
 here         = fileparts(mfilename('fullpath'));            % ...\sitl\matlab
@@ -54,19 +54,20 @@ codegen('quatRotate', '-config', cfg, '-args', {zeros(4,1), zeros(3,1)}, ...
 %% ---- Safety-Leafs (persistent state) ----
 % Coder emittiert je <fn>_initialize()/<fn>()/<fn>_terminate(). Der duenne Shim
 % (README, "Codegen-Shim") mappt reset()->*_initialize, step()->*.
-os_p = struct('omega_max',10.0,'debounce_N',4.0,'use_norm',false);
+os_p = struct('omega_max',10.0,'debounce_N',4.0,'use_norm',false, ...
+              'tilt_cos_min',cosd(80),'tilt_debounce_N',80.0);
 bt_p = struct('batt_k',3.3*18.182/4095,'batt_b',0.0,'batt_alpha',0.014, ...
               'V_warn',14.0,'V_crit',13.4,'V_floor',12.0,'V_hyst',0.2);
 codegen('safety_overspeed', '-config', cfg, ...
-        '-args', {zeros(3,1), uint8(0), false, coder.Constant(os_p)}, ...
+        '-args', {zeros(3,1), zeros(4,1), uint8(0), false, false, coder.Constant(os_p)}, ...
         '-d', fullfile(outRoot,'safety_overspeed'));
 codegen('safety_battery', '-config', cfg, ...
         '-args', {0.0, coder.Constant(bt_p)}, ...
         '-d', fullfile(outRoot,'safety_battery'));
 
-%% ---- NOCH NICHT im Golden-Test abgedeckt (deine restlichen mcu-Funktionen) ----
-% geo_attitude_ctrl.m, mahony_filter.m -> Modell-Ebene (mcu.slx); safety_landcmd.m
-% -> als Leaf-Fixture geplant (schick die .m, dann kommt der Test dazu).
+%% ---- Noch nicht im Golden-Test abgedeckt (restliche mcu-Funktionen) ----
+% geo_attitude_ctrl.m und mahony_filter.m liegen auf Modell-Ebene (mcu.slx);
+% safety_landcmd.m ist als Leaf-Fixture geplant.
 
 fprintf('\nGeneriert nach %s\n', outRoot);
 fprintf(['Weiter:  cmake -S . -B build -DQUAT_IMPL=codegen -DSAFETY_IMPL=codegen ' ...

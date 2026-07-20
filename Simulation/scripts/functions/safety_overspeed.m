@@ -1,42 +1,53 @@
-function [kill, fault_src, dbg] = safety_overspeed(gyro_corr, estop, ack, safety)
+function [kill, fault_src, dbg] = safety_overspeed(gyro_corr, q_hat, estop, ack, btn, safety)
 %#codegen
-% SAFETY_OVERSPEED  Onboard-KILL-Latch
+% safety_overspeed  Onboard-Kill-Latch mit vier Quellen.
 %
-% Overspeed-Entprell-Latch ∪ Hard-Kill (estop==2).
-% Aktion downstream: rotors_cmd = 0  (Override NACH Mixer / VOR Motor-PT1+ESC).
-% KILL dominiert LAND; KILL latcht; Re-Arm NIE in der Luft.
-%
-% Warum eine Funktion fuer beide KILL-Quellen: Overspeed und Hard-Kill teilen
-% denselben Latch, dieselbe Aktion (rotors_cmd=0) und dieselbe Re-Arm-Semantik
-% (ack loescht). Eine gemeinsame Funktion haelt die Re-Arm-Bedingung an EINER
-% Stelle und macht "KILL dominiert LAND" trivial. Der geregelte Soft-Land
-% (estop==1) wird hier NICHT behandelt — das ist die GCS-Mode-Maschine.
+% Setzt ein latchendes kill-Flag, sobald eine der vier Fehlerbedingungen
+% zutrifft. Ein nachgelagerter Switch zwingt daraufhin rotors_cmd=0 (nach dem
+% Mixer, vor Motor-PT1 und ESC). Der Kill hat Vorrang vor Land und wird in der
+% Luft nicht zurueckgenommen. Die vier Quellen teilen sich einen Latch, eine
+% Aktion und eine Re-Arm-Bedingung, damit die Logik an einer Stelle steht:
+%   1 Overspeed : |gyro| > omega_max, ueber debounce_N Samples entprellt.
+%   2 Hard-Kill : estop==2 (Uplink oder Link-Watchdog), sofort.
+%   3 Tilt      : Kippwinkel > tilt_max, ueber tilt_debounce_N Samples entprellt.
+%   4 Taster    : steigende Flanke von btn (lokaler Teensy-Taster). Damit kann
+%                 der Bediener die Motoren vor Ort sicher stilllegen, bevor er
+%                 den Akku absteckt.
+% Der geregelte Soft-Land-Fall (estop==1) gehoert nicht hierher, sondern in die
+% Mode-Maschine der GCS.
 %
 % Eingaenge
-%   gyro_corr : 3x1  bias-korrigierte Drehrate [rad/s]  (MESSUNG, nicht Schaetzer!)
-%   estop : uint8  0 normal / 1 soft-land / 2 hard-kill (aus Bus_Cmd, Uplink)
-%   ack : bool   Quittung, bereits ge-OR-t (Teensy-Taster-Flanke | Bus_Cmd.ack)
-%   safety : struct  .omega_max [rad/s], .debounce_N (>=1), .use_norm (bool)
+%   gyro_corr : 3x1  bias-korrigierte Drehrate [rad/s] (Messung, kein Schaetzer)
+%   q_hat     : 4x1  geschaetzte Lage, scalar-first [w x y z] (fuer den Tilt)
+%   estop     : uint8  0 normal / 1 soft-land / 2 hard-kill (aus Bus_Cmd, Uplink)
+%   ack       : bool   Quittung, NUR Bus_Cmd.ack (Uplink) -> loest den Latch
+%   btn       : bool   lokaler Teensy-Taster (active-high); Flanke -> Kill
+%   safety    : struct  .omega_max [rad/s], .debounce_N (>=1), .use_norm (bool),
+%                       .tilt_cos_min (= cos(tilt_max)), .tilt_debounce_N (>=1)
 %
 % Ausgaenge
-%   kill : bool   latched -> nachgelagerter Switch zwingt rotors_cmd=0
-%   fault_src : uint8  0 none / 1 overspeed / 2 hard-kill   (LED/Debug)
-%   dbg : 3x1    [cnt; over_inst; ack_edge]           (verify/logging)
+%   kill      : bool   latched -> Switch downstream setzt rotors_cmd=0
+%   fault_src : uint8  0 keine / 1 overspeed / 2 hard-kill / 3 tilt / 4 taster
+%   dbg       : 3x1    [cnt; over_inst; ack_edge] (verify/logging)
 %
-% Re-Arm (FAULT->ARMED) NUR bei:  steigende ack-Flanke  &  ~over_inst  &  estop~=2.
-% Die ack-FLANKE (nicht der Pegel) verhindert, dass ein gehaltenes ack einen
-% frischen Trip sofort wieder loescht oder mid-air in einen Sturz re-armt. Die
-% Boden-Bedingung ("nie in der Luft") wird prozedural durch den physischen
-% Teensy-Taster garantiert (Bediener hebt die Drohne auf, drueckt) — onboard
-% existiert keine Pos/Vel-Schaetzung fuer ein Logik-Interlock (sitzt GCS-seitig).
-% Zum verworfenen Arming-Idle-Interlock siehe Hinweis am Dateiende.
+% Re-Armen (Fault -> Armed) nur bei steigender ack-Flanke aus Bus_Cmd und nur,
+% wenn gerade keine Fehlerbedingung anliegt: kein Overspeed, kein zu grosser
+% Kippwinkel, kein Hard-Kill und der Taster nicht gedrueckt. Ausgewertet wird die
+% ack-Flanke, nicht der Pegel, damit ein gehaltenes ack weder einen frischen Trip
+% sofort loescht noch mitten im Flug re-armt. Der Taster ist mit Absicht getrennt
+% vom ack: er tut nichts mehr fuers Quittieren, sondern loest nur noch aus, und er
+% blockiert das Re-Armen, solange er gehalten wird. So drehen die Propeller beim
+% Akkuwechsel garantiert nicht an. Zur verworfenen Interlock-Variante siehe die
+% Notiz am Dateiende.
 
-persistent latched cnt ack_prev src
+persistent latched cnt tcnt ack_prev btn_prev src
 if isempty(latched)
-    latched = false;
-    cnt = uint16(0);
+    latched  = false;
+    cnt      = uint16(0);
+    tcnt     = uint16(0);
     ack_prev = false;
-    src = uint8(0);
+    btn_prev = false;
+    src      = uint8(0);
 end
 
 gw = reshape(gyro_corr, 3, 1);
@@ -60,27 +71,64 @@ else
 end
 over_deb = cnt >= Nreq;
 
+% --- Tilt-Detektor, entprellt ---
+% Kippwinkel gegen die Vertikale aus der geschaetzten Lage:
+%   cos(tilt) = R33 = (w^2 - x^2 - y^2 + z^2) / |q|^2.
+% Die Normierung faengt ein leicht denormiertes q_hat ab; ein degeneriertes
+% (Null-)Quaternion gilt als level (cos=1), damit kein Fehltrip entsteht.
+q  = reshape(q_hat, 4, 1);
+n2 = q(1)*q(1) + q(2)*q(2) + q(3)*q(3) + q(4)*q(4);
+if n2 < 1e-12
+    tilt_inst = false;
+else
+    cos_tilt  = (q(1)*q(1) - q(2)*q(2) - q(3)*q(3) + q(4)*q(4)) / n2;
+    tilt_inst = cos_tilt < safety.tilt_cos_min;
+end
+
+Ntilt = uint16(safety.tilt_debounce_N);
+if tilt_inst
+    if tcnt < Ntilt
+        tcnt = tcnt + uint16(1);
+    end
+else
+    tcnt = uint16(0);
+end
+tilt_deb = tcnt >= Ntilt;
+
 % --- Hard-Kill: sofort, keine Entprellung ---
 hard_kill = (estop == uint8(2));
 
+% --- Taster: steigende Flanke ---
+btn_edge = btn && ~btn_prev;
+
 % --- KILL setzen (latcht; Quelle nur beim ersten Setzen vermerkt) ---
 if over_deb && ~latched
-    latched = true;  
-    src = uint8(1); % due to fast turning rates from gyro
+    latched = true;
+    src = uint8(1);                  % Quelle: Overspeed
 end
 if hard_kill && ~latched
-    latched = true;  
-    src = uint8(2);
+    latched = true;
+    src = uint8(2);                  % Quelle: Hard-Kill
+end
+if tilt_deb && ~latched
+    latched = true;
+    src = uint8(3);                  % Quelle: Tilt
+end
+if btn_edge && ~latched
+    latched = true;
+    src = uint8(4);                  % Quelle: lokaler Taster
 end
 
-% Re-Arm: steigende ack-Flanke + kein Overspeed + kein Hard-Kill.
+% Re-Arm: steigende ack-Flanke, und keine Fehlerbedingung liegt gerade an.
 ack_edge = ack && ~ack_prev;
-if latched && ack_edge && ~over_inst && (estop ~= uint8(2))
+if latched && ack_edge && ~over_inst && ~tilt_inst && (estop ~= uint8(2)) && ~btn
     latched = false;
     cnt     = uint16(0);
+    tcnt    = uint16(0);
     src     = uint8(0);
 end
 ack_prev = ack;
+btn_prev = btn;
 
 kill      = latched;
 fault_src = src;
@@ -88,19 +136,17 @@ dbg       = [double(cnt); double(over_inst); double(ack_edge)];
 end
 
 % -------------------------------------------------------------------------
-% ARMING-IDLE-INTERLOCK — ERPROBT UND VERWORFEN (Session 9). Nicht ohne neue
-% Argumente wieder einbauen. Die Variante forderte zusaetzlich
-% F_des <= safety.F_rearm_idle (=0.1*m*g) fuer den Re-Arm.
+% Verworfene Variante: Arming-Idle-Interlock. Getestet und wieder rausgeworfen,
+% bitte nicht ohne neue Argumente zurueckbauen. Sie verlangte fuers Re-Armen
+% zusaetzlich F_des <= safety.F_rearm_idle (= 0.1*m*g).
 %
-% Messung (F_des-Sweep gegen mcu.slx, level, gyro_corr=0):
-%   - Schwelle griff bit-exakt bei 0.946665 N ('<=' inklusiv).
-%   - ABER throttle im Loese-Tick ist NICHT 0: polyval(p_from_omega_sq, 0) =
-%     8.404 % (konstanter Term). Bei OneShot125 ~555 counts / 135 us, also UEBER
-%     der Anlaufschwelle (~5-10 %) -> die Props laufen beim Re-Armen ohnehin an.
-%     "Schub runter zum Armen" macht das Loesen also nicht motorfrei.
-%   - Gewinn war nur 9.94 % statt 23.43 % throttle (13.5 Prozentpunkte).
-% Preis: der physische Taster (Pin 21) — die einzige LOKALE Freigabe — wurde
-% wirkungslos, sobald die GCS >10 % Hover sendet, ohne jede Rueckmeldung am
-% Geraet. Lokale Sicherheitsfunktion an einen Remote-Zustand zu koppeln wog
-% schwerer als 13.5 Punkte throttle. Daher: Re-Arm haengt allein an
-% ack-Flanke & ~over_inst & estop~=2.
+% Aus dem F_des-Sweep gegen mcu.slx (level, gyro_corr=0):
+%   - Die Schwelle griff bit-exakt bei 0.946665 N (<= inklusiv).
+%   - Der throttle im Loese-Tick ist aber nicht 0: polyval(p_from_omega_sq, 0)
+%     = 8.404 % (konstanter Term). Bei OneShot125 sind das ~555 counts / 135 us,
+%     also ueber der Anlaufschwelle (~5-10 %) — die Props laufen beim Re-Armen
+%     ohnehin an. "Schub runter zum Armen" macht das Loesen nicht motorfrei.
+%   - Der Gewinn lag bei 9.94 % statt 23.43 % throttle, also 13.5 Punkten.
+% Der lokale Taster (Pin 21) ist heute selbst eine Kill-Quelle (siehe oben) und
+% blockiert das Re-Armen, solange er gehalten wird; damit ist das urspruengliche
+% Ziel "am Boden sicher loesen" ohne den Idle-Interlock erreicht.
