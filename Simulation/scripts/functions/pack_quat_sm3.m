@@ -18,10 +18,16 @@ function code = pack_quat_sm3(q)
 q = q(:);
 n = sqrt(q(1)*q(1) + q(2)*q(2) + q(3)*q(3) + q(4)*q(4));
 if n < 1e-12
-    q = [1;0;0;0]; % Fallback fuer degenerierte Eingabe
-else
-    q = q / n;
+    % Reserviertes Codewort 0 = "kein gueltiger Lagebezug" (z.B. Mocap-Dropout).
+    % Ein regulaerer Encode kann 0 nie erzeugen: jedes 10-bit-Feld traegt
+    % u = qi + 512 mit qi in [-511,511], ist also immer >= 1.
+    % Frueher wurde hier auf Identitaet zurueckgefallen — das kam beim Empfaenger
+    % als gueltige, waagerechte Lage an und hat den Mahony-Guard
+    % (norm(q_ext) > 0.5) ueber die Funkstrecke unerreichbar gemacht.
+    code = uint32(0);
+    return;
 end
+q = q / n;
 
 % betragsgroesste Komponente
 imax = 1;  amax = abs(q(1));

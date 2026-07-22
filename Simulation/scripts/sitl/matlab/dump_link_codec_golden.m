@@ -62,6 +62,11 @@ C(end+1) = mk('sat_Om',    Fh,   qI,qI,[20 -20 15],Z3, qI, 0, false);
 C(end+1) = mk('sat_tau',   Fh,   qI,qI,Z3,[5 -5 3], qI, 0, false);
 C(end+1) = mk('sat_all',   99,   qI,qI,[99 -99 99],[9 -9 9], qI, 0, false);
 
+% -- 5b) Mocap-Dropout: q_ext = 0 -> reserviertes Codewort 0, zurueck als Null-Quat --
+% Deckt den Pfad ab, der die Ungueltigkeit ueber die Funkstrecke traegt.
+C(end+1) = mk('mocap_invalid',     Fh, qI, qI, Z3, Z3, [0 0 0 0], 0, false);
+C(end+1) = mk('mocap_invalid_tilt',Fh, [0.9239 0 0.3827 0], qI, Z3, Z3, [0 0 0 0], 0, false);
+
 % -- 6) estop-Stufen + ack --
 C(end+1) = mk('estop1',    Fh, qI,qI,Z3,Z3, qI, 1, false);
 C(end+1) = mk('estop2',    Fh, qI,qI,Z3,Z3, qI, 2, true);

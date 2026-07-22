@@ -11,6 +11,10 @@
 //   * int16 nur fuer [F_des | Omega_ref(3) | tau_ref(3)], fs/qmax wie init_link.
 //   * Multibyte-Felder little-endian (beide Enden ARM-LE, internes Protokoll).
 //   * MATLAB round == half-away-from-zero  -> std::lround (nicht nearbyint).
+//   * smallest-three-Codewort **0** ist reserviert: "kein gueltiger Lagebezug"
+//     (Mocap-Dropout). Nur so ueberlebt die Ungueltigkeit die Funkstrecke —
+//     ein Null-Quaternion wuerde sonst als Identitaet ankommen und dem Empfaenger
+//     eine waagerechte Lage vortaeuschen.
 //
 // Byte-Layout (29 B):
 //   [0]     id
@@ -98,12 +102,15 @@ inline double dequantize(int16_t p, double fs) {
 
 // ---------------- smallest-three Quaternion-Codec ----------------------------
 // Bit-identisch zu pack_quat_sm3.m / unpack_quat_sm3.m.
+// Reserviertes Codewort 0 = "kein gueltiger Lagebezug" (z.B. Mocap-Dropout):
+// ein regulaerer Encode kann 0 nie erzeugen, weil jedes 10-bit-Feld
+// u = qi + 512 mit qi in [-511,511] immer >= 1 ist.
 inline uint32_t pack_quat(const double q_in[4]) {
     double q[4];
     double n = std::sqrt(q_in[0]*q_in[0] + q_in[1]*q_in[1] +
                          q_in[2]*q_in[2] + q_in[3]*q_in[3]);
-    if (n < 1e-12) { q[0]=1; q[1]=0; q[2]=0; q[3]=0; }
-    else { for (int i=0;i<4;++i) q[i]=q_in[i]/n; }
+    if (n < 1e-12) return 0u;                 // reserviert: ungueltig
+    for (int i=0;i<4;++i) q[i]=q_in[i]/n;
 
     int imax = 0; double amax = std::fabs(q[0]);
     for (int i=1;i<4;++i) { double a=std::fabs(q[i]); if (a>amax){amax=a;imax=i;} }
@@ -127,6 +134,10 @@ inline uint32_t pack_quat(const double q_in[4]) {
 }
 
 inline void unpack_quat(uint32_t code, double q_out[4]) {
+    if (code == 0u) {                         // reserviert: kein gueltiger Bezug
+        q_out[0] = q_out[1] = q_out[2] = q_out[3] = 0.0;
+        return;
+    }
     int imax = static_cast<int>(code >> 30);                  // 0..3
     double u[3];
     u[0] = static_cast<double>((code >> 20) & 0x3FFu);

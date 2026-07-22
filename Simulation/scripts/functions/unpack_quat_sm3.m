@@ -3,8 +3,15 @@ function q = unpack_quat_sm3(code)
 % unpack_quat_sm3  Umkehrung von pack_quat_sm3: uint32 -> Quaternion (4x1)
 %   Rekonstruiert die weggelassene groesste Komponente aus |q|=1 (positiv)
 %   danach Renormierung. Bit-identisch zum C++-Codec.
+%   Sonderfall: code 0 ist reserviert und bedeutet "kein gueltiger Lagebezug";
+%   dann kommt ein Null-Quaternion zurueck, das der Mahony-Guard abfaengt.
 
 code = uint32(code);
+
+if code == 0
+    q = zeros(4,1);
+    return;
+end
 
 imax = double(bitshift(code, -30)) + 1; % 1..4
 u = zeros(3,1);
