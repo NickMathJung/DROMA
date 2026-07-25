@@ -3,6 +3,23 @@
 Ziel: **kein Crash beim Erstflug.** Jede Zeile hat ein messbares Pass-Kriterium.
 Status: ⬜ offen · 🟡 läuft · ✅ pass · ❌ fail · ➖ n/a
 
+> ## 🛑 PRE-FLIGHT-BLOCKER
+>
+> **B1 — Akku defekt (der bei den Frequenzmessungen verwendete Pack).** Beim
+> Low-Batt-Sweep brach die Spannung unter Einzelmotor-Last (nur ~2–3 A) von
+> **14.41 V auf 12.47 V** ein — 0.48 V/Zelle. Ein gesunder 4S-Pack sackt bei der
+> Last 0.1–0.2 V. Impliziter Innenwiderstand ~800 mΩ, also Faktor 30–50 über
+> gesund (Richtwert 10–25 mΩ für den ganzen Pack). Zusätzlich startete er schon
+> bei 3.60 V/Zelle (~35 %).
+> **Folge im Flug:** Hover zieht ~13 A, Manöver mehr → der Pack kollabiert, fällt
+> unter `V_floor = 12.0 V` → `batt_land` latcht mitten im Flug. Die Throttle-
+> Kompensation `22.2/V_filt` fährt gegen den Abfall hoch → mehr Strom → Mitkopplung.
+> **→ Diesen Pack nicht fliegen.** Erstflug nur mit einem Pack, dessen Einbruch
+> unter Last gemessen wurde (LiPo-Checker mit IR-Funktion, Ziel < 25 mΩ Pack;
+> Ruhespannung voll ~16.8 V, unter Hover-Last > 15 V).
+>
+> Weitere Blocker sammeln sich hier, sobald sie auftreten.
+
 **Drohnen:** `id=1` (leicht modifiziert), `id=2` (neu gebaut → Lötfehler möglich).
 Beide: `quadcop.m = 0.985 kg`.
 
@@ -550,18 +567,108 @@ Generierter Code: `std::sqrt(std::fmax(x, 0.0))` statt `std::sqrt(std::abs(x))`.
 
 ---
 
+---
+
+## Kennlinie aus eigener Messung — ✅ umgesetzt, Gate B grün
+
+Der Datenblatt-Fit oben ist damit **überholt**. Er taugte für `c_T` (reine Aerodynamik), nicht für
+Throttle → Drehzahl.
+
+### Methode
+
+Einzelmotor, Propeller montiert, **Blattdurchgangsfrequenz aus dem Audiospektrum** (Handyaufnahme →
+Welch-PSD → Peak über dem lokalen Median). Dreiblattschraube, also `rpm = f_Blatt/3·60`.
+Rohdaten in `hardware/motor_frequenzspektrum/`.
+
+| thr | f_Blatt | Prominenz | rpm | Zuwachs |
+|---|---|---|---|---|
+| 10 % | 147.4 Hz | 17.2 dB | 2 947 | |
+| 15 % | 213.3 Hz | 15.5 | 4 266 | +1319 |
+| 20 % | 276.6 Hz | 18.9 | 5 531 | +1265 |
+| 25 % | 339.1 Hz | 18.5 | 6 783 | +1252 |
+| 30 % | 399.0 Hz | 14.1 | 7 981 | +1198 |
+| 35 % | 457.6 Hz | 6.8 | 9 152 | +1171 |
+| 40 % | 504.0 Hz | 14.0 | 10 080 | +929 |
+| 45 % | 559.9 Hz | 10.3 | 11 197 | +1117 |
+
+Reihe 1 (10–30 %) bei 15.90 V, Reihe 2 (35–45 %) bei 15.66 V — Spannung je Punkt mitgeführt.
+
+### Warum das Datenblatt für diesen Zweck nicht taugt
+
+Es nennt bei 22.2 V/10 % bereits **4957 rpm**, während `kv·U·duty = 1900·22.2·0.1 = 4218 rpm` die
+**Leerlaufdrehzahl** wäre. Ein belasteter Motor kann die nie erreichen. Entsprechend lag das Modell
+durchweg über der Leerlaufgrenze:
+
+| thr | Leerlaufgrenze | Datenblatt-Modell | gemessen |
+|---|---|---|---|
+| 10 % | 3 021 | **3 550** ❌ | 2 947 (98 %) |
+| 20 % | 6 042 | **6 816** ❌ | 5 531 (92 %) |
+| 30 % | 9 063 | **9 726** ❌ | 7 981 (88 %) |
+
+Der Fehler war ein **konstanter Faktor 0.8165** in der Drehzahl (Streuung 0.008) — die *Form* der
+Datenblattkurve stimmt, nur die Skala nicht. Schub geht mit ω², also **0.67 im Schub**: beim
+rechnerischen Hover-Throttle wären real nur **69 % des Gewichts** herausgekommen. Die Drohne wäre
+am Boden geblieben.
+
+### Ergebnis
+
+```
+p_from_omega = [4.1705914834120731e-06, 0.022154923169740597, 0]
+```
+
+Max. Residuum **0.37 Prozentpunkte** über alle acht Punkte, die meisten unter 0.1.
+Der Hover liegt bei 1133 rad/s und damit **innerhalb** des Messbereichs (45 % → 1173 rad/s) —
+es wird interpoliert, nicht extrapoliert.
+
+| `V_filt` | Hover alt (Datenblatt) | **Hover neu (Messung)** |
+|---|---|---|
+| 16.8 V | 32.5 % | **40.2 %** |
+| 15.9 V | 34.3 % | **42.5 %** |
+| 14.8 V | 36.9 % | **45.7 %** |
+| 13.5 V | 40.5 % | **50.1 %** |
+
+Unverändert bleibt die gesamte Mechanik: Spannungskorrektur, Klemmung [11.0, 17.5], `RT_Vfilt`-
+Startwert 16.8 V, `max(ω², 0)`, verschärfte Host-Invariante. Nur die zwei Koeffizienten sind neu.
+Gate B 39/39.
+
+> **Methodischer Hinweis für Wiederholungen:** Live-Peaks von Hand abzulesen war unbrauchbar —
+> die erste Reihe (193/236/301/322/344 Hz) hatte Zuwächse von +43/+65/+21/+22 Hz, physikalisch
+> unmöglich für einen Drehzahlverlauf. Bei 35–45 % übertönt tieffrequenter Handhabungslärm
+> (57–116 Hz) die Blattlinie um bis zu 13 dB. Erkennung deshalb über **Prominenz gegen den lokalen
+> Median plus Harmonischen-Nachweis (2f, 3f)**, nicht über den Absolutpegel.
+
 ### ⬜ Was weiterhin offen ist
 
-**1. Die Kennlinie ist hergeleitet, nicht gemessen.** `c_T`/`c_tau` sind Datenblattwerte, und die
-Waagen-Methode hat sich als untauglich erwiesen. Bestätigt ist bisher nur, dass Modell → Codegen →
-Firmware **korrekt rechnet** — nicht, dass der kommandierte Throttle die kommandierte Drehzahl
-erzeugt. Zwei Wege, das noch zu schließen:
+**1. Das Spannungsgesetz ist teilweise geprüft.** Kalibrierung bei ~15.8 V. Gegencheck bei stabilen
+**14.91 V** (5 Punkte, 15–35 %):
 
-- **Drehzahl über den Motorton** (billig, 10 min): Prop 51499-**3** ist dreiblättrig, Blattdurchgang
-  = `RPM/60·3`. Handyaufnahme + Spektrum. Erwartung bei 15 V: 15 % → ~250 Hz, 25 % → ~395 Hz,
-  35 % → ~510 Hz. Validiert genau die analytisch hergeleitete Abbildung Throttle → Drehzahl.
-- **Hover-Throttle beim ersten gefesselten Schwebeversuch** gegen die Tabelle oben, bei bekanntem
-  `V_filt` aus der Telemetrie.
+| thr | f@14.9V / f@15.8V (gemessen) | `1/V`-Vorhersage |
+|---|---|---|
+| 15 % | 0.934 | 0.948 |
+| 20 % | 0.941 | 0.948 |
+| 25 % | 0.923 | 0.949 |
+| 30 % | **0.889** | 0.950 |
+| 35 % | **0.862** | 0.951 |
+
+Bei 15–25 % hält `throttle(U) = throttle(22.2 V)·22.2/U` auf ~1–3 %. Bei 30–35 % fällt die Frequenz
+6–9 % **stärker** ab als `1/V` vorhersagt. Zwei nicht trennbare Ursachen: (A) lastabhängiger
+Spannungsabfall — `V_filt` ist Ruhespannung, unter Last (mehr Strom bei hohem Gas) sieht der Motor
+weniger, das `1/V`-Gesetz mit Ruhespannung unterschätzt den Abfall; (B) schwächere Peak-Erkennung
+bei hohem Gas (Prominenz 16.8 → 9.2 dB). Ursache A deutet auf denselben Akku-Innenwiderstand wie
+Blocker B1 — mit gesundem Pack läge die Kurve vermutlich höher. **Hebel zu klein** (14.9 vs 15.8 V
+= 6 %), um daraus ein Gesetz zu fitten; Kalibrierung bleibt die 15.8-V-Reihe.
+
+Sauberer Abschluss braucht **stabile** Spannung mit großem Abstand (16.0 vs 13.5 V) — also einen
+gesunden Akku (→ Blocker B1) oder das Labornetzteil mit direkt eingestellter Spannung
+(Einzelmotor, niedriges Gas < 2 A, damit die 1.7-A-Quelle hält).
+
+**2. `c_T` bleibt Datenblattwert.** Die Kette Drehzahl → Schub ist nicht unabhängig belegt. Das
+Datenblatt ist hier allerdings gut gestützt: `Schub/rpm²` ist über den ganzen Bereich auf ±4 %
+konstant. Der Beleg käme beim ersten gefesselten Schwebeversuch — Hover-Throttle gegen die Tabelle
+oben prüfen, bei bekanntem `V_filt`.
+
+**3. ⚠️ IMU-Aussetzer.** Siehe unten; einmalig aufgetreten, danach per `i2c_scan` bestätigt in
+Ordnung (0x68). Falls er wiederkommt: Verkabelung.
 
 **2. ⚠️ IMU lieferte im letzten Test exakt Null.** `gyro[0 0 0]`, `acc[0.00 -0.00 0.00]`,
 `bias[0 0 0]` — der Nullbias heisst, die MPU lieferte schon beim Boot nichts. Vormittags war sie

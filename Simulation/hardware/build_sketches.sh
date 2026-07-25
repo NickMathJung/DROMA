@@ -42,9 +42,10 @@ for f in mcu.cpp mcu_data.cpp mcu.h mcu_types.h mcu_private.h rtwtypes.h; do
 done
 
 # --- Bench-Sketches (standalone, keine geteilten Header) ---
-mkdir -p "$OUT/i2c_scan" "$OUT/esc_calibrate"
-cp "$HW/i2c_scan.cpp"      "$OUT/i2c_scan/i2c_scan.ino"
-cp "$HW/esc_calibrate.cpp" "$OUT/esc_calibrate/esc_calibrate.ino"
+mkdir -p "$OUT/i2c_scan" "$OUT/esc_calibrate" "$OUT/analyze_frequency"
+cp "$HW/i2c_scan.cpp"          "$OUT/i2c_scan/i2c_scan.ino"
+cp "$HW/esc_calibrate.cpp"     "$OUT/esc_calibrate/esc_calibrate.ino"
+cp "$HW/analyze_frequency.cpp" "$OUT/analyze_frequency/analyze_frequency.ino"
 
 # set_mode [BENCH|THRUST|FLIGHT] — Betriebsart in den Sketch schreiben.
 # Ueber Header statt -D, weil die Teensy-Recipe compiler.cpp.extra_flags ignoriert
@@ -62,7 +63,7 @@ EOF
 # Unterschied zwischen "Motoren tot" und "Propeller drehen an".
 set_mode BENCH
 
-for s in gcs_sender drone_hal i2c_scan esc_calibrate; do echo "  $s/: $(ls "$OUT/$s" | tr '\n' ' ')"; done
+for s in gcs_sender drone_hal i2c_scan esc_calibrate analyze_frequency; do echo "  $s/: $(ls "$OUT/$s" | tr '\n' ' ')"; done
 
 # compile [sketch] — grep darf leer ausgehen, sonst killt pipefail den Lauf.
 compile() { echo "== compile $1 =="; "$CLI" compile -b "$FQBN" "$OUT/$1" --config-file "$CFG" \
@@ -89,7 +90,8 @@ while [ $# -gt 0 ]; do
                               set_mode THRUST; compile drone_hal;
                               set_mode FLIGHT; compile drone_hal;
                               set_mode BENCH;                       # sicherer Endzustand
-                              compile i2c_scan;   compile esc_calibrate; shift;;
+                              compile i2c_scan;   compile esc_calibrate;
+                              compile analyze_frequency; shift;;
     --upload-sender)          upload gcs_sender    "$2"; shift 2;;
     # Betriebsart immer explizit: bench = Motoren tot, thrust = Motoren + Telemetrie
     # (Waagentest S-1), flight = Motoren, kein Report.
@@ -105,8 +107,9 @@ while [ $# -gt 0 ]; do
                               echo "  --upload-drone-thrust  Motoren scharf + Telemetrie (Waagentest S-1)" >&2
                               echo "  --upload-drone-flight  Motoren scharf, kein Report" >&2
                               exit 2;;
-    --upload-scan)            upload i2c_scan      "$2"; shift 2;;
-    --upload-esccal)          upload esc_calibrate "$2"; shift 2;;
+    --upload-scan)            upload i2c_scan          "$2"; shift 2;;
+    --upload-esccal)          upload esc_calibrate     "$2"; shift 2;;
+    --upload-freq)            upload analyze_frequency "$2"; shift 2;;
     *) echo "unbekannt: $1" >&2; exit 2;;
   esac
 done

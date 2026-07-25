@@ -43,19 +43,44 @@ disp(['Gierkonstante c_tau: ', num2str(c_tau), ' Nms^2/rad^2']);
 
 % --- Umrechnung von Omega zu Throttle (spannungsnormiert auf 22.2 V) ----------
 %
-% 1) Fit ueber omega statt omega^2, und durch den Ursprung. Residuum 0.8 %.
+% AUS EIGENER MESSUNG, nicht aus dem Datenblatt. Das Datenblatt taugt fuer c_T
+% (reine Aerodynamik, Schub/rpm^2 ist dort ueber den ganzen Bereich auf +-4 %
+% konstant), aber NICHT fuer die Abbildung Throttle -> Drehzahl:
+%   Es nennt bei 22.2 V/10 % schon 4957 rpm, waehrend kv*U*duty = 1900*22.2*0.1
+%   = 4218 rpm die LEERLAUFdrehzahl waere. Ein belasteter Motor kann die nie
+%   erreichen. Auf das Datenblatt gestuetzt lag das Modell durchweg 22 % zu hoch
+%   in der Drehzahl, also Faktor 0.67 im Schub -- beim rechnerischen Hover-
+%   Throttle waeren real nur 69 % des Gewichts herausgekommen.
 %
-% 2) Spannungsnormierung. Das Datenblatt des Propellers ist bei 22.2 V (6S) 
-%   aufgenommen, geflogen wird 4S. Fuer dieselbe Drehzahl gilt
-%    darum throttle(U) = throttle(22.2 V) * 22.2/U. 
-throttle_data = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90];   
-omega_data    = omega(1:end-1);                            
-% Fit: throttle = p1*omega^2 + p2*omega. 
-Mfit = [(omega_data(:)/1e3).^2, omega_data(:)/1e3];
-cfit = Mfit \ throttle_data(:);
+% Messung: Einzelmotor am Pruefstand, Propeller montiert, Blattdurchgangs-
+% frequenz aus dem Audiospektrum (Handyaufnahme, Welch-PSD, Peak ueber lokalem
+% Median). Dreiblattschraube -> rpm = f_Blatt/3*60. Zwei Reihen bei leicht
+% verschiedener Akkuspannung, deshalb U je Punkt mitgefuehrt.
+thr_meas = [ 10,    15,    20,    25,    30,    35,    40,    45   ];  % [%] Kommando
+f_blade  = [147.4, 213.3, 276.6, 339.1, 399.0, 457.6, 504.0, 559.9];  % [Hz]
+U_meas   = [ 15.90, 15.90, 15.90, 15.90, 15.90, 15.66, 15.66, 15.66]; % [V]
+n_blades = 3;
+
+omega_meas = (f_blade/n_blades) * 2*pi;              % [rad/s]
+% Spannungsnormierung: omega haengt vom Produkt duty*U ab, fuer dieselbe Drehzahl
+% gilt throttle(U) = throttle(22.2 V)*22.2/U. Das Polynom liefert also den
+% AEQUIVALENTEN 22.2-V-Throttle; die Division durch die gemessene Spannung macht
+% das Modell zur Laufzeit (V_filt aus safety_battery, geklemmt).
+throttle_eq = thr_meas .* U_meas / 22.2;
+
+% Fit ohne Konstante: throttle = p1*omega^2 + p2*omega. Durch den Ursprung, weil
+% omega = 0 exakt throttle = 0 bedeutet. Normiert gerechnet (omega/1e3), sonst
+% ist die Normalengleichung schlecht konditioniert.
+Mfit = [(omega_meas(:)/1e3).^2, omega_meas(:)/1e3];
+cfit = Mfit \ throttle_eq(:);
 quadcop.p_from_omega = [cfit(1)/1e6, cfit(2)/1e3, 0];      % polyval-Reihenfolge
 disp('Koeffizienten fuer die Abbildung (omega -> aequiv. 22.2-V-Throttle):');
 disp(quadcop.p_from_omega);
+% Guete: max. Residuum 0.37 Prozentpunkte (die meisten unter 0.1). Der Hover
+% liegt bei 1133 rad/s und damit INNERHALB des Messbereichs (45 % -> 1173 rad/s),
+% es wird also interpoliert, nicht extrapoliert.
+% Offen: alle Punkte stammen von ~15.8 V. Das Spannungsgesetz 22.2/U ist damit
+% nicht ueber verschiedene Spannungen geprueft.
 
 % Spannungsnormierung: thr = polyval(p_from_omega, omega) * U_ds / clamp(V_filt).
 % Die Klemmung ist NICHT optional — V_filt steht im Nenner, und ein ausgefallener
