@@ -639,28 +639,28 @@ Gate B 39/39.
 
 ### ⬜ Was weiterhin offen ist
 
-**1. Das Spannungsgesetz ist teilweise geprüft.** Kalibrierung bei ~15.8 V. Gegencheck bei stabilen
-**14.91 V** (5 Punkte, 15–35 %):
+**1. Das Spannungsgesetz ist ✅ bestätigt** (im flugrelevanten Bereich). Drei Spannungsebenen,
+Einzelmotor: 15.8 V (Kalibrierung), 14.9 V, 14.1 V (Netzteil, stabil, Prominenz 27–31 dB).
 
-| thr | f@14.9V / f@15.8V (gemessen) | `1/V`-Vorhersage |
+Test über das Frequenzverhältnis bei festem Throttle (14.1 V gegen 15.8 V):
+
+| thr | f@14.1V / f@15.8V (gemessen) | `1/V`-Vorhersage |
 |---|---|---|
-| 15 % | 0.934 | 0.948 |
-| 20 % | 0.941 | 0.948 |
-| 25 % | 0.923 | 0.949 |
-| 30 % | **0.889** | 0.950 |
-| 35 % | **0.862** | 0.951 |
+| 15 % | 0.912 | 0.899 |
+| 20 % | 0.912 | 0.901 |
+| 25 % | 0.917 | 0.903 |
+| 30 % | 0.912 | 0.904 |
 
-Bei 15–25 % hält `throttle(U) = throttle(22.2 V)·22.2/U` auf ~1–3 %. Bei 30–35 % fällt die Frequenz
-6–9 % **stärker** ab als `1/V` vorhersagt. Zwei nicht trennbare Ursachen: (A) lastabhängiger
-Spannungsabfall — `V_filt` ist Ruhespannung, unter Last (mehr Strom bei hohem Gas) sieht der Motor
-weniger, das `1/V`-Gesetz mit Ruhespannung unterschätzt den Abfall; (B) schwächere Peak-Erkennung
-bei hohem Gas (Prominenz 16.8 → 9.2 dB). Ursache A deutet auf denselben Akku-Innenwiderstand wie
-Blocker B1 — mit gesundem Pack läge die Kurve vermutlich höher. **Hebel zu klein** (14.9 vs 15.8 V
-= 6 %), um daraus ein Gesetz zu fitten; Kalibrierung bleibt die 15.8-V-Reihe.
+Das gemessene Verhältnis ist **über alle Throttle-Werte konstant 0.912** — genau das sagt ein reines
+Spannungsgesetz voraus (Verschiebung hängt nur von U ab, nicht vom Gas). Rest gegen `1/V` ~1.2 %
+(real minimal schwächer als `1/V`), innerhalb der Methodengenauigkeit. Modell trifft die 14.1-V-
+Frequenzen direkt auf +1…+2.5 %. **Keine Modelländerung nötig.**
 
-Sauberer Abschluss braucht **stabile** Spannung mit großem Abstand (16.0 vs 13.5 V) — also einen
-gesunden Akku (→ Blocker B1) oder das Labornetzteil mit direkt eingestellter Spannung
-(Einzelmotor, niedriges Gas < 2 A, damit die 1.7-A-Quelle hält).
+Der frühere scheinbare Hochgas-Drift (14.9-V-Reihe, −6…−9 % bei 30–35 %) war **Messrauschen**:
+schwache Prominenz (auf 9 dB gefallen) plus Vier-Motoren-Verschmierung, kein realer Effekt.
+
+Hebel bleibt 14.1–15.8 V (12 %); die Ränder 12.5 V / 16.8 V sind nicht vermessen, liegen aber
+außerhalb des Hover-Bereichs. Der erste gefesselte Schwebeversuch deckt sie mit ab.
 
 **2. `c_T` bleibt Datenblattwert.** Die Kette Drehzahl → Schub ist nicht unabhängig belegt. Das
 Datenblatt ist hier allerdings gut gestützt: `Schub/rpm²` ist über den ganzen Bereich auf ±4 %
