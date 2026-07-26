@@ -83,11 +83,14 @@ Simulation/
 │       ├── SITL_Runbook.md   read this before re-certifying mcu.slx
 │       ├── matlab/           configure_mcu_codegen, log_mcu_golden, sil_check_mcu, ...
 │       └── include/ src/ test/    CMake + GoogleTest suite
-├── hardware/                 Teensy firmware
+├── hardware/                 Teensy firmware and bench tools
 │   ├── drone_hal.cpp         the drone HAL, wraps the generated MCU class
 │   ├── gcs_sender.cpp        ground station Teensy, USB in, nRF24 out
-│   ├── esc_calibrate.cpp     bench tools
-│   ├── i2c_scan.cpp
+│   ├── esc_calibrate.cpp     ESC arming and manual motor test
+│   ├── i2c_scan.cpp          finds the MPU on the I2C bus
+│   ├── analyze_frequency.cpp motor spin-up with live voltage, for the throttle curve
+│   ├── battery_health.cpp    load test for the pack's internal resistance
+│   ├── channel_scan.cpp      nRF24 channel occupancy scanner
 │   └── mcu_arm/              Cortex-M7 generated controller code
 ├── data/project.sldd         data dictionary
 └── Handover_Drohnenschwarm_Sim_7.md    the long engineering log
@@ -138,8 +141,12 @@ at `Ts_gcs = 10e-3`.
 
 Start at `scripts/params.m` and follow it into `scripts/init/`. The useful ones:
 
-- `init_quadcop.m` for mass, inertia, geometry and `p_from_omega_sq`, the
-  polynomial that turns ω² into throttle percent
+- `init_quadcop.m` for mass, inertia, geometry, `c_T`, and `p_from_omega`, the
+  polynomial that turns rotor speed into throttle percent. The drone flies on a
+  4S pack, so the throttle is voltage-normalized: `throttle = polyval(p_from_omega,
+  omega) * 22.2 / clamp(V_filt)`, with `V_filt` clamped to `[11.0, 17.5]` V. That
+  clamp is not cosmetic, `V_filt` is in the denominator and a dead battery sensor
+  reading 0 would otherwise slam all four motors to 100%.
 - `init_sensors.m` for IMU full-scale ranges, noise, mocap rate, and the Motive
   connection settings
 - `init_controller.m` and `init_estimator.m` for the attitude gains and the
@@ -204,13 +211,18 @@ run scripts/sitl/matlab/run_mcu_arm_codegen.m
 ## Firmware
 
 `drone_hal.cpp` is the drone side. It ticks at 1 kHz: reads the MPU-6050 into
-`Bus_IMU` (subtracting the gyro bias here, and only here, the model doesn't do
-it), reads the battery voltage on pin 41 as raw 12-bit counts into `batt_count`,
-reads the re-arm button on pin 21 into `btn_ack`, unpacks the nRF24 packet into
-`Bus_Cmd`, steps the generated `MCU` class, and pushes `throttle` out to the ESCs
-as OneShot125. Pin 40 reads current, but that's telemetry only and doesn't go
-into the model. If no valid packet arrives for 100 ms the watchdog forces
-`estop = 2`.
+`Bus_IMU`, reads the battery voltage on pin 41 as raw 12-bit counts into
+`batt_count`, reads the re-arm button on pin 21 into `btn_ack`, unpacks the nRF24
+packet into `Bus_Cmd`, steps the generated `MCU` class, and pushes `throttle` out
+to the ESCs as OneShot125. Pin 40 reads current, but that's telemetry only and
+doesn't go into the model. If no valid packet arrives for 100 ms the watchdog
+forces `estop = 2`.
+
+Two IMU corrections happen in the HAL, not in the model. The gyro bias is
+subtracted here and only here. Then `apply_mount` rotates gyro and accel by
+`R_mount`, which takes out the roughly 2.3° tilt from the IMU sitting slightly
+crooked on the board. That rotation is per-drone: it was measured on id=2, and
+id=1 needs its own measurement, so don't assume one `R_mount` fits every airframe.
 
 To compile it you need the ARM `mcu.h` from `hardware/mcu_arm/mcu_ert_rtw/` and
 `mcu_packet.hpp` from `scripts/sitl/include/` on the include path. That codec
@@ -218,11 +230,20 @@ header is shared with the host tests, so don't fork it.
 
 `gcs_sender.cpp` is the ground station Teensy. Simulink sends it a frame over
 USB, it parses that, repacks it into the 29-byte over-the-air format and
-broadcasts on nRF24 channel 76 at 1 Mbps with auto-ack off.
+broadcasts on nRF24 channel 76 with auto-ack off. The link runs at 250 kbps, not
+the nRF's default 1 Mbps: the slower rate buys about 10 dB of receiver
+sensitivity, which the drone needed once packet loss showed up on the bench.
 
-`i2c_scan.cpp` finds the MPU (it should answer at 0x68) and `esc_calibrate.cpp`
-does ESC learning and manual motor tests. `drone_hal.cpp` also has a
-`HAL_SELFTEST` build that prints a live I/O report.
+The rest of `hardware/` is bench tools, and the last three all assume the
+propellers are on and the drone is bolted down, so treat them with respect.
+`i2c_scan.cpp` finds the MPU (it should answer at 0x68). `esc_calibrate.cpp` arms
+the ESCs and lets you spin one motor by hand. `analyze_frequency.cpp` does the
+same but prints the battery voltage once a second, which is how the throttle curve
+gets measured against a known voltage. `battery_health.cpp` runs a load test to
+get the pack's internal resistance. `channel_scan.cpp` sweeps the 126 nRF
+channels looking for the quietest one, which is worth doing since channel 76 sits
+right in the upper WiFi band. `drone_hal.cpp` also has a `HAL_SELFTEST` build that
+prints a live I/O report.
 
 ```bash
 arduino-cli compile -b teensy:avr:teensy41 <sketch-dir>
