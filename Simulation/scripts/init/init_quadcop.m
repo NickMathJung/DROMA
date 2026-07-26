@@ -26,7 +26,21 @@ T_col = T';
 % Berechnung der Schubkonstante
 c_T = omega_sq \ T_col;
 % Zur Kontrolle: Die berechnete Konstante anzeigen
-disp(['Schubkonstante c_T: ', num2str(c_T), ' Ns^2/rad^2']);
+disp(['Schubkonstante c_T (Datenblatt): ', num2str(c_T), ' Ns^2/rad^2']);
+
+% --- Korrektur aus Liftoff-Messung unter Last (gefesselt) --------------------
+% Das Datenblatt ueberschaetzt den realen Schub pro omega^2. Am Pruefstand hob die
+% Drohne erst bei F_des_liftoff = 12.22 N ab (= 1.265*m*g). Der Wert ist
+% batterie-UNABHAENGIG (11.87 N am sackenden 13.4-V-Akku, 12.22 N am vollen 16.8-V-
+% Akku) -> die Spannungskorrektur der Kennlinie liefert bei beiden denselben Schub,
+% also ist das Defizit reine Aerodynamik, kein Batterie-Artefakt.
+% Herleitung: bei Liftoff ist realer Schub = m*g. Der Mixer kommandiert omega mit
+% c_T_datenblatt (sum(omega^2)=F_des/c_T), der Throttle-Map erzeugt daraus die echte
+% Drehzahl. Realer Schub = c_T_real*sum(omega^2) = c_T_real*F_des/c_T_datenblatt.
+% Gleichsetzen: c_T_real = c_T_datenblatt * m*g / F_des_liftoff  (~21 % kleiner).
+F_des_liftoff = 12.22;                                   % [N] gemessen, voller Akku
+c_T = c_T * (quadcop.m*quadcop.g) / F_des_liftoff;
+disp(['Schubkonstante c_T (Liftoff-korrigiert): ', num2str(c_T), ' Ns^2/rad^2']);
 
 % c_tau = 7.398e-6; % (MA-Finn)
 % --- Gierkonstante aus Datenblatt GEMFAN 51499 ---

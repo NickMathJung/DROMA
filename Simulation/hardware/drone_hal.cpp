@@ -22,7 +22,7 @@
 //   - nRF24L01 @ SPI1 (SCK27/MOSI26/MISO1), CE14, CSN0, IRQ9. Design A:
 //        Broadcast, Auto-Ack aus, 29-Byte-Payload, App-ID-Gate via BCD.
 //        begin(&SPI1) (Fallback fuer aeltere Lib im Code auskommentiert).
-//   - Failsafe: kein gueltiges Paket seit 100 ms -> estop=2 (Hard-Kill, safety_overspeed).
+//   - Failsafe: kein gueltiges Paket seit 200 ms -> estop=2 (Hard-Kill, safety_overspeed).
 //
 // Noch per HW zu bestaetigen: ADO->GND-Bodge (R8) fuer 0x68; extern eingelernte
 // ESC-Endpunkte; Timing-Budget im Betrieb (Serial [tick]-Report).
@@ -115,7 +115,9 @@ static constexpr double  DEG2RAD  = 3.14159265358979323846 / 180.0;
 static constexpr uint8_t MPU_ADDR = 0x68;
 static constexpr uint8_t MPU_PWR_MGMT_1 = 0x6B, MPU_GYRO_CONFIG = 0x1B,
                          MPU_ACCEL_CONFIG = 0x1C, MPU_ACCEL_XOUT_H = 0x3B;
-static constexpr uint32_t LINK_TIMEOUT_MS = 100;      // Failsafe
+static constexpr uint32_t LINK_TIMEOUT_MS = 200;      // Failsafe (war 100: zu eng gegen
+                                                      // senderseitige Emissions-Stalls bis ~95 ms;
+                                                      // Funk selbst sauber, gaps=0, maxdt 20-95 ms)
 static constexpr uint32_t BIAS_MS = 3000;             // Gyro-Bias-Mittelung
 static constexpr uint32_t ARM_MS  = 2000;             // Arming-Wartezeit (ESC-Piep)
 static const uint64_t     NRF_BCAST_ADDR = 0xE7E7E7E7E7ULL;
@@ -251,14 +253,14 @@ static void selftest_report(const MCU::ExtY_mcu_T& y) {
     if (++n < 100) return; n = 0;
     double V = g_U.batt_count * 0.016673728813559323;        // Volt wie Modell (k HW-kal. 15.74/944)
     Serial.printf("id=%u gyro[% .3f % .3f % .3f] acc[% .2f % .2f % .2f] "
-                  "batt=%.0f(%.2fV) bias[% .3f % .3f % .3f] link=%lums estop=%u btn=%u "
+                  "batt=%.0f(%.2fV) bias[% .3f % .3f % .3f] link=%lums Fdes=%.2f estop=%u btn=%u "
                   "thr[%.0f %.0f %.0f %.0f] mot=" HAL_MOT_STATE " tickmax=%luus\n",
         g_own_id,
         g_U.Bus_IMU_k.imu_gyro[0], g_U.Bus_IMU_k.imu_gyro[1], g_U.Bus_IMU_k.imu_gyro[2],
         g_U.Bus_IMU_k.imu_acc[0],  g_U.Bus_IMU_k.imu_acc[1],  g_U.Bus_IMU_k.imu_acc[2],
         g_U.batt_count, V,
         g_gyro_bias[0], g_gyro_bias[1], g_gyro_bias[2],
-        (unsigned long)(millis() - g_t_last_rx), g_U.Bus_Cmd_l.estop, (unsigned)g_U.btn_ack,
+        (unsigned long)(millis() - g_t_last_rx), g_U.Bus_Cmd_l.F_des, g_U.Bus_Cmd_l.estop, (unsigned)g_U.btn_ack,
         y.throttle[0], y.throttle[1], y.throttle[2], y.throttle[3],
         (unsigned long)g_tick_dt_max);
 }
@@ -288,6 +290,7 @@ void setup() {
     // Ohne Bodge floatet ADO -> Adresse 0x69; dann MPU_ADDR anpassen.
     Wire.begin(); Wire.setClock(400000);                     // Fast-Mode Pflicht (1 kHz-Budget)
     mpu_write(MPU_PWR_MGMT_1, 0x00);                         // wake
+    mpu_write(0x1A, 0x03);
     mpu_write(MPU_GYRO_CONFIG, 0x08);                        // FS_SEL=1 (+-500 dps)
     mpu_write(MPU_ACCEL_CONFIG, 0x08);                       // AFS_SEL=1 (+-4 g)
 #ifdef HAL_REPORT

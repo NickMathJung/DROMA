@@ -53,10 +53,19 @@ static void forward_frame(const uint8_t frame[gcs::SIZE]) {
 }
 
 // --- USB-Serial: byteweiser Sync-Hunt (resynct nach jeder Stoerung) ----------
+// NUR die frischeste vollstaendige Frame pro Drain funken. Ein Echtzeit-Setpoint-
+// Link darf keine veraltete Warteschlange abspielen: staut sich im seriellen FIFO
+// ein Rueckstand auf (z.B. hoher Windows-COM-Puffer + Alt-Frames eines vorigen
+// Laufs), wuerden sonst alle Alt-Frames mit FRISCHER seq weitergereicht. Der
+// Empfaenger zaehlt die seq lueckenlos mit (gaps=0) und haelt den veralteten
+// Inhalt fuer gueltig -> Drohne faehrt auf altem F_des (auf dem Pruefstand: Hover
+// bei F_des=0). Deshalb: alles Anstehende parsen, aber nur die letzte Frame senden.
 static void serial_pump() {
     static uint8_t buf[gcs::SIZE];
     static int idx = 0;
     static uint8_t st = 0;                       // 0=HUNT0, 1=HUNT1, 2=FILL
+    uint8_t  latest[gcs::SIZE];
+    bool     have = false;
     while (Serial.available()) {
         uint8_t b = (uint8_t)Serial.read();
         switch (st) {
@@ -68,10 +77,15 @@ static void serial_pump() {
                 break;
             default:
                 buf[idx++] = b;
-                if (idx >= gcs::SIZE) { forward_frame(buf); st = 0; }
+                if (idx >= gcs::SIZE) {                          // vollstaendige Frame:
+                    for (int i = 0; i < gcs::SIZE; ++i) latest[i] = buf[i]; // merken,
+                    have = true;                                 // aber noch NICHT senden
+                    st = 0;
+                }
                 break;
         }
     }
+    if (have) forward_frame(latest);             // pro Drain nur die neueste
 }
 
 void setup() {
