@@ -84,7 +84,7 @@ mocap.host_ip      = '127.0.0.1';
 mocap.client_ip    = '127.0.0.1';
 % Streaming-ID des Drohnen-Rigid-Body in Motive (Assets-Pane); muss zur
 % geflogenen Drohne passen.
-mocap.streaming_id = 1;
+mocap.streaming_id = 2;
 % Motive muss auf Z-Up streamen (Settings -> Streaming -> Up Axis = Z), passend
 % zum z-up-Projekt. MotiveMocap transformiert absichtlich nicht: eine zweite
 % Korrekturstelle waere wieder eine doppelte Kompensation. NatNet liefert Meter

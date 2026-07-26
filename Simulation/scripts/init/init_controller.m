@@ -16,6 +16,8 @@ omega_n_Lage = 1.4*[10; 10; 10];
 zeta = 0.707;
 controller.kR = diag(quadcop.J * omega_n_Lage.^2);
 controller.kOmega =  diag(2 * zeta * quadcop.J * omega_n_Lage);
-controller.Kp = diag(quadcop.m * omega_n_pos.^2);
-controller.Kd =  diag(2 * zeta * quadcop.m * omega_n_pos);
+% Kein m in Kp/Kd: pos_ctrl rechnet F = m*(a_des + g - Kp*e - Kd*edot), das m
+% steht also schon vor der Klammer. 
+controller.Kp = diag(omega_n_pos.^2);
+controller.Kd =  diag(2 * zeta * omega_n_pos);
 end

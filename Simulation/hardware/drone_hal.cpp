@@ -156,6 +156,24 @@ static uint32_t          g_t_prev_rx = 0;
 static void mpu_write(uint8_t reg, uint8_t val) {
     Wire.beginTransmission(MPU_ADDR); Wire.write(reg); Wire.write(val); Wire.endTransmission();
 }
+// Montage-Offset R_mount: die IMU sitzt ~2.27 deg schief. In Ruhe (Motoren aus,
+// Mocap = level, q_mocap Roll/Nick < 0.4 deg) las das Accel [0.057 -0.369 9.410]
+// statt [0 0 g] -> die Neigung ist die MONTAGE, nicht die Drohne. R_mount dreht die
+// IMU-Body-Frame in die wahre (mocap-level) Body-Frame, damit der Accel-only-
+// Fallback (Mocap-Ausfall) echt waagerecht statt 2.3 deg schief haelt.
+// ACHTUNG: pro Drohne verschieden! Gemessen fuer id=2 am 2026-07-26; id=1 braucht
+// eine eigene Messung (Ruhe-acc + q_mocap -> R = align(acc -> [0 0 g])).
+static void apply_mount(double v[3]) {
+    static const double R[3][3] = {
+        { 0.999981676,  0.000118626, -0.006052623},
+        { 0.000118626,  0.999232053,  0.039182770},
+        { 0.006052623, -0.039182770,  0.999213729}};
+    double o0 = R[0][0]*v[0] + R[0][1]*v[1] + R[0][2]*v[2];
+    double o1 = R[1][0]*v[0] + R[1][1]*v[1] + R[1][2]*v[2];
+    double o2 = R[2][0]*v[0] + R[2][1]*v[1] + R[2][2]*v[2];
+    v[0] = o0; v[1] = o1; v[2] = o2;
+}
+
 // Burst-Read 0x3B..: liefert Gyro & Acc bereits in {B} (R_bs) und SI-Einheiten.
 // gyro[rad/s], acc[m/s^2]. Keine Bias-Subtraktion hier, das macht der Caller.
 static void mpu_read_body(double gyro[3], double acc[3]) {
@@ -174,6 +192,9 @@ static void mpu_read_body(double gyro[3], double acc[3]) {
     // R_bs: [x_b;y_b;z_b] = [ y_s; -x_s; z_s ]
     gyro[0] =  gs[1]; gyro[1] = -gs[0]; gyro[2] = gs[2];
     acc[0]  =  as[1]; acc[1]  = -as[0]; acc[2]  = as[2];
+    // Feine Montage-Korrektur (nach R_bs, vor Bias/Modell) -> wahre Body-Frame.
+    apply_mount(gyro);
+    apply_mount(acc);
 }
 
 // ------------------------------ BCD-ID ---------------------------------------

@@ -678,14 +678,73 @@ Störmoment), aber **mit totem IMU löst der Overspeed-Kill K1 nie aus**. Vor al
 
 ---
 
-## Stufe 4 — Props **dran**, gefesselt/tethered (Regelkreis)  *(Details nach Stufe 3)*
+## Stufe 4 — Regelkreis, gestaffelt (statt direkt Steigflug)
 
-Top-4-Crash-Ursachen, die hier zwingend grün sein müssen:
+Kritik am Vorschlag „direkt 0.8 m Steigflug": zu viel Energie für den ersten Flug unter Last.
+Zwei Dinge laufen dort zum ersten Mal live und sind noch **nie unter echtem Schub getestet** —
+`c_T`/Hover-Punkt und der **Positionsregler** (Mocap-Frame → Solllage, C2). Beide können abstürzen.
+Deshalb gestaffelt, jede Stufe de-riskt genau eine Sache, jeder Fehler bleibt harmlos:
+
+| Stufe | Aufbau | de-riskt | Motoren |
+|---|---|---|---|
+| **S-2** | Tisch, Positions-Vorzeichentest (Setpoint fest, Drohne von Hand versetzen) | **C2**, ohne Flug | **aus** (BENCH) |
+| **S-3** | angebunden am Boden, `F_des` langsam rampen bis leicht/anhebt | `c_T`, Hover-Punkt | an |
+| **S-4** | Hover **wenige cm**, Positionshaltung, Leine schlaff | Regelkreis geschlossen, min. Fallhöhe | an |
+| **S-5** | 0.8-m-Steigflug + kommandierte Sink-Landung | volle Trajektorie | an |
+
+### S-2 — Positions-Vorzeichentest (Tisch, BENCH) — **nächster Schritt**
+
+Mechanismus: `pos_ctrl` erzeugt `F_des_vec = m·(a_ref + g − Kp·(x−x_ref) − Kd·(v−v_ref))`; die
+Solllage `q_des` kippt entlang dieser Kraft. `Kp = m·ω_n_pos²` mit `ω_n_pos = 4.2 rad/s` ist steif:
+**~5 cm Versatz → ~5° Kippung → gut am `thr` ablesbar, ohne Sättigung.** Also **kleine** Versätze,
+nicht 0.5 m (das gäbe 50°, gesättigt).
+
+Setup: `init_trajectory.m` → `TEST_S2 = true`, `x0`/`yaw0` = gemessene Ruheposition (Signal `x` an
+`pos_ctrl` bei laufendem Modell ablesen). Setpoint = Ruheposition → im Ruhezustand `thr` symmetrisch.
+
+Test (selbst-interpretierend, keine Achsen-Kenntnis nötig): Drohne von Hand ~5–10 cm versetzen,
+**waagerecht halten** (Marker frei). Der Regler muss eine Kippung **zurück** zum Sollpunkt
+kommandieren, also **gegen** die Verschiebung. Über die Achsen-Summen ablesen. Alle vier
+Horizontalrichtungen + hoch/runter.
+
+**Pass:** kommandierte Kippung wirkt der Verschiebung in **allen** Richtungen entgegen (negative
+Rückkopplung). Läuft sie mit → Positions-/Frame-Vorzeichen invertiert → **C2 ❌, nicht fliegen.**
+
+Belegt via **Setpoint-Versatz** (Drohne steht still, `s2_offset` in init_trajectory, Baseline
+`[41 42 42 42]` symmetrisch bei 16.2 V). Motorlage M1=VR/M2=VL/M3=HL/M4=HR (F-A).
+
+| `s2_offset` | `thr` | Achsen-Summe | erwartet | id=2 |
+|---|---|---|---|---|
+| +x (+0.08) | `[38 39 46 46]` | Pitch +15 | > 0 (hinten hoch) | ✅ |
+| −x (−0.08) | `[45 46 38 39]` | Pitch −14 | < 0 (vorne hoch) | ✅ |
+| +y (+0.08) | `[45 39 38 46]` | Roll −14 | < 0 (rechts hoch) | ✅ |
+| −y (−0.08) | `[38 46 46 39]` | Roll +15 | > 0 (links hoch) | ✅ |
+| +z (+0.2) | `[48 49 48 49]` | kollektiv +7 | rauf | ✅ |
+| −z (−0.2) | `[34 35 35 35]` | kollektiv −7 | runter | ✅ |
+
+Beträge stimmen quantitativ (0.08 m → 8.2° → Pitch-Summe ≈ 12 vs. 14–15 gemessen; z: 0.2 m →
++36 % F → +16 % ω → +7 counts). **C2 für id=2 am Tisch geschlossen**, id=1 offen.
+
+### S-3 — Hover-Onset / `c_T` (angebunden, am Boden)
+
+`F_des` langsam hochrampen. Erwartung: leichtes Abheben bei `F_des ≈ m·g` (~40 % `thr` bei 15 V).
+Hebt sie deutlich später ab (z. B. 1.3·m·g), ist `c_T` daneben — **am Boden gemerkt, nicht in 0.8 m.**
+
+### S-4 / S-5 — siehe Tabelle. Landung: **kommandierte Sinktrajektorie** (traj_gen bringt `z` auf
+Grund, Positionshaltung aktiv), NICHT `safety_land`. Letzteres ist der blinde Hard-Floor-Backstop
+(kein Pos/Vel), driftet seitlich — Notnetz, kein reguläres Landeverfahren.
+
+Leine: **schlaff, Fangleine**, mittig über dem Schwerpunkt. Straff + außermittig erzeugt ein Moment,
+gegen das der Regler ankämpft → verfälscht S-4, kann selbst destabilisieren.
+
+---
+
+Top-4-Crash-Ursachen, die bis Stufe 5 zwingend grün sein müssen:
 
 | ID | Test | Warum kritisch |
 |----|------|----------------|
 | C1 | **Regel-/Mixer-Vorzeichen** | ✅ **für id=2 am Tisch geschlossen** (Stufe 1b: alle 3 Achsen, Vorzeichen **und** Amplitude). Hier nur noch unter Last bestätigen. Für id=1 offen. |
-| C2 | **Mocap-Frame** (unter Bewegung) | Pos/Lage-Vorzeichen, Up-Achse, Quaternion-Konvention. Falsch → Regler fährt in Boden/Wand |
+| C2 | **Mocap-Frame** | ✅ **für id=2 am Tisch geschlossen** (S-2: alle 3 Achsen × 2 Richtungen, negative Rückkopplung, Vorzeichen + Betrag). Unter Bewegung im Flug noch zu bestätigen. Für id=1 offen. |
 | C3 | **Prop-Montage + Drehrichtung** | 🟡 **Drehrichtung ✅ (id=2)**, Prop-Paarung/-Orientierung **offen**. Ein CW-Prop auf einem CCW-Motor erzeugt Schub *nach unten* — die Drehrichtungsprüfung fängt das nicht. Beweis nur über Waagentest (S-1). |
 | C4 | **Hover-Throttle** | `m·g` → Throttle deutlich < 100 %, stabil |
 

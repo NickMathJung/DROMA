@@ -1,10 +1,10 @@
-Start testing: Jul 23 09:37 Mitteleuropäische Sommerzeit
+Start testing: Jul 26 15:14 Mitteleuropäische Sommerzeit
 ----------------------------------------------------------
 1/39 Testing: QuatGolden.Dcm2Quat_MatchesGolden
 1/39 Test: QuatGolden.Dcm2Quat_MatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_quat_golden.exe" "--gtest_filter=QuatGolden.Dcm2Quat_MatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"QuatGolden.Dcm2Quat_MatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.Dcm2Quat_MatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -24,7 +24,7 @@ Note: Google Test filter = QuatGolden.Dcm2Quat_MatchesGolden
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"QuatGolden.Dcm2Quat_MatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.Dcm2Quat_MatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "QuatGolden.Dcm2Quat_MatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -32,7 +32,7 @@ Test Passed.
 2/39 Test: QuatGolden.Quat2Dcm_MatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_quat_golden.exe" "--gtest_filter=QuatGolden.Quat2Dcm_MatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"QuatGolden.Quat2Dcm_MatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.Quat2Dcm_MatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -52,7 +52,7 @@ Note: Google Test filter = QuatGolden.Quat2Dcm_MatchesGolden
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"QuatGolden.Quat2Dcm_MatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.Quat2Dcm_MatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "QuatGolden.Quat2Dcm_MatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -60,7 +60,7 @@ Test Passed.
 3/39 Test: QuatGolden.QuatMul_MatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_quat_golden.exe" "--gtest_filter=QuatGolden.QuatMul_MatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"QuatGolden.QuatMul_MatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.QuatMul_MatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -80,7 +80,7 @@ Note: Google Test filter = QuatGolden.QuatMul_MatchesGolden
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"QuatGolden.QuatMul_MatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.QuatMul_MatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "QuatGolden.QuatMul_MatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -88,7 +88,7 @@ Test Passed.
 4/39 Test: QuatGolden.QuatConj_MatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_quat_golden.exe" "--gtest_filter=QuatGolden.QuatConj_MatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"QuatGolden.QuatConj_MatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.QuatConj_MatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -108,7 +108,7 @@ Note: Google Test filter = QuatGolden.QuatConj_MatchesGolden
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"QuatGolden.QuatConj_MatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.QuatConj_MatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "QuatGolden.QuatConj_MatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -116,7 +116,7 @@ Test Passed.
 5/39 Test: QuatGolden.QuatRotate_MatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_quat_golden.exe" "--gtest_filter=QuatGolden.QuatRotate_MatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"QuatGolden.QuatRotate_MatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.QuatRotate_MatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -136,7 +136,7 @@ Note: Google Test filter = QuatGolden.QuatRotate_MatchesGolden
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"QuatGolden.QuatRotate_MatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatGolden.QuatRotate_MatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "QuatGolden.QuatRotate_MatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -144,7 +144,7 @@ Test Passed.
 6/39 Test: QuatProps.RoundTripsAndIdentities
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_quat_golden.exe" "--gtest_filter=QuatProps.RoundTripsAndIdentities" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"QuatProps.RoundTripsAndIdentities" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatProps.RoundTripsAndIdentities" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -164,7 +164,7 @@ Note: Google Test filter = QuatProps.RoundTripsAndIdentities
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"QuatProps.RoundTripsAndIdentities" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"QuatProps.RoundTripsAndIdentities" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "QuatProps.RoundTripsAndIdentities" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -172,7 +172,7 @@ Test Passed.
 7/39 Test: Overspeed.S1_NoOverspeed
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S1_NoOverspeed" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S1_NoOverspeed" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S1_NoOverspeed" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -191,7 +191,7 @@ Note: Google Test filter = Overspeed.S1_NoOverspeed
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S1_NoOverspeed" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S1_NoOverspeed" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S1_NoOverspeed" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -199,7 +199,7 @@ Test Passed.
 8/39 Test: Overspeed.S2_Nminus1_NoLatch
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S2_Nminus1_NoLatch" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S2_Nminus1_NoLatch" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S2_Nminus1_NoLatch" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -218,7 +218,7 @@ Note: Google Test filter = Overspeed.S2_Nminus1_NoLatch
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S2_Nminus1_NoLatch" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S2_Nminus1_NoLatch" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S2_Nminus1_NoLatch" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -226,7 +226,7 @@ Test Passed.
 9/39 Test: Overspeed.S3_TripAtNth_Holds
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S3_TripAtNth_Holds" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S3_TripAtNth_Holds" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S3_TripAtNth_Holds" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -245,7 +245,7 @@ Note: Google Test filter = Overspeed.S3_TripAtNth_Holds
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S3_TripAtNth_Holds" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S3_TripAtNth_Holds" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S3_TripAtNth_Holds" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -253,7 +253,7 @@ Test Passed.
 10/39 Test: Overspeed.S4_AckDuringOverspeed_NoRearm
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S4_AckDuringOverspeed_NoRearm" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S4_AckDuringOverspeed_NoRearm" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S4_AckDuringOverspeed_NoRearm" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -272,7 +272,7 @@ Note: Google Test filter = Overspeed.S4_AckDuringOverspeed_NoRearm
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S4_AckDuringOverspeed_NoRearm" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S4_AckDuringOverspeed_NoRearm" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S4_AckDuringOverspeed_NoRearm" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -280,7 +280,7 @@ Test Passed.
 11/39 Test: Overspeed.S5_AckEdge_Rearms
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S5_AckEdge_Rearms" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S5_AckEdge_Rearms" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S5_AckEdge_Rearms" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -299,7 +299,7 @@ Note: Google Test filter = Overspeed.S5_AckEdge_Rearms
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S5_AckEdge_Rearms" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S5_AckEdge_Rearms" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S5_AckEdge_Rearms" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -307,7 +307,7 @@ Test Passed.
 12/39 Test: Overspeed.S6_HeldAck_NoAutoRearm
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S6_HeldAck_NoAutoRearm" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S6_HeldAck_NoAutoRearm" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S6_HeldAck_NoAutoRearm" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -326,7 +326,7 @@ Note: Google Test filter = Overspeed.S6_HeldAck_NoAutoRearm
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S6_HeldAck_NoAutoRearm" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S6_HeldAck_NoAutoRearm" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S6_HeldAck_NoAutoRearm" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -334,7 +334,7 @@ Test Passed.
 13/39 Test: Overspeed.S7_HardKill_Immediate
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S7_HardKill_Immediate" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S7_HardKill_Immediate" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S7_HardKill_Immediate" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -353,7 +353,7 @@ Note: Google Test filter = Overspeed.S7_HardKill_Immediate
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S7_HardKill_Immediate" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S7_HardKill_Immediate" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S7_HardKill_Immediate" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -361,7 +361,7 @@ Test Passed.
 14/39 Test: Overspeed.S8_KillDominatesLand
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Overspeed.S8_KillDominatesLand" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Overspeed.S8_KillDominatesLand" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S8_KillDominatesLand" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -380,7 +380,7 @@ Note: Google Test filter = Overspeed.S8_KillDominatesLand
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Overspeed.S8_KillDominatesLand" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Overspeed.S8_KillDominatesLand" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Overspeed.S8_KillDominatesLand" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -388,7 +388,7 @@ Test Passed.
 15/39 Test: Tilt.T1_TripAtNth_Holds
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Tilt.T1_TripAtNth_Holds" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Tilt.T1_TripAtNth_Holds" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T1_TripAtNth_Holds" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -407,7 +407,7 @@ Note: Google Test filter = Tilt.T1_TripAtNth_Holds
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Tilt.T1_TripAtNth_Holds" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T1_TripAtNth_Holds" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Tilt.T1_TripAtNth_Holds" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -415,7 +415,7 @@ Test Passed.
 16/39 Test: Tilt.T2_BelowThreshold_NoTrip
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Tilt.T2_BelowThreshold_NoTrip" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Tilt.T2_BelowThreshold_NoTrip" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T2_BelowThreshold_NoTrip" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -434,7 +434,7 @@ Note: Google Test filter = Tilt.T2_BelowThreshold_NoTrip
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Tilt.T2_BelowThreshold_NoTrip" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T2_BelowThreshold_NoTrip" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Tilt.T2_BelowThreshold_NoTrip" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -442,7 +442,7 @@ Test Passed.
 17/39 Test: Tilt.T3_ShortTilt_NoTrip
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Tilt.T3_ShortTilt_NoTrip" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Tilt.T3_ShortTilt_NoTrip" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T3_ShortTilt_NoTrip" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -461,7 +461,7 @@ Note: Google Test filter = Tilt.T3_ShortTilt_NoTrip
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Tilt.T3_ShortTilt_NoTrip" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T3_ShortTilt_NoTrip" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Tilt.T3_ShortTilt_NoTrip" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -469,7 +469,7 @@ Test Passed.
 18/39 Test: Tilt.T4_NoRearmWhileTilted
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Tilt.T4_NoRearmWhileTilted" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Tilt.T4_NoRearmWhileTilted" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T4_NoRearmWhileTilted" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -488,7 +488,7 @@ Note: Google Test filter = Tilt.T4_NoRearmWhileTilted
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Tilt.T4_NoRearmWhileTilted" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Tilt.T4_NoRearmWhileTilted" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Tilt.T4_NoRearmWhileTilted" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -496,7 +496,7 @@ Test Passed.
 19/39 Test: Button.BT1_EdgeKills
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Button.BT1_EdgeKills" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Button.BT1_EdgeKills" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Button.BT1_EdgeKills" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -515,7 +515,7 @@ Note: Google Test filter = Button.BT1_EdgeKills
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Button.BT1_EdgeKills" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Button.BT1_EdgeKills" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Button.BT1_EdgeKills" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -523,7 +523,7 @@ Test Passed.
 20/39 Test: Button.BT2_HeldBlocksRearm
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Button.BT2_HeldBlocksRearm" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Button.BT2_HeldBlocksRearm" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Button.BT2_HeldBlocksRearm" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -542,7 +542,7 @@ Note: Google Test filter = Button.BT2_HeldBlocksRearm
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Button.BT2_HeldBlocksRearm" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Button.BT2_HeldBlocksRearm" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Button.BT2_HeldBlocksRearm" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -550,7 +550,7 @@ Test Passed.
 21/39 Test: Button.BT3_ButtonDoesNotRearmOverspeed
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Button.BT3_ButtonDoesNotRearmOverspeed" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Button.BT3_ButtonDoesNotRearmOverspeed" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Button.BT3_ButtonDoesNotRearmOverspeed" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -569,7 +569,7 @@ Note: Google Test filter = Button.BT3_ButtonDoesNotRearmOverspeed
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Button.BT3_ButtonDoesNotRearmOverspeed" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Button.BT3_ButtonDoesNotRearmOverspeed" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Button.BT3_ButtonDoesNotRearmOverspeed" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -577,7 +577,7 @@ Test Passed.
 22/39 Test: Battery.B1_ColdStart_NoFalseTrip
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Battery.B1_ColdStart_NoFalseTrip" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Battery.B1_ColdStart_NoFalseTrip" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B1_ColdStart_NoFalseTrip" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -596,7 +596,7 @@ Note: Google Test filter = Battery.B1_ColdStart_NoFalseTrip
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Battery.B1_ColdStart_NoFalseTrip" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B1_ColdStart_NoFalseTrip" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Battery.B1_ColdStart_NoFalseTrip" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -604,7 +604,7 @@ Test Passed.
 23/39 Test: Battery.B2_Ramp_Escalation
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Battery.B2_Ramp_Escalation" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Battery.B2_Ramp_Escalation" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B2_Ramp_Escalation" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -623,7 +623,7 @@ Note: Google Test filter = Battery.B2_Ramp_Escalation
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Battery.B2_Ramp_Escalation" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B2_Ramp_Escalation" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Battery.B2_Ramp_Escalation" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -631,7 +631,7 @@ Test Passed.
 24/39 Test: Battery.B3_Hysteresis_NoChatter
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Battery.B3_Hysteresis_NoChatter" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Battery.B3_Hysteresis_NoChatter" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B3_Hysteresis_NoChatter" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -650,7 +650,7 @@ Note: Google Test filter = Battery.B3_Hysteresis_NoChatter
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Battery.B3_Hysteresis_NoChatter" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B3_Hysteresis_NoChatter" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Battery.B3_Hysteresis_NoChatter" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -658,7 +658,7 @@ Test Passed.
 25/39 Test: Battery.B4_FloorLatch_Sticky
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Battery.B4_FloorLatch_Sticky" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Battery.B4_FloorLatch_Sticky" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B4_FloorLatch_Sticky" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -677,7 +677,7 @@ Note: Google Test filter = Battery.B4_FloorLatch_Sticky
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Battery.B4_FloorLatch_Sticky" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B4_FloorLatch_Sticky" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Battery.B4_FloorLatch_Sticky" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -685,7 +685,7 @@ Test Passed.
 26/39 Test: Battery.B5_EMA_FiltersShortSag
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Battery.B5_EMA_FiltersShortSag" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Battery.B5_EMA_FiltersShortSag" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B5_EMA_FiltersShortSag" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -704,7 +704,7 @@ Note: Google Test filter = Battery.B5_EMA_FiltersShortSag
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Battery.B5_EMA_FiltersShortSag" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B5_EMA_FiltersShortSag" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Battery.B5_EMA_FiltersShortSag" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -712,7 +712,7 @@ Test Passed.
 27/39 Test: Battery.B6_CountRange
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_safety.exe" "--gtest_filter=Battery.B6_CountRange" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"Battery.B6_CountRange" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B6_CountRange" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -731,7 +731,7 @@ Note: Google Test filter = Battery.B6_CountRange
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"Battery.B6_CountRange" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"Battery.B6_CountRange" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "Battery.B6_CountRange" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -739,7 +739,7 @@ Test Passed.
 28/39 Test: LinkCodec.WireBitExact
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_link_codec.exe" "--gtest_filter=LinkCodec.WireBitExact" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"LinkCodec.WireBitExact" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"LinkCodec.WireBitExact" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -748,7 +748,7 @@ Note: Google Test filter = LinkCodec.WireBitExact
 [----------] Global test environment set-up.
 [----------] 1 test from LinkCodec
 [ RUN      ] LinkCodec.WireBitExact
-[       OK ] LinkCodec.WireBitExact (2 ms)
+[       OK ] LinkCodec.WireBitExact (3 ms)
 [----------] 1 test from LinkCodec (3 ms total)
 
 [----------] Global test environment tear-down
@@ -758,7 +758,7 @@ Note: Google Test filter = LinkCodec.WireBitExact
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"LinkCodec.WireBitExact" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"LinkCodec.WireBitExact" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "LinkCodec.WireBitExact" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -766,7 +766,7 @@ Test Passed.
 29/39 Test: LinkCodec.DecodeMatchesRx
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_link_codec.exe" "--gtest_filter=LinkCodec.DecodeMatchesRx" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"LinkCodec.DecodeMatchesRx" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"LinkCodec.DecodeMatchesRx" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -775,17 +775,17 @@ Note: Google Test filter = LinkCodec.DecodeMatchesRx
 [----------] Global test environment set-up.
 [----------] 1 test from LinkCodec
 [ RUN      ] LinkCodec.DecodeMatchesRx
-[       OK ] LinkCodec.DecodeMatchesRx (3 ms)
-[----------] 1 test from LinkCodec (3 ms total)
+[       OK ] LinkCodec.DecodeMatchesRx (2 ms)
+[----------] 1 test from LinkCodec (2 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (3 ms total)
+[==========] 1 test from 1 test suite ran. (2 ms total)
 [  PASSED  ] 1 test.
 <end of output>
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"LinkCodec.DecodeMatchesRx" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"LinkCodec.DecodeMatchesRx" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "LinkCodec.DecodeMatchesRx" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -793,7 +793,7 @@ Test Passed.
 30/39 Test: LinkCodec.HeaderRoundTrip
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_link_codec.exe" "--gtest_filter=LinkCodec.HeaderRoundTrip" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"LinkCodec.HeaderRoundTrip" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"LinkCodec.HeaderRoundTrip" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -812,7 +812,7 @@ Note: Google Test filter = LinkCodec.HeaderRoundTrip
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"LinkCodec.HeaderRoundTrip" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"LinkCodec.HeaderRoundTrip" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "LinkCodec.HeaderRoundTrip" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -820,7 +820,7 @@ Test Passed.
 31/39 Test: GcsFrame.ParseMatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_gcs_frame.exe" "--gtest_filter=GcsFrame.ParseMatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"GcsFrame.ParseMatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"GcsFrame.ParseMatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -829,7 +829,7 @@ Note: Google Test filter = GcsFrame.ParseMatchesGolden
 [----------] Global test environment set-up.
 [----------] 1 test from GcsFrame
 [ RUN      ] GcsFrame.ParseMatchesGolden
-[       OK ] GcsFrame.ParseMatchesGolden (0 ms)
+[       OK ] GcsFrame.ParseMatchesGolden (1 ms)
 [----------] 1 test from GcsFrame (1 ms total)
 
 [----------] Global test environment tear-down
@@ -839,7 +839,7 @@ Note: Google Test filter = GcsFrame.ParseMatchesGolden
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"GcsFrame.ParseMatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"GcsFrame.ParseMatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "GcsFrame.ParseMatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -847,7 +847,7 @@ Test Passed.
 32/39 Test: GcsFrame.RejectsCorruption
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_gcs_frame.exe" "--gtest_filter=GcsFrame.RejectsCorruption" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"GcsFrame.RejectsCorruption" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"GcsFrame.RejectsCorruption" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -856,7 +856,7 @@ Note: Google Test filter = GcsFrame.RejectsCorruption
 [----------] Global test environment set-up.
 [----------] 1 test from GcsFrame
 [ RUN      ] GcsFrame.RejectsCorruption
-[       OK ] GcsFrame.RejectsCorruption (1 ms)
+[       OK ] GcsFrame.RejectsCorruption (0 ms)
 [----------] 1 test from GcsFrame (1 ms total)
 
 [----------] Global test environment tear-down
@@ -866,7 +866,7 @@ Note: Google Test filter = GcsFrame.RejectsCorruption
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"GcsFrame.RejectsCorruption" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"GcsFrame.RejectsCorruption" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "GcsFrame.RejectsCorruption" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -874,7 +874,7 @@ Test Passed.
 33/39 Test: McuGolden.RotorCmdMatchesGolden
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuGolden.RotorCmdMatchesGolden" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuGolden.RotorCmdMatchesGolden" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuGolden.RotorCmdMatchesGolden" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -883,17 +883,17 @@ Note: Google Test filter = McuGolden.RotorCmdMatchesGolden
 [----------] Global test environment set-up.
 [----------] 1 test from McuGolden
 [ RUN      ] McuGolden.RotorCmdMatchesGolden
-[       OK ] McuGolden.RotorCmdMatchesGolden (42 ms)
-[----------] 1 test from McuGolden (42 ms total)
+[       OK ] McuGolden.RotorCmdMatchesGolden (45 ms)
+[----------] 1 test from McuGolden (45 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (42 ms total)
+[==========] 1 test from 1 test suite ran. (45 ms total)
 [  PASSED  ] 1 test.
 <end of output>
 Test time =   0.05 sec
 ----------------------------------------------------------
 Test Passed.
-"McuGolden.RotorCmdMatchesGolden" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuGolden.RotorCmdMatchesGolden" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuGolden.RotorCmdMatchesGolden" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -901,7 +901,7 @@ Test Passed.
 34/39 Test: McuGolden.DeterministicAcrossFreshInstances
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuGolden.DeterministicAcrossFreshInstances" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuGolden.DeterministicAcrossFreshInstances" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuGolden.DeterministicAcrossFreshInstances" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -910,17 +910,17 @@ Note: Google Test filter = McuGolden.DeterministicAcrossFreshInstances
 [----------] Global test environment set-up.
 [----------] 1 test from McuGolden
 [ RUN      ] McuGolden.DeterministicAcrossFreshInstances
-[       OK ] McuGolden.DeterministicAcrossFreshInstances (46 ms)
-[----------] 1 test from McuGolden (46 ms total)
+[       OK ] McuGolden.DeterministicAcrossFreshInstances (49 ms)
+[----------] 1 test from McuGolden (49 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (46 ms total)
+[==========] 1 test from 1 test suite ran. (49 ms total)
 [  PASSED  ] 1 test.
 <end of output>
 Test time =   0.06 sec
 ----------------------------------------------------------
 Test Passed.
-"McuGolden.DeterministicAcrossFreshInstances" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuGolden.DeterministicAcrossFreshInstances" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuGolden.DeterministicAcrossFreshInstances" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -928,7 +928,7 @@ Test Passed.
 35/39 Test: McuFailsafe.Estop2KillsThrottleAndRotor
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuFailsafe.Estop2KillsThrottleAndRotor" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuFailsafe.Estop2KillsThrottleAndRotor" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuFailsafe.Estop2KillsThrottleAndRotor" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -947,7 +947,7 @@ Note: Google Test filter = McuFailsafe.Estop2KillsThrottleAndRotor
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"McuFailsafe.Estop2KillsThrottleAndRotor" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuFailsafe.Estop2KillsThrottleAndRotor" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuFailsafe.Estop2KillsThrottleAndRotor" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -955,7 +955,7 @@ Test Passed.
 36/39 Test: McuOverspeed.KillHoldsAndReArmsOnBusAckEdge
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuOverspeed.KillHoldsAndReArmsOnBusAckEdge" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuOverspeed.KillHoldsAndReArmsOnBusAckEdge" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuOverspeed.KillHoldsAndReArmsOnBusAckEdge" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -974,7 +974,7 @@ Note: Google Test filter = McuOverspeed.KillHoldsAndReArmsOnBusAckEdge
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"McuOverspeed.KillHoldsAndReArmsOnBusAckEdge" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuOverspeed.KillHoldsAndReArmsOnBusAckEdge" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuOverspeed.KillHoldsAndReArmsOnBusAckEdge" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -982,7 +982,7 @@ Test Passed.
 37/39 Test: McuButton.EdgeKillsHeldBlocksRearmBusAckClears
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuButton.EdgeKillsHeldBlocksRearmBusAckClears" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuButton.EdgeKillsHeldBlocksRearmBusAckClears" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuButton.EdgeKillsHeldBlocksRearmBusAckClears" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -1001,7 +1001,7 @@ Note: Google Test filter = McuButton.EdgeKillsHeldBlocksRearmBusAckClears
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"McuButton.EdgeKillsHeldBlocksRearmBusAckClears" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuButton.EdgeKillsHeldBlocksRearmBusAckClears" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuButton.EdgeKillsHeldBlocksRearmBusAckClears" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -1009,7 +1009,7 @@ Test Passed.
 38/39 Test: McuTilt.SustainedTiltKills
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuTilt.SustainedTiltKills" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuTilt.SustainedTiltKills" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuTilt.SustainedTiltKills" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -1028,7 +1028,7 @@ Note: Google Test filter = McuTilt.SustainedTiltKills
 Test time =   0.01 sec
 ----------------------------------------------------------
 Test Passed.
-"McuTilt.SustainedTiltKills" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuTilt.SustainedTiltKills" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuTilt.SustainedTiltKills" time elapsed: 00:00:00
 ----------------------------------------------------------
 
@@ -1036,7 +1036,7 @@ Test Passed.
 39/39 Test: McuBattery.RampEscalatesLed
 Command: "C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg/Release/test_mcu_model.exe" "--gtest_filter=McuBattery.RampEscalatesLed" "--gtest_also_run_disabled_tests"
 Directory: C:/Users/Rakete/Documents/Drohnenversuchsstand/DROMA/Simulation/scripts/sitl/build_cg
-"McuBattery.RampEscalatesLed" start time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuBattery.RampEscalatesLed" start time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 Output:
 ----------------------------------------------------------
 Running main() from C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\scripts\sitl\build_cg\_deps\googletest-src\googletest\src\gtest_main.cc
@@ -1055,8 +1055,8 @@ Note: Google Test filter = McuBattery.RampEscalatesLed
 Test time =   0.02 sec
 ----------------------------------------------------------
 Test Passed.
-"McuBattery.RampEscalatesLed" end time: Jul 23 09:37 Mitteleuropäische Sommerzeit
+"McuBattery.RampEscalatesLed" end time: Jul 26 15:14 Mitteleuropäische Sommerzeit
 "McuBattery.RampEscalatesLed" time elapsed: 00:00:00
 ----------------------------------------------------------
 
-End testing: Jul 23 09:37 Mitteleuropäische Sommerzeit
+End testing: Jul 26 15:14 Mitteleuropäische Sommerzeit
