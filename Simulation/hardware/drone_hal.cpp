@@ -137,6 +137,18 @@ static IntervalTimer     g_timer;
 static uint32_t          g_tick_dt_max = 0;
 static uint32_t          g_tick_overruns = 0;
 static uint32_t          g_tick_count = 0;
+// Link-Diagnose (BENCH): trennt "Sender emittiert nicht 100 Hz" (Windows/USB-Pacing)
+// von "auf der Luft verloren" (RF, AutoAck aus). Fenster = 1 s, ausgegeben in [tick].
+//   rx     = zugestellte Frames/s (effektive Linkrate)
+//   gaps   = fehlende seq/s      (Sender hat gesendet, kam nie an -> RF-Verlust)
+//   rx+gaps= vom Sender wirklich emittierte Frames/s (~100 = Simulink ok; ~64 = OS-Takt)
+//   maxdt  = groesster Ankunftsabstand/s [ms] -> reisst das 100-ms-Failsafe
+static uint32_t          g_rx_win  = 0;         // zugestellte Pakete im Fenster
+static uint32_t          g_rx_gaps = 0;         // fehlende seq im Fenster
+static uint32_t          g_rx_maxdt = 0;        // groesster Arrival-Abstand [ms]
+static uint8_t           g_last_seq = 0;
+static bool              g_seq_init = false;
+static uint32_t          g_t_prev_rx = 0;
 
 // ------------------------------ MPU-6050 -------------------------------------
 static void mpu_write(uint8_t reg, uint8_t val) {
@@ -196,8 +208,17 @@ static void nrf_poll() {
     while (g_radio.available()) {
         g_radio.read(buf, pkt::SIZE);
         if (!pkt::id_matches(buf, g_own_id)) continue; // Fremdpaket verwerfen
-        pkt::unpack(buf, g_cmd);                       // ZOH: g_cmd haelt bis zum naechsten
-        g_t_last_rx = millis();
+        uint8_t id, seq;
+        pkt::unpack(buf, g_cmd, id, seq);              // ZOH: g_cmd haelt bis zum naechsten
+        uint32_t now = millis();
+        if (g_seq_init) {
+            g_rx_gaps += (uint8_t)(seq - g_last_seq - 1);   // fehlende Frames (mod 256)
+            uint32_t dt = now - g_t_prev_rx;
+            if (dt > g_rx_maxdt) g_rx_maxdt = dt;
+        }
+        g_last_seq = seq; g_seq_init = true; g_t_prev_rx = now;
+        ++g_rx_win;
+        g_t_last_rx = now;
     }
 }
 
@@ -294,7 +315,9 @@ void setup() {
     bool nrf_ok = g_radio.begin(&SPI1);
     g_radio.setAutoAck(false);
     g_radio.setPayloadSize(pkt::SIZE);
-    g_radio.setDataRate(RF24_1MBPS);
+    g_radio.setDataRate(RF24_250KBPS);                       // war 1MBPS: ~10 dB Empfindlichkeit
+                                                             // gegen ~63%-On-Air-Verlust (S-3).
+                                                             // MUSS mit gcs_sender.cpp gleich sein!
     g_radio.setChannel(76);                                  // == gcs_sender.cpp (GS + 3 Drohnen teilen)
     g_radio.openReadingPipe(1, NRF_BCAST_ADDR);
     g_radio.startListening();
@@ -389,9 +412,13 @@ void loop() {
     if (dt > g_tick_dt_max) g_tick_dt_max = dt;
     if (dt > TICK_US) ++g_tick_overruns;
     if (++g_tick_count >= TIMING_REPORT_TICKS) {
-        Serial.printf("[tick] max=%lu us, overruns=%lu / %lu\n",
+        Serial.printf("[tick] max=%lu us, overruns=%lu / %lu | "
+                      "rx=%lu gaps=%lu (emit=%lu) maxdt=%lums\n",
                       (unsigned long)g_tick_dt_max, (unsigned long)g_tick_overruns,
-                      (unsigned long)g_tick_count);
+                      (unsigned long)g_tick_count,
+                      (unsigned long)g_rx_win, (unsigned long)g_rx_gaps,
+                      (unsigned long)(g_rx_win + g_rx_gaps), (unsigned long)g_rx_maxdt);
         g_tick_dt_max = 0; g_tick_overruns = 0; g_tick_count = 0;
+        g_rx_win = 0; g_rx_gaps = 0; g_rx_maxdt = 0;
     }
 }

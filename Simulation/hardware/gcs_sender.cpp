@@ -84,7 +84,9 @@ void setup() {
     g_radio.begin(&SPI1);
     g_radio.setAutoAck(false);
     g_radio.setPayloadSize(pkt::SIZE);
-    g_radio.setDataRate(RF24_1MBPS);
+    g_radio.setDataRate(RF24_250KBPS);           // war 1MBPS: ~10 dB mehr Empfindlichkeit
+                                                 // gegen den ~63%-On-Air-Verlust (S-3).
+                                                 // MUSS mit drone_hal.cpp uebereinstimmen!
     g_radio.setChannel(NRF_CHANNEL);
     g_radio.openWritingPipe(NRF_BCAST_ADDR);
     g_radio.stopListening();                     // TX-Modus
