@@ -311,7 +311,7 @@ void setup() {
     // Ohne Bodge floatet ADO -> Adresse 0x69; dann MPU_ADDR anpassen.
     Wire.begin(); Wire.setClock(400000);                     // Fast-Mode Pflicht (1 kHz-Budget)
     mpu_write(MPU_PWR_MGMT_1, 0x00);                         // wake
-    mpu_write(0x1A, 0x03);
+    mpu_write(0x1A, 0x04);   // DLPF 21/20 Hz (war 0x03=44/42): dämpft Vibration im Lage-/Gyro-Pfad; 20 Hz = 8x ueber omega_Lage
     mpu_write(MPU_GYRO_CONFIG, 0x08);                        // FS_SEL=1 (+-500 dps)
     mpu_write(MPU_ACCEL_CONFIG, 0x08);                       // AFS_SEL=1 (+-4 g)
 #ifdef HAL_REPORT

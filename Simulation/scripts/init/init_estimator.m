@@ -24,7 +24,7 @@ mahony.q_init = angle2quat(deg2rad(0), 0, deg2rad(0))';   % ZYX, scalar-first
 %
 % Observer:
 %   d/dt xi = A*xi + B*a_cmd + L*(y - C*xi)
-luen.poles = 4.5*[-10 -10 -10 -10 -10 -10];
+luen.poles = 2.5*[-10 -10 -10 -10 -10 -10];
 luen.A = [zeros(3) eye(3); zeros(3) zeros(3)];
 luen.B = [zeros(3); eye(3)];
 luen.C = [eye(3) zeros(3)];

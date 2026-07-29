@@ -38,7 +38,7 @@ disp(['Schubkonstante c_T (Datenblatt): ', num2str(c_T), ' Ns^2/rad^2']);
 % c_T_datenblatt (sum(omega^2)=F_des/c_T), der Throttle-Map erzeugt daraus die echte
 % Drehzahl. Realer Schub = c_T_real*sum(omega^2) = c_T_real*F_des/c_T_datenblatt.
 % Gleichsetzen: c_T_real = c_T_datenblatt * m*g / F_des_liftoff  (~21 % kleiner).
-F_des_liftoff = 12.22;                                   % [N] gemessen, voller Akku
+F_des_liftoff = 12.22; % [N] gemessen, voller Akku
 c_T = c_T * (quadcop.m*quadcop.g) / F_des_liftoff;
 disp(['Schubkonstante c_T (Liftoff-korrigiert): ', num2str(c_T), ' Ns^2/rad^2']);
 

@@ -15,8 +15,37 @@ function [F_des, F_des_vec, q_des] = pos_ctrl(x, v, x_ref, v_ref, a_ref, yaw_ref
 
 g_grav = [0; 0; g];
 
-% --- Soll-Schubkraft (inertial): m*a_des + m*g_grav, a_des = a_d + Feedback ---
-F_des_vec = m*(a_ref + g_grav - Kp*(x - x_ref) - Kd*(v - v_ref));
+% ---- Anti-Windup-Integrator (behebt den stationaeren z-Offset) ----------
+% Ohne I-Anteil bleibt ein Defizit im Flug ~10 cm zu tief. 
+% Ki = omega_i*Kp, omega_i ist der Tuning-Knopf. Anti-Windup: die 
+% Integral-Beschleunigung wird auf +-A_INT_MAX geklemmt und e_int passend 
+% zurueckgerechnet, damit Steigflug-Transienten nicht aufintegriert werden. 
+persistent e_int
+
+if isempty(e_int)
+    e_int = [0; 0; 0]; 
+end
+omega_i   = 0.5;    % [rad/s] TUNING (hoch=schnellerer Offset-Abbau)
+Ts        = 0.01;   % [s] == Ts_gcs
+A_INT_MAX = 3.0;    % [m/s^2] Anti-Windup-Grenze
+Ki = omega_i * Kp;
+
+e    = x - x_ref;
+edot = v - v_ref;
+
+e_int = e_int + e * Ts;
+a_int = Ki * e_int;
+for k = 1:3
+    if a_int(k) >  A_INT_MAX
+        a_int(k) =  A_INT_MAX;  if Ki(k,k) > 0, e_int(k) = a_int(k)/Ki(k,k); end
+    elseif a_int(k) < -A_INT_MAX
+        a_int(k) = -A_INT_MAX;  if Ki(k,k) > 0, e_int(k) = a_int(k)/Ki(k,k); end
+    end
+end
+
+% --- Soll-Schubkraft (inertial): k_thrust*m*(a_des + g_grav), a_des = a_ref + Feedback ---
+k_thrust  = 1.15; % static gain to improve feedforward
+F_des_vec = m*(k_thrust*(a_ref + g_grav) - Kp*e - Kd*edot - a_int);
 
 F_des = norm(F_des_vec);
 

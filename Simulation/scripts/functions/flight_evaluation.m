@@ -1,11 +1,33 @@
-t_flight = out.trackingErrpr.Time;
-e_p = squeeze(out.trackingErrpr.Data)';
+t_flight = out.tout;
+x = squeeze(out.mocap_pos.Data);
+x_ref = squeeze(out.x_ref.Data)';
+v_hat = squeeze(out.v_hat.Data)';
+v_ref = squeeze(out.v_ref.Data)';
+q_des = squeeze(out.q_des.Data)';
+F_des = squeeze(out.F_des.Data)';
+mocap_quat = squeeze(out.mocap_quat.Data)';
+e_p = x - x_ref;
 norm_e_p = vecnorm(e_p,2,2);
-plot(t_flight, norm_e_p)
+plot(t_flight, norm_e_p);
 title("Norm of the tracking error $\|p - p_s\|_2$", 'Interpreter','latex');
 xlabel("t in [s]");
 ylabel("$\|p - p_s\|_2$", 'Interpreter','latex');
 zielOrdner = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
-dateiname = 'norm_e_p.mat';
+dateiname_tr_err = 'norm_e_p.mat';
+dateiname_x = 'x.mat';
+dateiname_x_ref = 'x_ref.mat';
+dateiname_v_hat = 'v_hat.mat';
+dateiname_v_ref = 'v_ref.mat';
+dateiname_q_des = 'q_des.mat';
+dateiname_F_des = 'F_des.mat';
+dateiname_mocap_quat = 'mocap_quat.mat';
 
-save(fullfile(zielOrdner, dateiname), 'norm_e_p');
+save(fullfile(zielOrdner, dateiname_tr_err), 'norm_e_p');
+save(fullfile(zielOrdner, dateiname_x), 'x');
+save(fullfile(zielOrdner, dateiname_x_ref), 'x_ref');
+save(fullfile(zielOrdner, dateiname_v_hat), 'v_hat');
+save(fullfile(zielOrdner, dateiname_v_ref), 'v_ref');
+save(fullfile(zielOrdner, dateiname_q_des), 'q_des');
+save(fullfile(zielOrdner, dateiname_F_des), 'F_des');
+save(fullfile(zielOrdner, dateiname_mocap_quat), 'mocap_quat');
+save(fullfile(zielOrdner,'t_flight.mat'),'t_flight');

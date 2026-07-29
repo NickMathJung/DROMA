@@ -1,18 +1,3 @@
-# ============================================================================
-# Generierte / maschinenspezifische Artefakte — regenerierbar, NICHT committen.
-# Wiederherstellung auf einem neuen Rechner (Reihenfolge egal):
-#   MATLAB:  run_mcu_recert(root); run_mcu_arm_codegen(root); run gen_lib_codegen.m
-#   CMake :  cmake -S scripts/sitl -B scripts/sitl/build \
-#                  -DSAFETY_IMPL=codegen -DQUAT_IMPL=codegen
-#   Arduino: bash hardware/build_sketches.sh --compile
-# ============================================================================
-
-# ACHTUNG (Session 9): Patterns MIT '/' sind relativ zu DIESER Datei (Repo-Wurzel
-# = DROMA\). Das Projekt liegt aber unter DROMA\Simulation\ -> ohne den
-# 'Simulation/'-Praefix greift KEINE Regel. Genau das war der Fall: der komplette
-# Codegen-Output wurde jahrelang mitcommittet (~45 Dateien/Commit).
-# Pruefen mit:  git check-ignore -v <pfad>
-
 # --- CMake-Build (Exes + CMakeCache mit Absolutpfaden -> immer maschinenspezifisch)
 Simulation/scripts/sitl/build/
 
@@ -48,15 +33,6 @@ Simulation/scripts/sitl/codegen/
 *.autosave
 *.mexw64
 
-# HINWEIS: Test-Fixtures BLEIBEN getrackt (bewusst, kein MATLAB noetig zum Testen):
-#   Simulation/scripts/sitl/data/*.csv                  (Golden-Vektoren)
-#   Simulation/scripts/sitl/include/throttle_poly.hpp   (generiert, aber klein + Test-Input)
-#
-# ⚠️ .gitignore wirkt NICHT auf bereits GETRACKTE Dateien. Die oben gelisteten
-# Ordner sind derzeit im Index. Zum Aufraeumen einmalig (loescht nichts auf Disk):
-#   git rm -r --cached Simulation/scripts/sitl/mcu_ert_rtw Simulation/hardware/mcu_arm \
-#                      Simulation/scripts/sitl/codegen Simulation/scripts/sitl/build \
-#                      Simulation/hardware/build Simulation/scripts/sitl/mcu.zip
-# Danach committen. Auf einem frischen Klon regenerieren (Reihenfolge egal):
-#   run_mcu_recert(root); run_mcu_arm_codegen(root); gen_lib_codegen.m;
-#   cmake ...; bash hardware/build_sketches.sh --compile
+# --- to workspace von bench.slx
+Simulation/data/*.mat
+
