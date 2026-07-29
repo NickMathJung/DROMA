@@ -1,4 +1,4 @@
-function [F, tau] = geo_attitude_ctrl(q, Omega, q_des, q_ref, Omega_ref, F_des, tau_ref, kR, kOmega)
+function [F, tau] = geo_attitude_ctrl(q, Omega, q_des, q_ref, Omega_ref, F_des, tau_ref, kR, kOmega, J)
 %#codegen
 % geo_attitude_ctrl  Geometrischer Lageregler auf SO(3).
 %   Nach Lee/Leok/McClamroch (CDC 2010), 2-DOF-Fehlerrueckfuehrung:
@@ -18,6 +18,7 @@ function [F, tau] = geo_attitude_ctrl(q, Omega, q_des, q_ref, Omega_ref, F_des, 
 %     Omega_ref        : Vorsteuer-Drehrate im Body-Frame aus traj_gen
 %     F_des, tau_ff    : Vorsteuerung Schub/Moment aus traj_gen
 %     kR, kOmega       : 3x3-Gains
+%     J                : 3x3 Trägheitsmoment
 %     F, tau           : Schubsollwert, Stellmoment
 
 R    = quat2dcm_local(q)';      
@@ -34,7 +35,7 @@ eOmega = Omega - R'*Rref*Omega_ref;
 % --- Stellgesetz ---
 tau = tau_ref - kR*eR - kOmega*eOmega;
 % Optional voll-geometrisch: 
-% tau = tau + cross(Omega, J*Omega);
+tau = tau + cross(Omega, J*Omega);
 
 F = F_des;
 end

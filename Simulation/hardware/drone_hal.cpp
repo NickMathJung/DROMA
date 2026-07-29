@@ -156,18 +156,35 @@ static uint32_t          g_t_prev_rx = 0;
 static void mpu_write(uint8_t reg, uint8_t val) {
     Wire.beginTransmission(MPU_ADDR); Wire.write(reg); Wire.write(val); Wire.endTransmission();
 }
-// Montage-Offset R_mount: die IMU sitzt ~2.27 deg schief. In Ruhe (Motoren aus,
-// Mocap = level, q_mocap Roll/Nick < 0.4 deg) las das Accel [0.057 -0.369 9.410]
-// statt [0 0 g] -> die Neigung ist die MONTAGE, nicht die Drohne. R_mount dreht die
-// IMU-Body-Frame in die wahre (mocap-level) Body-Frame, damit der Accel-only-
-// Fallback (Mocap-Ausfall) echt waagerecht statt 2.3 deg schief haelt.
-// ACHTUNG: pro Drohne verschieden! Gemessen fuer id=2 am 2026-07-26; id=1 braucht
-// eine eigene Messung (Ruhe-acc + q_mocap -> R = align(acc -> [0 0 g])).
+// Montage-Offset R_mount PRO DROHNE (BCD-id). Die IMU sitzt je Drohne unterschiedlich
+// schief; in Ruhe (Motoren aus, Mocap = level, q_mocap Roll/Nick < 0.4 deg) liest das Accel
+// statt [0 0 g] eine leicht geneigte Richtung -> die Neigung ist MONTAGE, nicht Drohne.
+// R_mount dreht die IMU-Body-Frame in die wahre (mocap-level) Body-Frame, damit der
+// Accel-only-Fallback (Mocap-Ausfall) echt waagerecht statt schief haelt. R_mount ist die
+// Ausrichtdrehung align(Ruhe-acc -> [0 0 g]).
+//
+// Messung je Drohne: die betreffende MOUNT[id] steht als Identitaet -> in BENCH flashen,
+// Drohne mocap-level und still hinlegen (Motoren aus), Ruhe-acc aus dem Report mitteln,
+// R_mount rechnen (scripts/motive/mount_from_acc.m) und hier eintragen. Identitaet = noch
+// nicht vermessen. Ausgewaehlt wird ueber g_own_id (BCD) in setup() -> g_R_mount.
+static const double MOUNT[5][3][3] = {
+    // id=0 -- unbenutzt (kein BCD gesteckt) -> Identitaet
+    {{1,0,0},{0,1,0},{0,0,1}},
+    // id=1 -- NOCH NICHT VERMESSEN (Ruhe-acc ablesen, dann Identitaet ersetzen)
+    {{1,0,0},{0,1,0},{0,0,1}},
+    // id=2 -- gemessen 2026-07-26 (Neigung 2.27 deg, Achse [-0.988 -0.153 0])
+    {{ 0.999981676,  0.000118626, -0.006052623},
+     { 0.000118626,  0.999232053,  0.039182770},
+     { 0.006052623, -0.039182770,  0.999213729}},
+    // id=3 -- NOCH NICHT VERMESSEN
+    {{1,0,0},{0,1,0},{0,0,1}},
+    // id=4 -- NOCH NICHT VERMESSEN
+    {{1,0,0},{0,1,0},{0,0,1}},
+};
+static const double (*g_R_mount)[3] = MOUNT[0];   // sichere Identitaet bis setup() die BCD-id kennt
+
 static void apply_mount(double v[3]) {
-    static const double R[3][3] = {
-        { 0.999981676,  0.000118626, -0.006052623},
-        { 0.000118626,  0.999232053,  0.039182770},
-        { 0.006052623, -0.039182770,  0.999213729}};
+    const double (*R)[3] = g_R_mount;
     double o0 = R[0][0]*v[0] + R[0][1]*v[1] + R[0][2]*v[2];
     double o1 = R[1][0]*v[0] + R[1][1]*v[1] + R[1][2]*v[2];
     double o2 = R[2][0]*v[0] + R[2][1]*v[1] + R[2][2]*v[2];
@@ -319,6 +336,7 @@ void setup() {
 #endif
 
     g_own_id = read_bcd_id();
+    g_R_mount = MOUNT[(g_own_id < 5) ? g_own_id : 0];   // per-Drohne Montage-Offset (Identitaet falls unbekannt/unvermessen)
 
     // nRF Broadcast, Auto-Ack aus (Design A) auf SPI1 (26/1/27 = Default-SPI1-Pins).
     // Auf dem Teensy die SPI1-Pins explizit setzen und SPI1.begin() vor

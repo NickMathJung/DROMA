@@ -11,8 +11,8 @@ end
 
 % omega_n and zeta are the natural frequency and the damping ratio of the
 % damped oscillator the closed loop-system is trying to achieve
-omega_n_pos = 0.5*[10; 10; 10];   
-omega_n_Lage = [16;16;10];   
+omega_n_pos = 0.5*[10; 10; 15];   
+omega_n_Lage = [17;17;10];   
 zeta = 0.707;
 controller.kR = diag(quadcop.J * omega_n_Lage.^2);
 controller.kOmega =  diag(2 * zeta * quadcop.J * omega_n_Lage);
