@@ -67,7 +67,7 @@ imu.acc_M      = [ 1.03  0.02  0.02;
 imu.acc_wn     = 2*pi*8; % rad/s
 imu.acc_zeta   = 0.707;
 
-% Motive @ Ts_mocap   (TODO: aus OptiTrack-Spezifikation/Messung)
+% Motive @ Ts_mocap   
 mocap.pos_noise = 1e-3; % RMS
 mocap.att_noise = 0.5*pi/180; % RMS
 mocap.Ts_mocap  = Ts_mocap; % Sample-Periode (= 1/f_base)
@@ -84,7 +84,7 @@ mocap.host_ip      = '127.0.0.1';
 mocap.client_ip    = '127.0.0.1';
 % Streaming-ID des Drohnen-Rigid-Body in Motive (Assets-Pane); muss zur
 % geflogenen Drohne passen.
-mocap.streaming_id = 2;
+mocap.streaming_id = 1;
 % Motive muss auf Z-Up streamen (Settings -> Streaming -> Up Axis = Z), passend
 % zum z-up-Projekt. MotiveMocap transformiert absichtlich nicht: eine zweite
 % Korrekturstelle waere wieder eine doppelte Kompensation. NatNet liefert Meter

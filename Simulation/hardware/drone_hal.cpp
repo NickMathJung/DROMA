@@ -170,8 +170,10 @@ static void mpu_write(uint8_t reg, uint8_t val) {
 static const double MOUNT[5][3][3] = {
     // id=0 -- unbenutzt (kein BCD gesteckt) -> Identitaet
     {{1,0,0},{0,1,0},{0,0,1}},
-    // id=1 -- NOCH NICHT VERMESSEN (Ruhe-acc ablesen, dann Identitaet ersetzen)
-    {{1,0,0},{0,1,0},{0,0,1}},
+    // id=1 -- gemessen (Ruhe-acc -> mount_from_acc, Neigung ~5.8 deg)
+    {{ 0.9996,  0.0014, -0.028 },
+     { 0.0014,  0.9953,  0.0969},
+     { 0.028,  -0.0969,  0.9949}},
     // id=2 -- gemessen 2026-07-26 (Neigung 2.27 deg, Achse [-0.988 -0.153 0])
     {{ 0.999981676,  0.000118626, -0.006052623},
      { 0.000118626,  0.999232053,  0.039182770},

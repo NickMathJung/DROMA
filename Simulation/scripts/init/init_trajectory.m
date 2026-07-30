@@ -9,14 +9,14 @@ arguments (Input)
     yaw0_in (1,1) double = 0
 end
 arguments (Output)
-    traj struct % holding parameters for the trahectory
+    traj struct % holding parameters for the trajectory
 end
 auto_origin = ~isempty(x0_in);
 
 if auto_origin % aus Mocap (bench.slx InitFcn beim Run)
     x0   = x0_in;
     yaw0 = yaw0_in;
-    fprintf('S-4 Auto-Ursprung (Mocap): [%.3f %.3f %.3f] m, yaw %.1f deg\n', ...
+    fprintf('Auto-Ursprung (Mocap): [%.3f %.3f %.3f] m, yaw %.1f deg\n', ...
             x0, rad2deg(yaw0));
 else % Fallback ohne Motive
     x0   = [ 0;  0;  0 ];  
@@ -33,13 +33,13 @@ wayp7 = x0;
 traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
-traj.yaw    = deg2rad([ 0   0   0   0  0  0]);
+traj.yaw    = deg2rad([ yaw0   yaw0   yaw0   yaw0   yaw0   yaw0]);
 
 % Bewegungsdauer je Segment (N-1 Werte) [s]
-traj.Tseg   = [ 3.0  3.0  3.0  3.0  3.0  3.0 ];
+traj.Tseg   = [ 2.0  1.5  1.5  1.5  1.5  2.0 ];
 
 % Rastdauer je Wegpunkt (N Werte)  -- erster Wert = Anfangs-Hover
-traj.Tdwell = [ 3.0  4.0  4.0  4.0  4.0  4.0  2.0 ];
+traj.Tdwell = [ 1.0  1.0  1.0  1.0  1.0  1.0  1.0 ];
 
 % ===== S-4 Erste Start- und Landetrajektorie (Versuchsstand, Motoren AN) ==========
 TEST_S4 = false;
@@ -53,7 +53,7 @@ if TEST_S4
     %     x0   = [ 0;  0;  0 ];  
     %     yaw0 =   0; 
     % end
-    z_hov = 1.0; % max Höhe [m]
+    z_hov = 0.5; % max Höhe [m]
     traj.P      = [ x0, x0+[0;0;z_hov], x0 ]; % Boden -> z_hov -> Boden
     traj.yaw    = [ yaw0  yaw0 ];
     traj.Tseg   = [ 3.0   3.0 ]; 
