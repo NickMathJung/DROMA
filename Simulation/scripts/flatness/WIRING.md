@@ -13,11 +13,11 @@ und 30 ms Motor-Lag). Konvention **z-up, Schub entlang +Body-z**, identisch zu
 
 ## 1. Die drei Bausteine
 
-| Datei | Rolle | Rate | läuft auf |
-|---|---|---|---|
-| `flatness_ctrl.m` | vereinheitlichter Regler → `[F; tau]` | schnell (1 kHz) | MCU |
-| `flatness_khat.m` | Schub-Skalenschätzer → `k_hat` | langsam (100 Hz) | GCS/Mocap |
-| `init_flatness.m` | Auslegung (`coefPos`, `coefPhi`, Gains, Takte) | Init | — |
+| ----- Datei ------| ----------------------- Rolle------------------------ |------ Rate ----- | läuft auf |
+|-------------------|-------------------------------------------------------|----------------- |-----------|
+| `flatness_ctrl.m` | vereinheitlichter Regler → `[F; tau]`                 | schnell (1 kHz)  | MCU       |
+| `flatness_khat.m` | Schub-Skalenschätzer → `k_hat`                        | langsam (100 Hz) | GCS/Mocap |
+| `init_flatness.m` | Auslegung (`coefPos`, `coefPhi`, Gains, Takte)        | Init             |     —     |
 
 **Kernidee:** `flatness_ctrl` ersetzt in der Variante `flatness` die *gesamte*
 Kaskade `pos_ctrl` (GCS) + `geo_attitude_ctrl` (MCU) — es liefert `[F; tau]` in

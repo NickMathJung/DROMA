@@ -7,7 +7,7 @@ function [F_des, F_des_vec, q_des] = pos_ctrl(x, v, x_ref, v_ref, a_ref, yaw_ref
 %   Ein-/Ausgaenge:
 %     x, v            : Position/Geschwindigkeit
 %     x_d, v_d, a_d   : Solltrajektorie (Pos/Geschw/Beschl, inertial)
-%     yaw_d           : Soll-Heading 
+%     yaw_ref         : Soll-Heading 3x1 [yaw; dyaw; ddyaw] (nur yaw_ref(1) genutzt)
 %     Kp, Kd          : 3x3-Gain-Matrizen
 %     F               : Sollschubbetrag
 %     q_ref           : Solllage-Quaternion
@@ -49,9 +49,10 @@ F_des_vec = m*(k_thrust*(a_ref + g_grav) - Kp*e - Kd*edot - a_int);
 
 F_des = norm(F_des_vec);
 
-% --- Kraft -> Lage: Koerper-z entlang F_des, Heading aus yaw_d ---
+% --- Kraft -> Lage: Koerper-z entlang F_des, Heading aus yaw_ref ---
 zb = F_des_vec / max(F_des, 1e-6); % gewuenschte Koerper-z in Inertial
-xc = [cos(yaw_ref); sin(yaw_ref); 0];
+yaw = yaw_ref(1);                  % yaw_ref ist 3x1 [yaw; dyaw; ddyaw]; Kaskade nutzt nur yaw
+xc = [cos(yaw); sin(yaw); 0];
 yb = cross(zb, xc);  
 yb = yb / max(norm(yb), 1e-6);
 xb = cross(yb, zb);

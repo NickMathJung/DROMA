@@ -20,14 +20,14 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, estop, mode] = ...
 %   x_ref_traj      : 3x1    Trajektorien-Sollposition (Durchleitung in NORMAL)
 %   v_ref_traj      : 3x1    Trajektorien-Sollgeschwindigkeit
 %   a_ref_traj      : 3x1    Trajektorien-Sollbeschleunigung
-%   yaw_ref_traj    : double Trajektorien-Soll-Yaw 
+%   yaw_ref_traj    : 3x1    Trajektorien-Soll-Yaw [yaw; dyaw; ddyaw]
 %   Omega_ref_traj  : 3x1    Trajektorien-Solldrehrate2
 %   tau_ref_traj    : 3x1    Trajektorien-Sollmomente 
 %   sup             : struct .v_sink .z_ground .disarm_margin .Ts
 %
 % Ausgaenge (-> pos_ctrl bzw. Bus_Cmd):
 %   x_ref, v_ref, a_ref : 3x1    selektierte Sollwerte fuer pos_ctrl
-%   yaw_ref             : double selektierter Soll-Yaw
+%   yaw_ref             : 3x1    selektierter Soll-Yaw [yaw; dyaw; ddyaw]
 %   Omega_ref, tau_ref  : 3x1    Lage-Vorsteuerung 
 %   estop               : uint8  0/1/2 -> Bus_Cmd.estop (Uplink)
 %   mode                : uint8  Zustands-ID (Logging/Debug)
@@ -41,9 +41,9 @@ KILL = uint8(3);
 persistent state x0 y0 yaw0 zref inited
 if isempty(inited)
     state = NORMAL;
-    x0 = 0.0;   
-    y0 = 0.0;   
-    yaw0 = 0.0;
+    x0 = 0.0;
+    y0 = 0.0;
+    yaw0 = [0.0; 0.0; 0.0];   % 3x1, passend zu yaw_ref_traj [yaw; dyaw; ddyaw]
     zref = 0.0;
     inited = true;
 end
