@@ -77,6 +77,8 @@ imu_fvib=70; imu_avib=3.0; imu_sigma=0.5; imu_bias=0.3;   % [m/s^2] Vibration/Ra
 Tm=0.01; moc_sigma_p=2e-4; tau_lp=0.10;                   % Mocap 100 Hz, 0.2 mm Rauschen, 1.6-Hz-TP
 p_moc_prev=states(1:3,1); v_moc_prev=[0;0;0]; a_moc_lp=[0;0;0];
 t_moc_prev=-Tm; s_meas_hold=g;
+% velocity-innovation-Schaetzer (HW-Form: Luenberger-v vs Modellpraediktion)
+v_pred=[0;0;0]; L_obs=0.5; sigma_v=0.01;                  % Luenberger-v-Rauschen ~1 cm/s
 
 for i=1:Nt-1
   p=states(1:3,i); v=states(4:6,i);
@@ -101,6 +103,25 @@ for i=1:Nt-1
         p_moc_prev=p_moc; v_moc_prev=v_moc; t_moc_prev=tdisc(i);
       end
       s_meas = s_meas_hold;
+    case 'mocap_av'  % Beschl. aus EINMALIGER Diff. der Beobachter-v (bias-frei, HW-Form)
+      if tdisc(i) - t_moc_prev >= Tm - 1e-9
+        v_obs = v + sigma_v*randn(3,1);                   % Luenberger-Ausgang
+        a_obs = (v_obs - v_moc_prev)/Tm;                  % einmalig differenziert
+        alp = Tm/(Tm+tau_lp); a_moc_lp = a_moc_lp + alp*(a_obs - a_moc_lp);
+        s_meas_hold = R(:,3)'*(a_moc_lp + g*eZ);
+        v_moc_prev = v_obs; t_moc_prev = tdisc(i);
+      end
+      s_meas = s_meas_hold;
+    case 'mocap_vi'  % velocity-innovation: Luenberger-v (bias-frei) vs Modellpraediktion
+      v_pred = v_pred + (-g*eZ + zeta1*R(:,3))*dt;        % Praediktion mit Modellbeschl.
+      if tdisc(i) - t_moc_prev >= Tm - 1e-9
+        v_obs = v + sigma_v*randn(3,1);                   % Luenberger-Ausgang (mocap-basiert)
+        e_v = v_obs - v_pred;
+        k_hat = k_hat + gamma_khat * (R(:,3)'*e_v);       % Innovation entlang zB treibt k_hat
+        v_pred = v_pred + L_obs*e_v;                      % Beobachter-Korrektur
+        t_moc_prev = tdisc(i);
+      end
+      s_meas = zeta1;   % neutralisiert die generische Update-Zeile unten
     otherwise     % 'truth'
       s_meas = s_truth;
   end
