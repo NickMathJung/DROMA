@@ -9,7 +9,7 @@ arguments (Output)
 end
 
 % 8.5 rad/s (~487 deg/s) per Achse ggf. per-Achse differenzieren
-safety.omega_max = 8.5; % [rad/s]
+safety.omega_max = 12.5; % [rad/s]
 
 % N aufeinanderfolgende Samples gegen Gyro-Spikes
 safety.debounce_N = uint16(4);
@@ -22,7 +22,7 @@ safety.use_norm = true;
 % und haelt das ueber tilt_debounce_N Basistakte (@1 kHz also ms) an, latcht der
 % Kill ebenfalls. Der Vergleich laeuft ueber cos(Kippwinkel), daher hier der
 % vorberechnete Cosinus (groesserer Winkel = kleinerer Cosinus).
-safety.tilt_max_deg = 80; % [deg] gegen die Vertikale
+safety.tilt_max_deg = 90; % [deg] gegen die Vertikale
 safety.tilt_cos_min = cosd(safety.tilt_max_deg);
 safety.tilt_debounce_N = uint16(80); % 80 Basistakte = 80 ms @1 kHz
 

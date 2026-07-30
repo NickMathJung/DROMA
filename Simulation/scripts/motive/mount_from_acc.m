@@ -14,8 +14,8 @@ function R = mount_from_acc(acc_rest)
 arguments (Input)
     acc_rest (3,1) double
 end
-    a = acc_rest / norm(acc_rest);      % Ist-Richtung (Einheit)
-    t = [0; 0; 1];                      % Soll: Schwerkraft auf +z
+    a = acc_rest / norm(acc_rest); % Ist-Richtung normiert
+    t = [0; 0; 1]; % Soll: Schwerkraft auf +z
     v = cross(a, t);
     s = norm(v);
     c = dot(a, t);

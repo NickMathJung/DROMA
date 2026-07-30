@@ -34,3 +34,4 @@ scripts/sitl/codegen/
 # HINWEIS: Test-Fixtures BLEIBEN getrackt (bewusst, kein MATLAB noetig zum Testen):
 #   scripts/sitl/data/*.csv        (Golden-Vektoren)
 #   scripts/sitl/include/throttle_poly.hpp  (generiert, aber klein + Test-Input)
+data/norm_e_p.mat
