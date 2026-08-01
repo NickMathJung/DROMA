@@ -32,7 +32,7 @@ einem Zug. **Die Ausgabeschnittstelle `[F(N), tau(Nm)]` ist identisch zu
 `[F, tau] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts)`
 
 | Port | Dim | Quelle sim-first (Bus_State-Wahrheit) | Quelle HW/bench |
-|---|---|---|---|
+|------|-----|---------------------------------------|-----------------|
 | `p` | 3 | `Bus_State.x` | `Bus_Mocap.mocap_pos` (gestreamt) |
 | `v` | 3 | `Bus_State.v` | Luenberger `v_hat` |
 | `q` | 4 | `Bus_State.q` | Mahony `q` |
