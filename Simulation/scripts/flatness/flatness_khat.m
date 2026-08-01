@@ -1,15 +1,13 @@
 function k_hat = flatness_khat(v, q, F, m, g, gamma_khat, tau_lp, Ts)
 %#codegen
 % flatness_khat  Schub-Skalenschaetzer fuer den flachheitsbasierten Regler.
-%   Schaetzt den effektiven Schubfaktor k_hat (reale/kommandierte Schubkraft),
-%   damit flatness_ctrl den aerodynamischen Download / die Schub-Map-Abweichung
-%   herausrechnet (F_cmd = m*zeta1/k_hat). k_hat -> thrust_scale.
+%   Schaetzt den effektiven Schubfaktor k_hat (reale/kommandierte Schubkraft).
 %
-%   MESSQUELLE = MOCAP, NICHT IMU (bewusst): der Beschleunigungsmesser traegt
-%   Vibration + BIAS -> k_hat wuerde auf einen falschen Wert konvergieren
-%   (Sim: 11 cm Restfehler). Hier wird die Beschleunigung EINMALIG aus der
-%   Luenberger-Geschwindigkeit differenziert (bias-frei) und tiefpassgefiltert.
-%   Der Schaetzer ist langsam (~1-5 Hz) -> laeuft auf GCS-/Mocap-Rate (100 Hz),
+%   Messung übrt Mocap, nicht IMU: der Beschleunigungsmesser traegt
+%   Vibration + BIAS -> k_hat wuerde auf einen falschen Wert konvergieren. 
+%   Hier wird die Beschleunigung einmalig aus der Luenberger-Geschwindigkeit 
+%   v_hat differenziert und tiefpassgefiltert. Der Schaetzer ist langsam 
+%   (~1-5 Hz) -> laeuft auf GCS-/Mocap-Rate (100 Hz),
 %   braucht die 1-kHz-IMU-Rate nicht.
 %
 %   Eingaenge
@@ -17,7 +15,7 @@ function k_hat = flatness_khat(v, q, F, m, g, gamma_khat, tau_lp, Ts)
 %     q        4x1  Lage-Quaternion (fuer die Schubachse zB = R(:,3))
 %     F        1x1  kommandierter Schub aus flatness_ctrl [N] (1 Takt verzoegert)
 %     m,g      1x1  Masse, Erdbeschleunigung
-%     gamma_khat 1x1  Adaptionsgain (init_flatness: 0.5)
+%     gamma_khat 1x1  Adaptionsgain (init_flatness)
 %     tau_lp   1x1  TP-Zeitkonstante auf die differenzierte v [s] (0.10)
 %     Ts       1x1  Abtastzeit dieses Schaetzers [s] (== Mocap-/GCS-Takt, 0.01)
 %   Ausgang

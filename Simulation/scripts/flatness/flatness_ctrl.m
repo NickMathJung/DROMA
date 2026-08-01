@@ -2,19 +2,19 @@ function [F, tau] = flatness_ctrl(p, v, q, omega, ...
                                  p_ref, v_ref, a_ref, j_ref, s_ref, yawref, ...
                                  k_hat, m, g, J, coefPos, coefPhi, Ts)
 %#codegen
-% flatness_ctrl  Vereinheitlichter flachheitsbasierter Folgeregler (exakte
-%   Zustandslinearisierung). Ersetzt in der 'flatness'-Variante die Kaskade
-%   pos_ctrl (GCS) + geo_attitude_ctrl (MCU): liefert Schub+Moment [F;tau] in
-%   EINEM Zug aus dem vollen Zustand (p,v,R,w) und der Solltrajektorie.
+% flatness_ctrl Flachheitsbasierter Folgeregler (exakte Zustandslinearisierung).
+%   Als Alternative zur Kaskade pos_ctrl (GCS) + geo_attitude_ctrl (MCU). 
+%   Liefert Schub + Moment [F;tau] in einem Zug aus dem vollen Zustand (p,v,R,w) 
+%   und der Solltrajektorie.
 %
 %   Konvention z-up, Schub entlang +Body-z (identisch pos_ctrl/geo_attitude_ctrl).
 %   Ausgabeschnittstelle [F(N), tau(Nm)] = wie geo_attitude_ctrl -> der bestehende
-%   Mixer (Gamma_inv + Throttle-Map) im mcu wird UNVERAENDERT weiterverwendet.
+%   Mixer (Gamma_inv + Throttle-Map) im mcu wird unverändert weiterverwendet.
 %
 %   Eingaenge
 %     p,v      3x1  Position (Mocap) / Geschwindigkeit (Luenberger)
-%     q        4x1  Lage-Quaternion (Mahony), Skalar zuerst
-%     omega    3x1  Koerperdrehrate (Gyro)
+%     q        4x1  Lage-Quaternion, Skalar zuerst
+%     omega    3x1  Koerperdrehrate 
 %     p_ref..s_ref 3x1  flache Ausgaenge Position + Ableitungen (v,a,j,s)
 %     yawref   3x1  [yaw; dyaw; ddyaw]  (aus traj_gen; dyaw=ddyaw=0 bei Segment-Yaw)
 %     k_hat    1x1  Schub-Skalenschaetzung (aus flatness_khat; 1.0 wenn aus)
