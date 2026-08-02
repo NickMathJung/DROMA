@@ -20,7 +20,7 @@ function [F, tau] = flatness_ctrl(p, v, q, omega, ...
 %     k_hat    1x1  Schub-Skalenschaetzung (aus flatness_khat; 1.0 wenn aus)
 %     m,g      1x1  Masse, Erdbeschleunigung
 %     J        3x3  Traegheitstensor
-%     coefPos  3x5  Brunovsky-Koeffizienten je Achse (aus init_flatness)
+%     coefPos  3x6  Brunovsky-Koeffizienten je Achse (aus init_flatness)
 %     coefPhi  1x3  Brunovsky-Koeffizienten Yaw
 %     Ts       1x1  Abtastzeit des Reglers [s]
 %   Ausgaenge
@@ -30,10 +30,11 @@ function [F, tau] = flatness_ctrl(p, v, q, omega, ...
 %   Interne Zustaende: zeta1 (spez. Schub), zeta2 (dessen Ableitung) -> die
 %   dynamische Erweiterung, die den Schub zum Brunovsky-Integratorzustand macht.
 
-persistent zeta1 zeta2
+persistent zeta1 zeta2 eint
 if isempty(zeta1)
-    zeta1 = g;      % Hover: spez. Schub = g
+    zeta1 = g;          % Hover: spez. Schub = g
     zeta2 = 0;
+    eint  = [0;0;0];    % Positions-Integrierer (nullt konstante Stoerungen)
 end
 
 eZ = [0;0;1]; eY = [0;1;0];
@@ -51,12 +52,25 @@ xC  = [cos(phi); sin(phi); 0];
 txB = cross(yC, R(:,3));
 dphi = (norm(txB)*w(3) - w(2)*yC.'*R(:,3)) / (xC.'*R(:,1));
 
+% --- Positions-Integrierer mit Anti-Windup ------------------------------------
+ep   = p - p_ref;
+ki   = coefPos(:,6);           
+AINT_MAX = 400; % TUNING-Knopf
+eint = eint + ep * Ts;
+aint = ki .* eint;
+for kk = 1:3
+    if     aint(kk) >  AINT_MAX, aint(kk) =  AINT_MAX; if ki(kk) > 0, eint(kk) = aint(kk)/ki(kk); end
+    elseif aint(kk) < -AINT_MAX, aint(kk) = -AINT_MAX; if ki(kk) > 0, eint(kk) = aint(kk)/ki(kk); end
+    end
+end
+
 % --- Brunovsky-Regelgesetze (Position bis Snap, Yaw bis Winkelbeschl.) ---
 u_123 = s_ref ...
         - diag(coefPos(:,2))*(jj - j_ref) ...
         - diag(coefPos(:,3))*(a  - a_ref) ...
         - diag(coefPos(:,4))*(v  - v_ref) ...
-        - diag(coefPos(:,5))*(p  - p_ref);
+        - diag(coefPos(:,5))*ep ...
+        - aint;
 u_4 = yawref(3) - coefPhi(2)*(dphi - yawref(2)) - coefPhi(3)*(phi - yawref(1));
 
 % --- Winkelbeschleunigungen aus den Brunovsky-Stellgroessen ---
@@ -68,12 +82,10 @@ dwz = ( zeta1*(u_4*xC.'*R(:,1) + 2*dphi*w(3)*xC.'*R(:,2) - 2*dphi*w(2)*xC.'*R(:,
 dw = [dwx; dwy; dwz];
 
 % --- Stellgroessen ---
-F   = m * zeta1 / max(k_hat, 1e-3);     % [N] mit Schub-Skalenkorrektur
+F   = m * zeta1 / max(k_hat, 1e-3);     % [N] mit Schub-Skalenkorrektur k_hat
 tau = J*dw + cross(w, J*w);             % [Nm]
 
 % --- Reglerzustaende integrieren (expliziter Euler) ---
-% Hinweis: (tw^2 + dw*ones(1,3)) uebernimmt den Term der Referenz-Implementierung
-% (implizite Spalten-Erweiterung von dw); vor Aggressivmanoevern pruefen.
 z2o = zeta2;
 dz2 = R(:,3).'*u_123 - 2*zeta2*R(:,3).'*R*tw*eZ + zeta1*R(:,3).'*R*(tw^2 + dw*ones(1,3))*eZ;
 zeta2 = zeta2 + dz2*Ts;
