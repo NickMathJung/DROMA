@@ -71,6 +71,13 @@ u_123 = s_ref ...
         - diag(coefPos(:,4))*(v  - v_ref) ...
         - diag(coefPos(:,5))*ep ...
         - aint;
+
+% --- Begrenzung (vergroessert die Einzugsregion) ---------------------
+UFB_MAX = 700; % TUNING-Knopf [m/s^4]
+u_fb  = u_123 - s_ref;
+u_fb  = max(min(u_fb, UFB_MAX), -UFB_MAX);
+u_123 = s_ref + u_fb;
+
 u_4 = yawref(3) - coefPhi(2)*(dphi - yawref(2)) - coefPhi(3)*(phi - yawref(1));
 
 % --- Winkelbeschleunigungen aus den Brunovsky-Stellgroessen ---

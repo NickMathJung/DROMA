@@ -12,10 +12,10 @@ end
 % --- Brunovsky-Polvorgabe der flachen Fehlerdynamik ---------------------------
 % Je Achse ein Satz reeller Pole [rad/s] fuer die Integratorkette (Pos bis Snap).
 % z (Zeile 3) schneller gewaehlt (wie in der Kaskade omega_pos_z > x,y).
-eigenvalPos = 1.5*[ 4.0   4.0   4.0   4.0;     % x
+eigenvalPos = 1.0*[ 4.0   4.0   4.0   4.0;     % x
                     4.0   4.0   4.0   4.0;     % y
                     5.0   5.0   5.0   5.0];    % z
-eigenvalInt = 3*[1.0; 1.0; 1.0];
+eigenvalInt = 1*[1.0; 1.0; 1.0];
 coefPos = zeros(3,6);
 for jr = 1:3
     cp = [1 eigenvalPos(jr,1)];
