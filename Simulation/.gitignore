@@ -9,6 +9,7 @@
 
 # --- CMake-Build (Exes + CMakeCache mit Absolutpfaden -> immer maschinenspezifisch)
 scripts/sitl/build/
+scripts/sitl/build_cg/
 
 # --- Arduino-Sketch-Assembly (build_sketches.sh)
 hardware/build/
@@ -22,6 +23,10 @@ scripts/sitl/mcu.zip
 # --- Generierter Modell-Code (run_mcu_recert / run_mcu_arm_codegen)
 scripts/sitl/mcu_ert_rtw/
 hardware/mcu_arm/
+
+# --- dito Flatness-Variante (run_mcu_flat_recert)
+scripts/sitl/mcu_flat_ert_rtw/
+scripts/sitl/mcu_flat.zip
 
 # --- Standalone-Leaf-Codegen (gen_lib_codegen.m)
 scripts/sitl/codegen/
