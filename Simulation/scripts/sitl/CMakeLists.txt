@@ -159,3 +159,26 @@ if(EXISTS "${_MR}/mcu.cpp")
   target_compile_definitions(diag_mcu_replay PRIVATE
       GOLDEN_MCU_CSV="${GOLDEN_MCU_CSV}" DIAG_TOL=${GOLDEN_TOL})
 endif()
+
+# --- FLATNESS-MCU: Modell-Golden (mcu_flat_ert_rtw, Klasse MCU_FLAT) ----------
+set(MODEL_FLAT_ROOT "${CMAKE_SOURCE_DIR}/mcu_flat_ert_rtw" CACHE PATH
+    "slbuild-Ausgabe von mcu_flat (enthaelt mcu_flat.cpp, mcu_flat.h ...)")
+set(GOLDEN_MCU_FLAT_CSV "${GOLDEN_DIR}/golden_mcu_flat_io.csv" CACHE FILEPATH
+    "Golden-I/O aus log_mcu_flat_golden.m")
+
+file(TO_CMAKE_PATH "${MODEL_FLAT_ROOT}" _MFR)
+if(EXISTS "${_MFR}/mcu_flat.cpp")
+  file(GLOB _MCUF_SRC "${_MFR}/*.cpp")
+  list(FILTER _MCUF_SRC EXCLUDE REGEX "ert_main\\.cpp$")
+
+  add_executable(test_mcu_flat_model test/test_mcu_flat_model.cpp ${_MCUF_SRC})
+  target_include_directories(test_mcu_flat_model PRIVATE include test "${_MFR}")
+  target_compile_definitions(test_mcu_flat_model PRIVATE
+      GOLDEN_MCU_FLAT_CSV="${GOLDEN_MCU_FLAT_CSV}" GOLDEN_TOL=${GOLDEN_TOL})
+  target_link_libraries(test_mcu_flat_model PRIVATE GTest::gtest_main)
+  gtest_discover_tests(test_mcu_flat_model)
+else()
+  message(STATUS
+    "test_mcu_flat_model uebersprungen: ${_MFR}/mcu_flat.cpp fehlt "
+    "(erst configure_mcu_flat_codegen -> slbuild('mcu_flat') laufen lassen).")
+endif()
