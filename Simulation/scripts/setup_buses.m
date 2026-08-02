@@ -11,15 +11,27 @@ busState = buildBus({ ...      % Strecken-Wahrheit (nur Simulation)
     'q',4; ...       % Lage-Quaternion
     'Omega',3 });    % Koerperdrehrate {B}
 
-busCmd = buildBus({ ...        % Bodenstation -> Drohne (Funk, ein Paket)
-    'F_des',     1, 'double'; ...      % Schub 
-    'q_des',     4, 'double'; ...      % vom Positionsregler korrigiertes Lage-Quaternion 
+busCmd = buildBus({ ...        % Bodenstation -> Drohne -- KASKADE
+    'F_des',     1, 'double'; ...      % Schub
+    'q_des',     4, 'double'; ...      % vom Positionsregler korrigiertes Lage-Quaternion
     'q_ref',     4, 'double'; ...      % Solllage-Quaternion (Sollwert)
     'Omega_ref', 3, 'double'; ...      % Solldrehrate
-    'tau_ref',   3, 'double'; ...      % Sollmomente (Vorsteuerung)
+    'tau_ref',   3, 'double'; ...      % Sollmomente (Vorsteuerung) -- FLATNESS
     'q_ext',     4, 'double'; ...      % gemessene Mocap-Lage: externe Filterreferenz (kE-Term)
     'estop',     1, 'uint8';  ...      % emergency-stop flag für weiche Landung
     'ack',       1, 'boolean'});       % Zum Freigeben nach Fehler (Wenn Drehratensensor ausschlug)
+
+busCmdFlat = buildBus({ ...    % Bodenstation -> Drohne 
+    'mocap_pos', 3, 'double'; ...      % Mocap-Position -> flatness_ctrl.p + Luenberger-Messung
+    'q_ext',     4, 'double'; ...      % Mocap-Lage -> Mahony (externe Referenz, kE-Term)
+    'p_ref',     3, 'double'; ...      % traj_gen x_ref (flacher Ausgang)
+    'v_ref',     3, 'double'; ...      % traj_gen v_ref
+    'a_ref',     3, 'double'; ...      % traj_gen a_ref
+    'j_ref',     3, 'double'; ...      % traj_gen j_ref (Ruck)
+    's_ref',     3, 'double'; ...      % traj_gen s_ref (Snap, Vorsteuerung)
+    'yaw_ref',   3, 'double'; ...      % [yaw; dyaw; ddyaw] (Segment-Yaw -> dyaw=ddyaw=0)
+    'estop',     1, 'uint8';  ...      % emergency-stop flag für weiche Landung
+    'ack',       1, 'boolean'});       % Zum Freigeben nach Fehler
 
 busIMU = buildBus({ ...        % Onboard-Sensorik @ imu.Ts -> Mahony-Filter
     'imu_gyro',   3; ...       % -> Onboard-Filter
@@ -32,13 +44,14 @@ busMocap = buildBus({ ...      % Boden-/Mocap-Sensorik @ Ts_mocap
 % --- ins Dictionary (Design Data) schreiben
 dd  = Simulink.data.dictionary.open(ddName);
 sec = getSection(dd,'Design Data');
-upsertEntry(sec,'Bus_State', busState);
-upsertEntry(sec,'Bus_Cmd',   busCmd);
-upsertEntry(sec,'Bus_IMU',   busIMU);
-upsertEntry(sec,'Bus_Mocap', busMocap);
+upsertEntry(sec,'Bus_State',    busState);
+upsertEntry(sec,'Bus_Cmd',      busCmd);
+upsertEntry(sec,'Bus_Cmd_flat', busCmdFlat);
+upsertEntry(sec,'Bus_IMU',      busIMU);
+upsertEntry(sec,'Bus_Mocap',    busMocap);
 removeEntry(sec,'Bus_Meas');           % obsoleten Sammelbus entfernen
 saveChanges(dd);
-fprintf('Busse Bus_State, Bus_Cmd, Bus_IMU, Bus_Mocap in %s angelegt.\n', ddName);
+fprintf('Busse Bus_State, Bus_Cmd, Bus_Cmd_flat, Bus_IMU, Bus_Mocap in %s angelegt.\n', ddName);
 
 
 %% ---------------------- lokale Funktionen ----------------------
