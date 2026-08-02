@@ -122,6 +122,14 @@ target_compile_definitions(test_link_codec PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
 target_link_libraries(test_link_codec PRIVATE GTest::gtest_main)
 gtest_discover_tests(test_link_codec)
 
+# --- Flatness-Codec-Cross-Check: MATLAB link_tx_flat/link_rx_flat == C++ pktf
+# (include/mcu_flat_packet.hpp, 2-Frame-OTA) gegen dump_link_flat_codec_golden.m.
+add_executable(test_link_flat_codec test/test_link_flat_codec.cpp)
+target_include_directories(test_link_flat_codec PRIVATE include test)
+target_compile_definitions(test_link_flat_codec PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
+target_link_libraries(test_link_flat_codec PRIVATE GTest::gtest_main)
+gtest_discover_tests(test_link_flat_codec)
+
 # --- GS-Frame-Cross-Check: MATLAB pack_gcs_frame == C++ gcs::parse (gcs_frame.hpp)
 add_executable(test_gcs_frame test/test_gcs_frame.cpp)
 target_include_directories(test_gcs_frame PRIVATE include test)
