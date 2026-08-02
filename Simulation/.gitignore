@@ -35,3 +35,6 @@ scripts/sitl/codegen/
 #   scripts/sitl/data/*.csv        (Golden-Vektoren)
 #   scripts/sitl/include/throttle_poly.hpp  (generiert, aber klein + Test-Input)
 data/norm_e_p.mat
+
+# --- Analyse-/Auswertungs-Plots (regenerierbar aus den Sims)
+data/*.png
