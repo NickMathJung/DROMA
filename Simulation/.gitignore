@@ -36,5 +36,5 @@ scripts/sitl/codegen/
 #   scripts/sitl/include/throttle_poly.hpp  (generiert, aber klein + Test-Input)
 data/norm_e_p.mat
 
-# --- Analyse-/Auswertungs-Plots (regenerierbar aus den Sims)
-data/*.png
+# --- Einzelner MOUNT-Setup-Screenshot (Doku-Byproduct, nicht tracken)
+hardware/setting_MOUNT_drone_hal.png
