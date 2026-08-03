@@ -137,6 +137,14 @@ target_compile_definitions(test_gcs_frame PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
 target_link_libraries(test_gcs_frame PRIVATE GTest::gtest_main)
 gtest_discover_tests(test_gcs_frame)
 
+# --- dito FLATNESS: MATLAB pack_gcs_frame_flat == C++ gcsf::parse, plus der
+# Vollpfad USB -> pktf::pack -> Assembler (faengt widen()-Feldfehler im Sender).
+add_executable(test_gcs_frame_flat test/test_gcs_frame_flat.cpp)
+target_include_directories(test_gcs_frame_flat PRIVATE include test)
+target_compile_definitions(test_gcs_frame_flat PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
+target_link_libraries(test_gcs_frame_flat PRIVATE GTest::gtest_main)
+gtest_discover_tests(test_gcs_frame_flat)
+
 set(MODEL_ROOT "${CMAKE_SOURCE_DIR}/mcu_ert_rtw" CACHE PATH
     "slbuild/packNGo-Ausgabe von mcu (enthaelt mcu.cpp, mcu_data.cpp, mcu.h ...)")
 set(GOLDEN_MCU_CSV "${GOLDEN_DIR}/golden_mcu_io.csv" CACHE FILEPATH

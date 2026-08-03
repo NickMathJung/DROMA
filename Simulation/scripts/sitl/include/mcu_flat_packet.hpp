@@ -22,7 +22,13 @@
 //   * smallest-three-Quat mit reserviertem Codewort 0 = "kein Lagebezug".
 //   * fs-Werte MUESSEN mit init_link_flat.m uebereinstimmen (dort dokumentiert).
 //
-// Byte-Layout Frame A (25 B):            Byte-Layout Frame B (27 B):
+// BEIDE Frames sind 27 B gross. Frame A braucht nur 25 und wird auf 27 gepolstert
+// (Bytes 25..26 = 0, reserviert): der nRF24 laeuft mit STATISCHER Payload-Groesse
+// (RF24::setPayloadSize), Sender und Empfaenger schreiben/lesen also immer
+// dieselbe Byte-Zahl. Unterschiedlich grosse Frames wuerden Dynamic Payloads
+// erzwingen — mehr Firmware, kein Gewinn.
+//
+// Byte-Layout Frame A (27 B):            Byte-Layout Frame B (27 B):
 //   [0]      id                            [0]      id
 //   [1]      flags (bits[1:0]=estop,       [1]      flags (wie A, bit[3]=1)
 //            bit[2]=ack, bit[3]=0)         [2]      seq
@@ -31,6 +37,7 @@
 //   [9..12]  q_ext     uint32 LE (sm3)     [15..20] s_ref    3x int16 LE
 //   [13..18] p_ref     3x int16 LE         [21..26] yaw_ref  3x int16 LE
 //   [19..24] v_ref     3x int16 LE
+//   [25..26] reserviert (0)
 #ifndef MCU_FLAT_PACKET_HPP
 #define MCU_FLAT_PACKET_HPP
 
@@ -41,8 +48,11 @@
 namespace pktf {
 
 // ---- Paketgeometrie ---------------------------------------------------------
-constexpr int SIZE_A = 25;
-constexpr int SIZE_B = 27;
+// Eine gemeinsame Groesse fuer beide Frame-Typen (statische nRF-Payload).
+constexpr int SIZE   = 27;
+constexpr int SIZE_A = SIZE;   // Alias: Frame A nutzt 25 B + 2 B Padding
+constexpr int SIZE_B = SIZE;
+constexpr int PAD_A  = 25;     // ab hier ist Frame A reserviert/genullt
 namespace off {
 constexpr int ID = 0, FLAGS = 1, SEQ = 2;             // gemeinsamer Header
 constexpr int MOC = 3, QE = 9, P = 13, V = 19;        // Frame A
@@ -105,6 +115,7 @@ inline void pack(const CmdFlat& c, uint8_t id, uint8_t seq,
     detail::put_u32 (bufA + off::QE,  detail::pack_quat(c.q_ext));
     detail::put_vec3(bufA + off::P,   c.p_ref, FS_PREF);
     detail::put_vec3(bufA + off::V,   c.v_ref, FS_VREF);
+    for (int i = PAD_A; i < SIZE; ++i) bufA[i] = 0;   // Padding deterministisch nullen
 
     bufB[off::ID] = id;  bufB[off::FLAGS] = detail::make_flags(c, true);   bufB[off::SEQ] = seq;
     detail::put_vec3(bufB + off::A, c.a_ref, FS_AREF);
