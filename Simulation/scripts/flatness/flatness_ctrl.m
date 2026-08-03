@@ -1,13 +1,11 @@
-function [F, tau] = flatness_ctrl(p, v, q, omega, ...
-                                 p_ref, v_ref, a_ref, j_ref, s_ref, yawref, ...
-                                 k_hat, m, g, J, coefPos, coefPhi, Ts)
+function [F, tau] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts, kill)
 %#codegen
 % flatness_ctrl Flachheitsbasierter Folgeregler (exakte Zustandslinearisierung).
 %   Als Alternative zur Kaskade pos_ctrl (GCS) + geo_attitude_ctrl (MCU). 
 %   Liefert Schub + Moment [F;tau] in einem Zug aus dem vollen Zustand (p,v,R,w) 
 %   und der Solltrajektorie.
 %
-%   Konvention z-up, Schub entlang +Body-z (identisch pos_ctrl/geo_attitude_ctrl).
+%   Konvention z-up, Schub entlang + Body-z (identisch pos_ctrl/geo_attitude_ctrl).
 %   Ausgabeschnittstelle [F(N), tau(Nm)] = wie geo_attitude_ctrl -> der bestehende
 %   Mixer (Gamma_inv + Throttle-Map) im mcu wird unverändert weiterverwendet.
 %
@@ -23,6 +21,7 @@ function [F, tau] = flatness_ctrl(p, v, q, omega, ...
 %     coefPos  3x6  Brunovsky-Koeffizienten je Achse (aus init_flatness)
 %     coefPhi  1x3  Brunovsky-Koeffizienten Yaw
 %     Ts       1x1  Abtastzeit des Reglers [s]
+%     kill     1x1  logical, gelatchter Not-Aus (safety_overspeed) -> Arming-Reset
 %   Ausgaenge
 %     F        1x1  Sollschub [N]
 %     tau      3x1  Stellmoment [Nm]
@@ -30,15 +29,26 @@ function [F, tau] = flatness_ctrl(p, v, q, omega, ...
 %   Interne Zustaende: zeta1 (spez. Schub), zeta2 (dessen Ableitung) -> die
 %   dynamische Erweiterung, die den Schub zum Brunovsky-Integratorzustand macht.
 
+% --- Reglerzustaende + Arming-Reset -------------------------------------------
+% Der Regler rechnet auch bei aktivem Not-Aus weiter (der Kill nullt nur die
+% Stellgroessen hinter dem Mixer). Ohne Reset laufen die drei Integratorzustaende
+% dabei mit: solange die Drohne am Boden liegt und die Trajektorie weiterfaehrt,
+% laedt eint den Positionsfehler auf, und zeta1/zeta2 wandern vom Hover weg. Weil
+% ein Integrator bei ep=0 nicht selbst abbaut, bleibt dieser Zustand stehen, bis
+% die Firmware neu bootet — beim Freigeben schlaegt er dann voll durch
+% (gemessen: 1.91x Hover-Schub statt 1.00x).
+% Deshalb: solange kill anliegt, werden die Zustaende auf den Hover-Arbeitspunkt
+% geklemmt. Der Regler startet damit IMMER aus zeta1=g, zeta2=0, eint=0 —
+% bumpless transfer, auch beim Re-Armen nach einem Overspeed-Trip im Flug.
 persistent zeta1 zeta2 eint
-if isempty(zeta1)
-    zeta1 = g;          % Hover: spez. Schub = g
+if isempty(zeta1) || kill
+    zeta1 = g; % Hover: spez. Schub = g
     zeta2 = 0;
-    eint  = [0;0;0];    % Positions-Integrierer (nullt konstante Stoerungen)
+    eint  = [0;0;0]; % Positions-Integrierer (nullt konstante Stoerungen)
 end
 
 eZ = [0;0;1]; eY = [0;1;0];
-R  = quat2dcm_local(q).';        % R_{n<-b}: Spalten = Body-Achsen in Inertial
+R  = quat2dcm_local(q).'; % R_{n<-b}: Spalten = Body-Achsen in Inertial
 w  = omega;
 tw = [0 -w(3) w(2); w(3) 0 -w(1); -w(2) w(1) 0];
 
@@ -89,8 +99,8 @@ dwz = ( zeta1*(u_4*xC.'*R(:,1) + 2*dphi*w(3)*xC.'*R(:,2) - 2*dphi*w(2)*xC.'*R(:,
 dw = [dwx; dwy; dwz];
 
 % --- Stellgroessen ---
-F   = m * zeta1 / max(k_hat, 1e-3);     % [N] mit Schub-Skalenkorrektur k_hat
-tau = J*dw + cross(w, J*w);             % [Nm]
+F   = m * zeta1 / max(k_hat, 1e-3); % [N] mit Schub-Skalenkorrektur k_hat
+tau = J*dw + cross(w, J*w); % [Nm]
 
 % --- Reglerzustaende integrieren (expliziter Euler) ---
 z2o = zeta2;

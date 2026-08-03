@@ -6,7 +6,7 @@ quadcopters verified against an infrared motion-capture system). The same
 Simulink flight controller (`mcu.slx` and `mcu_flat.slx`) is code-generated to a **Teensy 4.1**, so
 the simulation and the real drone run the same control law.
 
-> Model frame is **z-up** (not NED). `scripts/params.m` is the single source of
+> Model frame is **z-up** (not NED). `scripts/params.m` the single source of
 > truth for all parameters.
 
 ---

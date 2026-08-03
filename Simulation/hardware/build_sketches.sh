@@ -115,8 +115,13 @@ upload()  {
     if [ -z "$tp" ]; then echo "FEHLER: kein Teensy gefunden (USB angesteckt? Nur 1 Teensy?)." >&2; return 1; fi
     echo "== compile+upload $1 -> $tp =="
     echo "   (Serial-Monitor auf dem Ziel-Teensy vorher SCHLIESSEN, sonst haengt der Loader.)"
+    # Der Loader rebootet den Teensy per USB-Sonderkommando. Haelt jemand den Port
+    # (Simulink, Serial-Monitor), geht das ins Leere und er WARTET auf den
+    # Program-Taster -- die Meldung dazu muss durch den Filter, sonst sieht der
+    # Upload erfolgreich aus, waehrend die alte Firmware weiterlaeuft.
+    # Gegenprobe an der Drohne: bias[] aendert sich nur bei echtem Reboot.
     "$CLI" compile --upload -b "$FQBN" -p "$tp" "$OUT/$1" --config-file "$CFG" \
-    2>&1 | { grep -iE "error|Memory Usage|upload|verif|bytes|programming|Build.*status" || true; } \
+    2>&1 | { grep -iE "error|Memory Usage|upload|verif|bytes|programming|Build.*status|button|press|reboot|manually|waiting|not respond" || true; } \
          | { grep -viE "Fehler beim Initialisieren|Download failed" || true; }; }
 
 while [ $# -gt 0 ]; do

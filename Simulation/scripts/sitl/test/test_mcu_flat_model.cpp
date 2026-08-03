@@ -259,6 +259,48 @@ TEST(McuFlatTilt, SustainedTiltKills) {
     }
 }
 
+// Arming-Reset: der Regler rechnet bei aktivem Kill weiter, seine drei
+// Integratorzustaende (zeta1, zeta2, eint) duerfen dabei aber NICHT weglaufen —
+// sonst schlaegt beim Quittieren der aufgelaufene Zustand voll durch (auf HW
+// gemessen: 1.91x Hover-Schub statt 1.00x, und ein Nickmoment von 0.39 Nm aus
+// einem Integrator, der bei ep=0 nicht mehr abbaut).
+//
+// Test: zwei Instanzen, BEIDE 5 s unter Kill (damit Mahony und Luenberger in
+// beiden gleich weit konvergiert sind — sonst misst man den Beobachter mit).
+// Unterschied ist allein der Positionsfehler WAEHREND des Kills:
+//   A) fuenf Sekunden mit grossem Fehler (p_ref weit weg)  -> wuerde aufintegrieren
+//   B) fuenf Sekunden ohne Fehler (p_ref == mocap_pos)     -> nichts zum Laden
+// Danach bekommen beide dasselbe p_ref und werden per ack-Flanke freigegeben.
+// Mit Arming-Reset muessen sie identisch kommandieren; ohne war A ~1.9x hoeher.
+TEST(McuFlatArmingReset, StateDoesNotWindUpDuringKill) {
+    const double PREF_Z = 1.5;                      // Referenz 0.5 m ueber der Drohne
+    auto thrust_sum = [](const MCU_FLAT::ExtY_mcu_flat_T& y) {
+        double s = 0.0; for (int i = 0; i < 4; ++i) s += y.throttle[i]; return s;
+    };
+    // laeuft 5 s unter Kill mit p_ref_z = kill_ref, gibt dann bei PREF_Z frei
+    auto run = [&](double kill_ref) {
+        MCU_FLAT obj; obj.initialize();
+        MCU_FLAT::ExtU_mcu_flat_T u{}; wire_hover(u);
+        u.Bus_Cmd_flat_l.p_ref[2] = kill_ref;
+        u.Bus_Cmd_flat_l.estop = 2;                 // Kill haelt
+        for (int k = 0; k < 5000; ++k) { obj.setExternalInputs(&u); obj.step(); }
+        EXPECT_EQ(0.0, thrust_sum(obj.getExternalOutputs())) << "Kill muss die Ausgaenge nullen";
+        u.Bus_Cmd_flat_l.p_ref[2] = PREF_Z;         // ab hier identische Referenz
+        u.Bus_Cmd_flat_l.estop = 0;                 // freigeben
+        u.Bus_Cmd_flat_l.ack = true;                // ack-Flanke loest den Latch
+        for (int k = 0; k < 20; ++k) { obj.setExternalInputs(&u); obj.step(); }
+        return thrust_sum(obj.getExternalOutputs());
+    };
+
+    double thrA = run(PREF_Z);                      // grosser Fehler waehrend Kill
+    double thrB = run(1.0);                         // kein Fehler waehrend Kill
+
+    EXPECT_GT(thrB, 0.0) << "Referenzlauf muss nach dem Re-Arm Schub liefern";
+    EXPECT_NEAR(thrA, thrB, 0.02 * thrB)
+        << "Reglerzustand ist waehrend des Kills weggelaufen: thrA=" << thrA
+        << " vs thrB=" << thrB << " (Arming-Reset wirkt nicht)";
+}
+
 // Batterie-FSM: fallende Spannung -> led 0(NORMAL)->1(WARN,<=14.0)->2(CRIT,<=13.4).
 TEST(McuFlatBattery, RampEscalatesLed) {
     MCU_FLAT obj; obj.initialize();
