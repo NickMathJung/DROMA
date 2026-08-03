@@ -301,6 +301,42 @@ TEST(McuFlatArmingReset, StateDoesNotWindUpDuringKill) {
         << " vs thrB=" << thrB << " (Arming-Reset wirkt nicht)";
 }
 
+// Yaw-Vorzeichen: der Regler muss den Drehsinn kennen. Frueher kam der Gierwinkel
+// aus acos(eY'*yC) und war damit immer >= 0 -- bei negativem Ist-Yaw zeigte das
+// Giermoment in die FALSCHE Richtung (Flug 03.08.2026: Weglauf bis -118 deg, dazu
+// eine Singularitaet des dphi-Nenners bei -45 deg mit -203 deg/s Ratensprung).
+// Test ohne Kenntnis der Mixer-Vorzeichen: dieselbe Auslenkung nach +30 und -30 deg
+// muss betragsgleiche, ENTGEGENGESETZTE Giermomente kommandieren. Mit dem alten
+// acos sind beide Faelle identisch (phi = |psi|) -> gleiches Vorzeichen -> Fail.
+TEST(McuFlatYaw, TorqueIsAntisymmetricInYawError) {
+    const double d2r = 3.14159265358979323846 / 180.0;
+    // tau_z-Zeile des Mixers ist [-1 +1 -1 +1] -> Proxy aus den Throttles
+    auto tau_z = [](const MCU_FLAT::ExtY_mcu_flat_T& y) {
+        return (y.throttle[1] + y.throttle[3]) - (y.throttle[0] + y.throttle[2]);
+    };
+    auto run = [&](double psi_deg) {
+        MCU_FLAT obj; obj.initialize();
+        MCU_FLAT::ExtU_mcu_flat_T u{};
+        wire_hover(u);
+        const double h = psi_deg * d2r / 2.0;
+        u.Bus_Cmd_flat_l.q_ext[0] = std::cos(h);   // reine Gierung um z
+        u.Bus_Cmd_flat_l.q_ext[3] = std::sin(h);
+        // yaw_ref bleibt 0 -> der Regler muss zurueck auf 0 drehen
+        for (int k = 0; k < 3000; ++k) { obj.setExternalInputs(&u); obj.step(); }
+        return tau_z(obj.getExternalOutputs());
+    };
+    const double tp = run(+30.0);
+    const double tm = run(-30.0);
+    // Schutz gegen einen vakuum-gruenen Test: es muss ueberhaupt gestellt werden.
+    ASSERT_GT(std::fabs(tp), 1.0)
+        << "kein nennenswertes Giermoment (tp=" << tp << ") - Test aussagelos";
+    EXPECT_LT(tp * tm, 0.0)
+        << "gleiches Vorzeichen bei +30 und -30 deg Gierfehler (tp=" << tp
+        << ", tm=" << tm << "): der Regler kennt den Drehsinn nicht";
+    EXPECT_NEAR(tp, -tm, 0.05 * std::fabs(tp))
+        << "Giermoment nicht antisymmetrisch: tp=" << tp << " tm=" << tm;
+}
+
 // Batterie-FSM: fallende Spannung -> led 0(NORMAL)->1(WARN,<=14.0)->2(CRIT,<=13.4).
 TEST(McuFlatBattery, RampEscalatesLed) {
     MCU_FLAT obj; obj.initialize();

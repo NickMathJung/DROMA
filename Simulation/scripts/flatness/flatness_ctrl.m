@@ -47,7 +47,7 @@ if isempty(zeta1) || kill
     eint  = [0;0;0]; % Positions-Integrierer (nullt konstante Stoerungen)
 end
 
-eZ = [0;0;1]; eY = [0;1;0];
+eZ = [0;0;1];
 R  = quat2dcm_local(q).'; % R_{n<-b}: Spalten = Body-Achsen in Inertial
 w  = omega;
 tw = [0 -w(3) w(2); w(3) 0 -w(1); -w(2) w(1) 0];
@@ -57,10 +57,20 @@ a  = -g*eZ + zeta1*R(:,3);
 jj = zeta2*R(:,3) + zeta1*R*tw*eZ;
 projC = R(:,2).'*eZ;
 yc = R(:,2) - projC*eZ;  yC = yc/norm(yc);
-phi = acos(eY.'*yC);
+% Gierwinkel VORZEICHENRICHTIG aus den Komponenten von yC. Das fruehere
+% acos(eY.'*yC) lieferte nur |phi| und hat drei Fehler erzeugt (Flug 03.08.2026):
+%   (a) yawref<0 war unerreichbar -> bleibender Fehler -> konstantes Giermoment,
+%   (b) fuer phi<0 wuchs |phi| MIT dem Fehler -> Mitkopplung, Weglauf,
+%   (c) xC wurde falsch aufgebaut -> der Nenner unten wurde zu cos(2*phi) und
+%       ging bei -45 deg durch null -> Ratensprung -203 deg/s.
+phi = atan2(-yC(1), yC(2));
 xC  = [cos(phi); sin(phi); 0];
 txB = cross(yC, R(:,3));
-dphi = (norm(txB)*w(3) - w(2)*yC.'*R(:,3)) / (xC.'*R(:,1));
+% In Horizontallage ist der Nenner exakt 1; er faellt erst bei starker
+% Schraeglage ab. Vorzeichentreu abfangen, damit dphi nie explodiert.
+den  = xC.'*R(:,1);
+den  = sign(den + (den == 0)) * max(abs(den), 0.3);
+dphi = (norm(txB)*w(3) - w(2)*yC.'*R(:,3)) / den;
 
 % --- Positions-Integrierer mit Anti-Windup ------------------------------------
 ep   = p - p_ref;
@@ -88,7 +98,10 @@ u_fb  = u_123 - s_ref;
 u_fb  = max(min(u_fb, UFB_MAX), -UFB_MAX);
 u_123 = s_ref + u_fb;
 
-u_4 = yawref(3) - coefPhi(2)*(dphi - yawref(2)) - coefPhi(3)*(phi - yawref(1));
+% Yaw-Fehler auf (-pi,pi] wickeln, sonst wuerde ein Sollwert jenseits von
+% +-180 deg als fast volle Umdrehung statt auf dem kurzen Weg ausgeregelt.
+ephi = atan2(sin(phi - yawref(1)), cos(phi - yawref(1)));
+u_4 = yawref(3) - coefPhi(2)*(dphi - yawref(2)) - coefPhi(3)*ephi;
 
 % --- Winkelbeschleunigungen aus den Brunovsky-Stellgroessen ---
 dwx = (-R(:,2).'*u_123 - 2*zeta2*w(1) + zeta1*w(2)*w(3))/zeta1;

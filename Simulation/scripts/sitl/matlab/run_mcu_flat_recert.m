@@ -11,8 +11,19 @@ openProject(fullfile(proj_root,'DROMA.prj'));
 load_system('quadcop');              % PreLoadFcn -> params.m -> Ts_inner/quadcop in base
 assert(evalin('base','exist(''Ts_inner'',''var'')'), 'Ts_inner fehlt (PreLoadFcn?).');
 
-oldcd = cd(sitl);                    % slbuild-Ausgabe -> scripts\sitl\mcu_flat_ert_rtw
+oldcd = cd(sitl);
 cleanup = onCleanup(@() cd(oldcd));
+
+% Ausgabeordner EXPLIZIT setzen. cd allein reicht nicht: das Projekt pinnt
+% CodeGenFolder auf die Simulation-Wurzel, und dann bricht slbuild mit
+% "CodeGenFolder is set to ... and the current directory ... contains a code
+% generation folder" ab (tritt auf, sobald das Projekt neu geoeffnet wurde oder
+% run_mcu_flat_arm_codegen vorher in derselben Sitzung lief).
+cfgOld = Simulink.fileGenControl('getConfig');
+oldCGF = cfgOld.CodeGenFolder; oldCF = cfgOld.CacheFolder;
+Simulink.fileGenControl('set','CodeGenFolder',sitl,'CacheFolder',sitl,'createDir',true);
+restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
+    'CodeGenFolder',oldCGF,'CacheFolder',oldCF));
 
 fprintf('== configure_mcu_flat_codegen + slbuild ==\n');
 clear configure_mcu_flat_codegen

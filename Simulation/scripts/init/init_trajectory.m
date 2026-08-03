@@ -33,7 +33,8 @@ wayp7 = x0;
 traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
-traj.yaw    = deg2rad([ yaw0   yaw0   yaw0   yaw0   yaw0   yaw0]);
+% Kein deg2rad: yaw0 kommt bereits in Radiant (siehe rad2deg in der Ausgabe oben).
+traj.yaw    = [ yaw0   yaw0   yaw0   yaw0   yaw0   yaw0];
 
 % Bewegungsdauer je Segment (N-1 Werte) [s]
 traj.Tseg   = [ 2.0  2.5  2.5  2.5  2.5  2.0 ];
@@ -42,7 +43,7 @@ traj.Tseg   = [ 2.0  2.5  2.5  2.5  2.5  2.0 ];
 traj.Tdwell = [ 4.0  1.0  1.0  1.0  1.0  1.0  1.0 ];
 
 % ===== S-4 Erste Start- und Landetrajektorie (Versuchsstand, Motoren AN) ==========
-TEST_S4 = false;
+TEST_S4 = true;
 if TEST_S4
     z_hov = 0.5; % max Höhe [m]
     traj.P      = [ x0, x0+[0;0;z_hov], x0 ]; % Boden -> z_hov -> Boden
