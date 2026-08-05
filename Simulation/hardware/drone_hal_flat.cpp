@@ -171,9 +171,30 @@ DMAMEM static flog::RecSlow g_log_slow_mem[LOG_SLOW_CAP];
 static flog::Ring<flog::RecFast> g_ring_fast;
 static flog::Ring<flog::RecSlow> g_ring_slow;
 static bool     g_sd_ok      = false;
-static bool     g_log_on     = true;   // Aufzeichnung laeuft (per Serial abschaltbar)
 static uint32_t g_log_tick   = 0;      // 1-kHz-Zaehler seit Boot
-static uint8_t  g_log_flags  = 0;      // Bit0 Link-Timeout, Bit1 Ring uebergelaufen
+// flags: Bit0 Link-Timeout, Bit1 Puffer voll (25 s erreicht), Bit2 Aufzeichnung beendet
+static uint8_t  g_log_flags  = 0;
+//
+// EIN FLUG, EINE AUFZEICHNUNG. Der Puffer laeuft NICHT als Ring ueber, sondern
+// fuellt sich einmal linear und stoppt — sonst haette die Aufzeichnung den Flug
+// laengst ueberschrieben, bis man nach der Landung mit dem Kabel da ist.
+//   Start : steigende ack-Flanke ODER Freigabe (estop 2 -> 0) ODER 'z' auf der Konsole
+//   Stopp : estop == 2, Puffer voll, oder Motoren nach einem Flug LOG_FREEZE_MS aus
+//   Dump  : automatisch beim Stopp — aber ERST wenn die Drossel wirklich null ist.
+//           Bei Linkverlust springt estop mitten im Flug auf 2; ein SD-Schreibvorgang
+//           von mehreren hundert ms waehrend der Failsafe-Landung waere ein
+//           Regelungsproblem. Eingefroren wird sofort, geschrieben spaeter.
+static constexpr uint32_t LOG_FREEZE_MS = 3000;
+static bool     g_log_on       = false; // startet erst durch einen der Trigger oben
+static bool     g_log_flew     = false; // es lag schon einmal Schub an
+static uint32_t g_log_t_zero   = 0;     // millis() seit die Drossel null ist
+static bool     g_log_dump_req = false; // Dump angefordert (ausgefuehrt in loop(), nicht im Tick)
+static bool     g_log_ack_prev = false;
+static uint8_t  g_log_estop_prev = 2;   // Boot: bis der Link steht, gekillt
+// Tick des LETZTEN aufgezeichneten Fast-Records. Nicht g_log_tick verwenden: der
+// laeuft nach dem Stopp weiter, und der Dump kann deutlich spaeter kommen (er
+// wartet auf stehende Motoren) -- die Zeitachse im Header waere dann verschoben.
+static uint32_t g_log_tick_last = 0;
 
 // Link-Diagnose (BENCH): trennt "Sender emittiert nicht 100 Hz" (Windows/USB-Pacing)
 // von "auf der Luft verloren" (RF, AutoAck aus). Fenster = 1 s, ausgegeben in [tick].
@@ -196,6 +217,11 @@ static uint32_t          g_t_prev_rx = 0;
 // ------------------------------ MPU-6050 -------------------------------------
 static void mpu_write(uint8_t reg, uint8_t val) {
     Wire.beginTransmission(MPU_ADDR); Wire.write(reg); Wire.write(val); Wire.endTransmission();
+}
+static uint8_t mpu_read_reg(uint8_t reg) {
+    Wire.beginTransmission(MPU_ADDR); Wire.write(reg); Wire.endTransmission(false);
+    Wire.requestFrom((int)MPU_ADDR, 1);
+    return (uint8_t)Wire.read();
 }
 // Montage-Offset R_mount PRO DROHNE (BCD-id). Die IMU sitzt je Drohne unterschiedlich
 // schief; in Ruhe (Motoren aus, Mocap = level, q_mocap Roll/Nick < 0.4 deg) liest das Accel
@@ -346,6 +372,37 @@ static void on_tick() { g_tick = true; }  // ISR: nur Flag; I2C/SPI im loop()
 #ifdef HAL_REPORT
 // Report ~10 Hz: jeden I/O-Pfad einmal sichtbar machen. Statt F_des (Kaskade)
 // zeigt die Flatness-Variante Mocap-Ist und Positions-Soll — daran sieht man am
+#if defined(HAL_MODE_THRUST)
+// ---------------------------- S-1-Handschub -----------------------------------
+// Die Drohne kann fuer den Standlauf NICHT festgezurrt werden (Kabelbinder
+// erzeugen die bekannten 2-5-Hz-Gestellschwingungen). Stattdessen: Drossel von
+// Hand bis an die Abhebegrenze, kommandiert aus bench_flat ueber Funk.
+// Traeger ist Bus_Cmd_flat.yaw_ref[2] (ddyaw) -- in Segment-Yaw-Trajektorien
+// konstant 0, und bench_flat speist dort VORUEBERGEHEND einen Slider ein.
+// NUR dieser THRUST-Build deutet das Feld als Drossel in Prozent; im
+// FLIGHT-Build bleibt ddyaw ddyaw. Den Slider deshalb vor dem naechsten Flug
+// wieder aus bench_flat entfernen.
+// Das Modell laeuft normal weiter (k_hat, dbg, Blackbox), nur die Motoren
+// hoeren im THRUST-Build auf die Hand statt auf den Regler.
+static double g_thr_man = 0.0;                 // Zustand des Slew-Limiters [%]
+static constexpr double THR_MAN_MAX  = 70.0;   // Schwebe lag bei 53..63 % -> Luft, aber Deckel
+static constexpr double THR_MAN_SLEW = 25e-3;  // 25 %/s beim 1-kHz-Tick (Slider-Spruenge)
+static void thrust_manual(double out[4], double cmd_pct, uint8_t es) {
+    if (es != 0) {                             // Kill/Soft-Land/Linkverlust: SOFORT null,
+        g_thr_man = 0.0;                       // nicht ueber die Rampe ausrollen
+    } else {
+        double tgt = cmd_pct;
+        if (tgt < 0.0) tgt = 0.0;
+        if (tgt > THR_MAN_MAX) tgt = THR_MAN_MAX;
+        double d = tgt - g_thr_man;
+        if (d >  THR_MAN_SLEW) d =  THR_MAN_SLEW;
+        if (d < -THR_MAN_SLEW) d = -THR_MAN_SLEW;
+        g_thr_man += d;
+    }
+    for (int i = 0; i < 4; ++i) out[i] = g_thr_man;
+}
+#endif
+
 // Boden sofort, ob Mocap-Stream und Trajektorie plausibel ankommen.
 static void selftest_report(const MCU_FLAT::ExtY_mcu_flat_T& y) {
     static uint32_t n = 0;
@@ -366,6 +423,11 @@ static void selftest_report(const MCU_FLAT::ExtY_mcu_flat_T& y) {
         g_U.Bus_Cmd_flat_l.estop, (unsigned)g_U.btn_ack,
         y.throttle[0], y.throttle[1], y.throttle[2], y.throttle[3],
         (unsigned long)g_tick_dt_max);
+#if defined(HAL_MODE_THRUST)
+    // thr[] oben ist der MODELL-Wunsch; an den ESCs liegt der Handschub.
+    Serial.printf("        S1-Handschub=%.1f%%  (Traeger ddyaw=%.2f)\n",
+                  g_thr_man, g_U.Bus_Cmd_flat_l.yaw_ref[2]);
+#endif
 }
 #endif
 
@@ -391,18 +453,51 @@ static void dump_ring_raw(File& f, const uint8_t* buf, uint32_t cap,
     if (first < n) f.write(buf, (size_t)(n - first) * elem);
 }
 
-// Schreibt die Ringe in eine neue Datei FLATnnn.BIN. Dauert einige hundert ms --
+// Puffer leeren und Aufzeichnung scharf schalten (ack-Flanke, estop-Freigabe, 'z').
+static void log_restart() {
+    g_ring_fast.init(g_log_fast_mem, LOG_FAST_CAP);
+    g_ring_slow.init(g_log_slow_mem, LOG_SLOW_CAP);
+    g_log_flags &= 0x01u;              // Voll/Beendet zuruecknehmen, Link-Bit behalten
+    g_log_flew     = false;
+    g_log_dump_req = false;
+    g_log_on       = true;
+}
+
+// Schreibt die Puffer in eine neue Datei FLATnnn.BIN. Dauert einige hundert ms --
 // der Tick wird derweil verzoegert, deshalb ist der Dump bei laufenden Motoren
 // gesperrt. Der Timer laeuft weiter; g_tick ist ein Flag, es geht also hoechstens
 // ein Tick verloren und danach laeuft alles normal weiter.
-static void blackbox_dump() {
-    if (!g_sd_ok) { Serial.println("[log] keine SD-Karte erkannt"); return; }
+//
+// Rueckgabe false = "jetzt nicht, spaeter nochmal" (Motoren laufen). Der Aufrufer
+// haelt die Anforderung dann offen; so wird nach einem Failsafe-Kill im Flug erst
+// geschrieben, wenn die Drohne wirklich steht. announce=false fuer den Auto-Dump,
+// damit die Warteschleife nicht bei jedem Durchlauf meckert.
+static bool blackbox_dump(bool announce) {
+    if (!g_sd_ok) {
+        if (announce) Serial.println("[log] keine SD-Karte erkannt");
+        return true;                                   // nichts zu retten, nicht wiederholen
+    }
+#if defined(HAL_MODE_THRUST)
+    // Im THRUST-Build treibt der Handschub die Motoren, nicht das Modell. Das
+    // Modell will beim scharfen System fast immer > 0 -- gegen y.throttle
+    // gesperrt kaeme der Auto-Dump also nie. Gesperrt wird gegen das, was
+    // wirklich an den ESCs liegt.
+    const double s = 4.0 * g_thr_man;
+#else
     const MCU_FLAT::ExtY_mcu_flat_T& y = g_mcu.getExternalOutputs();
     double s = 0.0; for (int i=0;i<4;++i) s += y.throttle[i];
-    if (s > 0.0) { Serial.println("[log] ABGELEHNT: Motoren laufen (throttle > 0)"); return; }
+#endif
+    if (s > 0.0) {
+        if (announce) Serial.println("[log] ABGELEHNT: Motoren laufen (throttle > 0)");
+        return false;                                  // spaeter nochmal
+    }
+    if (g_ring_fast.n == 0) {
+        if (announce) Serial.println("[log] nichts aufgezeichnet");
+        return true;
+    }
 
     const bool was_on = g_log_on;
-    g_log_on = false;                                  // Ringe einfrieren
+    g_log_on = false;                                  // Puffer einfrieren
 
     char name[16] = "FLAT000.BIN";
     for (int i = 0; i < 1000; ++i) {
@@ -415,7 +510,7 @@ static void blackbox_dump() {
     const uint32_t nf = g_ring_fast.n, ns = g_ring_slow.n;
     flog::Header h;
     flog::fill_header(h, g_own_id, HAL_MODE_ID, nf, ns,
-                      (nf ? g_log_tick - nf + 1 : 0), g_log_tick, millis());
+                      (nf ? g_log_tick_last - nf + 1 : 0), g_log_tick_last, millis());
     const uint32_t t0 = millis();
     f.write((const uint8_t*)&h, sizeof(h));
     dump_ring_raw(f, (const uint8_t*)g_ring_fast.buf, g_ring_fast.cap,
@@ -428,6 +523,7 @@ static void blackbox_dump() {
                   (unsigned long)(sizeof(h) + nf*sizeof(flog::RecFast) + ns*sizeof(flog::RecSlow)),
                   (unsigned long)(millis()-t0), g_log_flags);
     g_log_on = was_on;
+    return true;
 }
 
 // Serial-Kommandos. Bewusst minimal und nur aus loop() heraus aufgerufen.
@@ -435,15 +531,14 @@ static void blackbox_console() {
     while (Serial.available()) {
         const int ch = Serial.read();
         switch (ch) {
-        case 'd': blackbox_dump(); break;
-        case 'p': g_log_on = !g_log_on;
+        case 'd': blackbox_dump(true); break;
+        case 'p': if (g_log_on) { g_log_on = false; g_log_flags |= 0x04u; }
+                  else          { log_restart(); }
                   Serial.printf("[log] Aufzeichnung %s\n", g_log_on ? "an" : "aus"); break;
-        case 'z': g_ring_fast.init(g_log_fast_mem, LOG_FAST_CAP);
-                  g_ring_slow.init(g_log_slow_mem, LOG_SLOW_CAP);
-                  g_log_flags &= 0x01u;
-                  Serial.println("[log] Ringe geleert"); break;
+        case 'z': log_restart();
+                  Serial.println("[log] Puffer geleert, Aufzeichnung an"); break;
         case 's': Serial.printf("[log] %s | fast %lu/%lu slow %lu/%lu | tick %lu | SD %s | flags 0x%02X\n",
-                                g_log_on ? "laeuft" : "pausiert",
+                                g_log_on ? "laeuft" : "beendet",
                                 (unsigned long)g_ring_fast.n, (unsigned long)LOG_FAST_CAP,
                                 (unsigned long)g_ring_slow.n, (unsigned long)LOG_SLOW_CAP,
                                 (unsigned long)g_log_tick, g_sd_ok ? "ok" : "fehlt", g_log_flags);
@@ -478,10 +573,34 @@ void setup() {
     Wire.begin(); Wire.setClock(400000);                     // Fast-Mode Pflicht (1 kHz-Budget)
     mpu_write(MPU_PWR_MGMT_1, 0x00);                         // wake
     mpu_write(0x1A, 0x04);   // DLPF 21/20 Hz (war 0x03=44/42): dämpft Vibration im Lage-/Gyro-Pfad; 20 Hz = 8x ueber omega_Lage
+    // ACCEL_CONFIG2 (0x1D): der Accel hat auf dieser MPU ein EIGENES DLPF --
+    // 0x1A deckt nur das Gyro ab. Beleg aus dem Flug 05.08.2026: Rotorton
+    // 220 Hz im Gyro bei -55 dB (gefiltert), in acc_z bei -14 dB (roh).
+    // 0x04 = ~20 Hz, symmetrisch zum Gyro. Fuer die REGELUNG ist das egal
+    // (Mahony: kE=25 >> ka=1, offline nachgerechnet 0.008 deg Unterschied) --
+    // es macht die Blackbox-Tiefbandanalyse sauberer. Der Rotorton bleibt im
+    // Log messbar (~-50 dB, wie im Gyro), die Drehzahl-Diagnose funktioniert
+    // also weiterhin.
+    // BEFUND (Readback 05.08.2026): WHO_AM_I=0x68, 0x1A=0x04, 0x1D=0x04 -- beide
+    // Register nehmen den Wert an, der Accel bleibt trotzdem roh (Rotorton
+    // -9.5 dB bei 225 Hz, Flug 4). Ein ECHTER MPU-6050 filtert mit 0x1A=0x04
+    // Gyro UND Accel; dieser Chip filtert nur das Gyro => Klon mit totem
+    // Accel-DLPF-Pfad (bekanntes Faelschungsmuster). KEIN Register repariert
+    // das. Akzeptiert: die Regelung braucht das Filter nicht (Mahony kE=25,
+    // offline 0.008 deg Unterschied), die Auswertung filtert offline, und der
+    // rohe Rotorton bleibt als Drehzahl-Diagnose nuetzlich. Der Write bleibt
+    // drin (harmlos, und auf einem echten 6500 wuerde er wirken).
+    mpu_write(0x1D, 0x04);
     mpu_write(MPU_GYRO_CONFIG, 0x08);                        // FS_SEL=1 (+-500 dps)
     mpu_write(MPU_ACCEL_CONFIG, 0x08);                       // AFS_SEL=1 (+-4 g)
 #ifdef HAL_REPORT
     Serial.println("[boot] 2 MPU konfiguriert");
+    // Chip-Identitaet + Registerbestand: WHO_AM_I 0x68=MPU-6050, 0x70=MPU-6500,
+    // 0x71=MPU-9250 (Klone melden oft krumme Werte). Dazu Rueckleser der eben
+    // geschriebenen Filterregister -- "steht drin, wirkt aber nicht" ist von
+    // "wird nicht angenommen" nur so zu unterscheiden.
+    Serial.printf("[boot] 2a WHO_AM_I=0x%02X  CONFIG(0x1A)=0x%02X  ACCEL_CONFIG(0x1C)=0x%02X  ACCEL_CONFIG2(0x1D)=0x%02X\n",
+                  mpu_read_reg(0x75), mpu_read_reg(0x1A), mpu_read_reg(0x1C), mpu_read_reg(0x1D));
 #endif
 
     g_own_id = read_bcd_id();
@@ -569,6 +688,10 @@ void setup() {
 void loop() {
     nrf_poll();                                              // Pakete jederzeit annehmen
     blackbox_console();                                      // d=dump p=pause z=leeren s=status
+    // Auto-Dump: bewusst hier und nicht im Tick. Die Anforderung bleibt offen,
+    // solange die Motoren noch laufen (Failsafe-Kill im Flug) -- geschrieben wird
+    // erst, wenn die Drohne wirklich steht.
+    if (g_log_dump_req && blackbox_dump(false)) g_log_dump_req = false;
     if (!g_tick) return;
     g_tick = false;
     uint32_t t_tick0 = micros();                             // Timing-Budget: Tick-Start
@@ -611,10 +734,19 @@ void loop() {
     const MCU_FLAT::ExtY_mcu_flat_T& y = g_mcu.getExternalOutputs();
 
     // 5) Aktorik: throttle -> OneShot125, led-state -> LEDs
+#if defined(HAL_MODE_THRUST)
+    // S-1: Motoren hoeren auf die Hand (Slider via yaw_ref[2]), nicht auf den
+    // Regler. thr_act ist auch das, was Flew-Erkennung und Blackbox sehen.
+    double thr_act[4];
+    thrust_manual(thr_act, g_U.Bus_Cmd_flat_l.yaw_ref[2],
+                  (uint8_t)g_U.Bus_Cmd_flat_l.estop);
+#else
+    const double* thr_act = y.throttle;
+#endif
 #ifdef HAL_MOTORS_MIN
     for (int i=0;i<4;++i) analogWrite(PIN_PWM[i], ESC_MIN);  // Motoren sicher auf min
 #else
-    esc_write_all(y.throttle);
+    esc_write_all(thr_act);
 #endif
     drive_leds(y.led);
 #ifdef HAL_REPORT
@@ -624,12 +756,40 @@ void loop() {
     // 5b) Blackbox: zwei memcpy, sonst nichts. Bewusst INNERHALB der Zeitmessung,
     //     damit tickmax die Kosten mitzeigt (gemessen: unter 1 us).
     ++g_log_tick;
+    {
+        const bool    ack_now = g_U.Bus_Cmd_flat_l.ack;
+        const uint8_t es      = (uint8_t)g_U.Bus_Cmd_flat_l.estop;
+        // --- Start: Quittieren oder Freigabe. Beides setzt die Puffer zurueck, damit
+        //     die Aufzeichnung am Anfang des Flugs beginnt und nicht mittendrin.
+        if ((ack_now && !g_log_ack_prev) || (es == 0 && g_log_estop_prev != 0)) {
+            log_restart();
+        }
+        g_log_ack_prev   = ack_now;
+        g_log_estop_prev = es;
+
+        double thr_sum = 0.0; for (int k=0;k<4;++k) thr_sum += thr_act[k];
+        if (thr_sum > 0.0) { g_log_flew = true; g_log_t_zero = millis(); }
+
+        // --- Stopp: drei Gruende, alle enden im selben Zustand (eingefroren + Dump
+        //     angefordert). Welcher zuerst kommt, ist egal.
+        if (g_log_on) {
+            const bool full    = (g_ring_fast.n >= LOG_FAST_CAP);
+            const bool killed  = (es == 2);
+            const bool landed  = g_log_flew && (millis() - g_log_t_zero > LOG_FREEZE_MS);
+            if (full) g_log_flags |= 0x02u;
+            if (full || killed || landed) {
+                g_log_on = false;
+                g_log_flags |= 0x04u;
+                g_log_dump_req = true;
+            }
+        }
+    }
     if (g_log_on) {
         flog::RecFast rf;
         for (int k=0;k<3;++k) rf.gyro[k] = flog::q15(g_U.Bus_IMU_k.imu_gyro[k], flog::GYRO_SCALE);
         for (int k=0;k<3;++k) rf.acc[k]  = flog::q15(g_U.Bus_IMU_k.imu_acc[k],  flog::ACC_SCALE);
         g_ring_fast.push(rf);
-        if (g_ring_fast.wrapped()) g_log_flags |= 0x02u;
+        g_log_tick_last = g_log_tick;
 
         if ((g_log_tick % 10u) == 0u) {           // 100 Hz
             flog::RecSlow rs;
@@ -638,7 +798,7 @@ void loop() {
             for (int k=0;k<3;++k) rs.p_ref[k]     = (float)c.p_ref[k];
             for (int k=0;k<4;++k) rs.q_ext[k]     = (float)c.q_ext[k];
             for (int k=0;k<4;++k) {
-                double th = y.throttle[k] * 100.0;            // 0..100 % -> 0.01 %
+                double th = thr_act[k] * 100.0;               // 0..100 % -> 0.01 % (ECHTER Motorwert)
                 rs.thr[k] = (uint16_t)(th < 0 ? 0 : (th > 10000 ? 10000 : th + 0.5));
             }
             rs.batt_count = (uint16_t)g_U.batt_count;
@@ -646,11 +806,12 @@ void loop() {
             rs.led   = (uint8_t)y.led;
             rs.ack   = g_U.Bus_Cmd_flat_l.ack ? 1 : 0;
             rs.flags = g_log_flags;
-            // dbg = [k_hat; F; aint(3); u_fb_raw(3)] aus dem Modellausgang
+            // dbg = [k_hat; F; aint(3); u_fb_raw(3); w_adapt] aus dem Modellausgang
             rs.k_hat = flog::q15(y.dbg[0], flog::KHAT_SCALE);
             rs.F     = flog::q15(y.dbg[1], flog::F_SCALE);
             for (int k=0;k<3;++k) rs.aint[k] = flog::q15(y.dbg[2+k], flog::AINT_SCALE);
             for (int k=0;k<3;++k) rs.ufb[k]  = flog::q15(y.dbg[5+k], flog::UFB_SCALE);
+            rs.w_adapt = flog::q15(y.dbg[8], flog::W_SCALE);
             g_ring_slow.push(rs);
         }
     }

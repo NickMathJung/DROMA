@@ -1,7 +1,8 @@
 function test_flatness_blocks()
 %test_flatness_blocks  Selbsttest der Codegen-Bloecke flatness_ctrl + flatness_khat
-%   gegen die Strecke (Motor-PT1, Gamma-Mixer), 15% Schub-Defizit. Muss die
-%   validierte Standalone-Sim reproduzieren: Fehler ~3 mm, k_hat ~0.85.
+%   gegen die Strecke (Motor-PT1, Gamma-Mixer) mit dem gemessenen Schubdefizit
+%   aus quadcop.k_thrust. Muss die validierte Standalone-Sim reproduzieren:
+%   Fehler ~3 mm, k_hat -> k_thrust.
 %   Testet zusaetzlich den Quaternion-Round-Trip (Plant-R -> q -> Block-R).
 clear flatness_ctrl flatness_khat
 here = fileparts(mfilename('fullpath'));
@@ -12,11 +13,22 @@ addpath(here);
 
 rng(42);
 g = 9.81;
-evalc('quadcop = init_quadcop();');
+% NICHT evalc('quadcop = ...') benutzen: der Parser bindet den Namen quadcop
+% lexikalisch an das gleichnamige Simulink-Modell (quadcop.slx), die per eval
+% erzeugte Variable kommt nie zum Zug -- man erhaelt lautlos ein Modell-Handle
+% (double) statt der Parameterstruktur. Mit expliziter Zuweisung ist der Name
+% eine echte Variable; evalc dient nur noch dazu, die Init-Ausgaben zu schlucken.
+[~, quadcop] = evalc('init_quadcop()');
 fctrl = init_flatness(quadcop);
 m=quadcop.m; J=quadcop.J; Gam=quadcop.Gamma; Gaminv=quadcop.Gamma_inv;
 wmin=quadcop.rotors_min; wmax=quadcop.rotors_max; tau_m=0.030;
-thrust_scale=0.85;
+% Der Schubmangel steckt seit dem 05.08.2026 in quadcop.Gamma selbst (Zeile 1,
+% Faktor quadcop.k_thrust) -- frueher stand hier 0.85 fest. Ein zusaetzlicher
+% Faktor wuerde ihn doppelt zaehlen, deshalb 1.0.
+thrust_scale=1.0;
+k_soll = thrust_scale * quadcop.k_thrust;   % Wert, auf den k_hat laufen muss
+% Die Testtrajektorie liegt durchgehend ueber 0.8 m -> Hoehenrampe voll offen.
+w_adapt = 1.0;
 
 % Trajektorie (restpoly, konstanter Yaw)
 T=8; dt=0.002; tdisc=0:dt:T; Nt=numel(tdisc);
@@ -44,14 +56,15 @@ for i=1:Nt-1
   % --- Schub-Skalenschaetzer @100 Hz (Mocap/GCS-Rate) ---
   if tdisc(i)-t_moc_prev >= Tm-1e-9
     v_obs = v + sigma_v*randn(3,1);               % Luenberger-Ausgang emuliert
-    k_hat = flatness_khat(v_obs, q, F_prev, m, g, fctrl.gamma_khat, fctrl.tau_lp, Tm);
+    k_hat = flatness_khat(v_obs, q, F_prev, m, g, fctrl.gamma_khat, fctrl.tau_lp, Tm, ...
+                          fctrl.k_hat0, w_adapt);
     t_moc_prev=tdisc(i);
   end
   khist(i)=k_hat;
 
   % --- flachheitsbasierter Regler @500 Hz ---
   [F,tau] = flatness_ctrl(p,v,q,w, P(:,i),Vt(:,i),A(:,i),Jt(:,i),St(:,i), yawref, ...
-                          k_hat, m, g, J, fctrl.coefPos, fctrl.coefPhi, dt);
+                          k_hat, m, g, J, fctrl.coefPos, fctrl.coefPhi, dt, false, w_adapt);
   F_prev=F;
 
   % --- Mixer + Strecke (Motor-PT1) ---
@@ -63,10 +76,10 @@ end
 khist(Nt)=k_hat;
 
 perr=states(1:3,:)-P; enrm=sqrt(sum(perr.^2,1));
-fprintf('=== Selbsttest flatness_ctrl + flatness_khat (ts=0.85, Lag 30 ms) ===\n');
+fprintf('=== Selbsttest flatness_ctrl + flatness_khat (ts=%.2f, Lag 30 ms) ===\n', k_soll);
 fprintf('Trackingfehler: max %.4f m   final %.4f m\n', max(enrm), enrm(end));
-fprintf('k_hat final:    %.4f   (Ziel 0.85)\n', khist(end));
-if enrm(end) < 0.02 && abs(khist(end)-0.85) < 0.03
+fprintf('k_hat final:    %.4f   (Ziel %.2f)\n', khist(end), k_soll);
+if enrm(end) < 0.02 && abs(khist(end)-k_soll) < 0.03
   fprintf('ERGEBNIS: BESTANDEN (reproduziert validierte Sim)\n');
 else
   fprintf('ERGEBNIS: ABWEICHUNG -> pruefen\n');

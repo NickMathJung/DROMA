@@ -19,11 +19,14 @@ cleanup = onCleanup(@() cd(oldcd));
 % "CodeGenFolder is set to ... and the current directory ... contains a code
 % generation folder" ab (tritt auf, sobald das Projekt neu geoeffnet wurde oder
 % run_mcu_flat_arm_codegen vorher in derselben Sitzung lief).
-cfgOld = Simulink.fileGenControl('getConfig');
-oldCGF = cfgOld.CodeGenFolder; oldCF = cfgOld.CacheFolder;
+% Wiederhergestellt wird auf proj_root, NICHT auf den vorgefundenen Wert: das
+% Projekt pinnt beides ohnehin auf die Wurzel, und ein "merken und zurueckschreiben"
+% verewigt den temporaeren Wert, sobald ein Lauf ihn einmal hinterlassen hat.
+% Symptom danach: jede Simulation bricht ab mit "Current working folder contains
+% simulation artifacts that can shadow artifacts in the folder ... CacheFolder".
 Simulink.fileGenControl('set','CodeGenFolder',sitl,'CacheFolder',sitl,'createDir',true);
 restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
-    'CodeGenFolder',oldCGF,'CacheFolder',oldCF));
+    'CodeGenFolder',proj_root,'CacheFolder',proj_root,'createDir',true));
 
 fprintf('== configure_mcu_flat_codegen + slbuild ==\n');
 clear configure_mcu_flat_codegen

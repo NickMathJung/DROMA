@@ -15,11 +15,14 @@ if ~isfolder(armdir)
 end
 
 % --- CodeGen-/Cache-Ordner auf hardware\mcu_flat_arm umlenken (und zuruecksetzen)
-cfg = Simulink.fileGenControl('getConfig');
-oldCGF = cfg.CodeGenFolder; oldCF = cfg.CacheFolder;
+% Zurueck geht es auf proj_root, NICHT auf den vorgefundenen Wert: das Projekt pinnt
+% beides auf die Wurzel, und ein "merken und zurueckschreiben" verewigt den
+% temporaeren Wert, sobald ein Lauf ihn einmal hinterlassen hat. Symptom danach:
+% jede Simulation bricht ab mit "Current working folder contains simulation
+% artifacts that can shadow artifacts in the folder ... CacheFolder".
 Simulink.fileGenControl('set','CodeGenFolder',armdir,'CacheFolder',armdir,'createDir',true);
 restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
-    'CodeGenFolder',oldCGF,'CacheFolder',oldCF));
+    'CodeGenFolder',proj_root,'CacheFolder',proj_root,'createDir',true));
 
 % --- ARM-Config aktiv setzen + generieren ---
 clear configure_mcu_flat_codegen

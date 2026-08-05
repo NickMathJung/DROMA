@@ -4,11 +4,15 @@ function [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params)
 %   Vektoren: [mocap_pos; p_ref; v_ref; a_ref; j_ref; s_ref; yaw_ref] -> int16
 %   (21x1), saturiert. q_ext -> smallest-three (uint32). flags: [estop; ack].
 %   Bernoulli-Paketverlust (xorshift32): bei Verlust ganzes Paket halten (ZOH).
+%   Zusaetzlich hold_every: jedes N-te Paket deterministisch halten. Damit laesst
+%   sich die im Flug gemessene FRISCHRATE nachbilden, die kein Verlust ist,
+%   sondern eine Durchsatzgrenze -- siehe init_link_flat.
 %
 %   Braucht pack_quat_sm3.m auf dem MATLAB-Pfad.
 
-    persistent last_i16 last_q last_flags rs init_done
+    persistent last_i16 last_q last_flags rs init_done ctr
     if isempty(init_done)
+        ctr = 0;
         last_i16   = reshape(int16(link_flat_params.pkt_init(1:21)), 21, 1);
         last_q     = uint32(link_flat_params.q_init(1));
         last_flags = double(link_flat_params.flags_init);
@@ -37,9 +41,25 @@ function [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params)
     % --- flags (verlustfrei quantisierungsfrei) ---
     flags_now = [double(cmd_in.estop); double(cmd_in.ack)];
 
+    % --- Deterministisches Halten (Durchsatzgrenze) ---
+    % Anders als Verlust ist das regelmaessig: die Lauflaengen bleiben 1 GCS-Takt.
+    % Genau so sieht es im Flug aus (462 Bloecke der Laenge 1, 58 der Laenge 2,
+    % 7 laenger -- bei Bernoulli mit derselben Rate waeren es 355 / 116 / 56).
+    % ACHTUNG: dieser Block laeuft mit Ts_inner (1 ms), NICHT mit der GCS-Rate.
+    % Einzelne 1-ms-Aufrufe zu halten bliebe im 10-ms-Raster unsichtbar, deshalb
+    % zaehlt hold_period/hold_span in Aufrufen und deckt einen GANZEN GCS-Takt ab
+    % (init_link_flat rechnet das aus Ts_gcs/Ts_inner aus).
+    ctr = ctr + 1;
+    hold_now = false;
+    if link_flat_params.hold_period > 0
+        if mod(ctr - 1, link_flat_params.hold_period) < link_flat_params.hold_span
+            hold_now = true;
+        end
+    end
+
     % --- Bernoulli-Verlust: ein Zufallswert entscheidet ueber das ganze Paket ---
     [u, rs] = xorshift01(rs);
-    if u >= link_flat_params.pdrop
+    if ~hold_now && u >= link_flat_params.pdrop
         last_i16   = i16_now;
         last_q     = q_now;
         last_flags = flags_now;

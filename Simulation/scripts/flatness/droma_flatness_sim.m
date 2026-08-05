@@ -31,10 +31,14 @@ m    = quadcop.m;
 I    = quadcop.J;                    % WAHRE Traegheit (Strecke)
 I_c  = I_ctrl_scale * I;             % Regler-Traegheit (evtl. verstimmt)
 D    = diag([0 0 0]);
-Gam  = quadcop.Gamma;                % [F_N; tau] = Gamma * w_i^2
-Gaminv = quadcop.Gamma_inv;
+Gam  = quadcop.Gamma;                % [F_N; tau] = Gamma * w_i^2 (Strecke, real)
+Gaminv = quadcop.Gamma_inv;          % Mixer (Regler, Modell)
 wmin = quadcop.rotors_min; wmax = quadcop.rotors_max;
 params = struct('g',g,'I',I,'D',D,'m',m,'thrust_scale',thrust_scale,'Gam',Gam,'tau_m',tau_m);
+% Gam traegt seit dem 05.08.2026 selbst schon quadcop.k_thrust (Zeile 1). Das
+% Argument thrust_scale wirkt also ZUSAETZLICH -- der Wert, auf den k_hat
+% konvergieren muss, ist das Produkt.
+ts_eff = thrust_scale * quadcop.k_thrust;
 w_rotor_max = 28597 * 2*pi/60;       % ~2994 rad/s aero-Envelope (Reporting)
 
 %% ---- Trajektorie (flache Ausgaenge), restpoly, konstanter Yaw ----
@@ -176,20 +180,20 @@ Fhist(Nt)=Fhist(Nt-1); tauhist(:,Nt)=tauhist(:,Nt-1); zeta1hist(Nt)=zeta1; khist
 perr = states(1:3,:) - flat.p;
 enrm = sqrt(sum(perr.^2,1));
 
-fprintf('=== DROMA Flatness  (I_scale=%.2f, thrust_scale=%.2f, gamma=%.2f, tau_m=%.3fs, mess=%s) ===\n', ...
-        I_ctrl_scale, thrust_scale, gamma_khat, tau_m, meas_src);
+fprintf('=== DROMA Flatness  (I_scale=%.2f, thrust_scale=%.2f x k_thrust=%.2f -> %.2f, gamma=%.2f, tau_m=%.3fs, mess=%s) ===\n', ...
+        I_ctrl_scale, thrust_scale, quadcop.k_thrust, ts_eff, gamma_khat, tau_m, meas_src);
 fprintf('Trackingfehler-Norm:   max %.4f m   final %.4f m   (Start-Offset 0.141 m)\n', max(enrm), enrm(end));
 fprintf('Schub F (geliefert):   min %.3f N   max %.3f N   (Hover %.3f N)\n', min(Fhist), max(Fhist), m*g);
 fprintf('zeta1 (spez. Schub):   min %.3f     (>0 = kein Schubumkehr)\n', min(zeta1hist));
 fprintf('|tau| je Achse:        max [%.4f %.4f %.4f] Nm\n', max(abs(tauhist(1,:))), max(abs(tauhist(2,:))), max(abs(tauhist(3,:))));
 fprintf('groesste w_cmd:        %.1f rad/s  von %.1f Envelope (%.0f%%)  Saettigung: %s\n', ...
         wcmd_max, w_rotor_max, 100*wcmd_max/w_rotor_max, ternary(sat_hit,'JA','nein'));
-fprintf('Schub-Schaetzer k_hat: final %.4f  (Ziel thrust_scale=%.2f)\n', khist(end), thrust_scale);
+fprintf('Schub-Schaetzer k_hat: final %.4f  (Ziel %.2f)\n', khist(end), ts_eff);
 
 f=figure('Visible','off','Position',[100 100 1200 640]);
 subplot(2,3,1); plot(tdisc,enrm,'LineWidth',1.2); grid on; ylabel('|p-p_{soll}| [m]'); xlabel('t [s]'); title('Trackingfehler-Norm');
 subplot(2,3,2); plot(tdisc,states(1:3,:)','LineWidth',1); hold on; set(gca,'ColorOrderIndex',1); plot(tdisc,flat.p','--'); grid on; ylabel('p [m]'); xlabel('t [s]'); title('Pos (—ist / --soll)'); legend('x','y','z');
-subplot(2,3,3); plot(tdisc,khist,'LineWidth',1.4); hold on; yline(thrust_scale,'r--'); grid on; ylabel('k\_hat'); xlabel('t [s]'); title('Schub-Skalenschaetzer (rot=Ziel)');
+subplot(2,3,3); plot(tdisc,khist,'LineWidth',1.4); hold on; yline(ts_eff,'r--'); grid on; ylabel('k\_hat'); xlabel('t [s]'); title('Schub-Skalenschaetzer (rot=Ziel)');
 subplot(2,3,4); plot(tdisc,Fhist,'LineWidth',1.2); yline(m*g,'r--'); grid on; ylabel('F [N]'); xlabel('t [s]'); title('gelief. Schub (rot=Hover)');
 subplot(2,3,5); plot(tdisc,tauhist','LineWidth',1); grid on; ylabel('\tau [Nm]'); xlabel('t [s]'); title('gelief. Stellmoment'); legend('\tau_x','\tau_y','\tau_z');
 subplot(2,3,6); plot(tdisc,zeta1hist,'LineWidth',1.2); grid on; ylabel('\zeta_1 [m/s^2]'); xlabel('t [s]'); title('interner Schubzustand \zeta_1');

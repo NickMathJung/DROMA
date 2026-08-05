@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
             b.F     = flog::q15(9.66 + 0.01  * (double)k,   flog::F_SCALE);
             for (int i = 0; i < 3; ++i) b.aint[i] = flog::q15(-100.0 + 10.0*(double)i + (double)k, flog::AINT_SCALE);
             for (int i = 0; i < 3; ++i) b.ufb[i]  = flog::q15( 500.0 - 50.0*(double)i - (double)k, flog::UFB_SCALE);
+            b.w_adapt = flog::q15(0.004 * (double)k, flog::W_SCALE);   // rampt 0.04 .. 1.0
             rs.push(b);
         }
     }

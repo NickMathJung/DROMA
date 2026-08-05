@@ -24,7 +24,7 @@
 namespace flog {
 
 static const char     MAGIC[8] = {'D','R','O','M','A','F','L'};   // + '\0' = 8
-static const uint16_t VERSION  = 2;   // v2: Reglerzustaende im Slow-Record
+static const uint16_t VERSION  = 3;   // v2: Reglerzustaende, v3: Adaptions-Freigabe
 
 // Festkomma-Skalen [LSB je SI-Einheit]. Stehen im Header -> Leser ist selbstbeschreibend.
 // Exakt die Kehrwerte der Sensorskalen aus drone_hal_flat (GYRO_LSB=65.5 LSB/dps,
@@ -42,6 +42,7 @@ static const float KHAT_SCALE = 20000.0f;  // k_hat in [0.5, 1.5] geklemmt -> +-
 static const float F_SCALE    =   800.0f;  // Schub bis ~40 N            -> +-40.96 N
 static const float AINT_SCALE =    80.0f;  // AINT_MAX = 400             -> +-409.6
 static const float UFB_SCALE  =     8.0f;  // UFB_MAX = 700, roh groesser-> +-4096
+static const float W_SCALE    = 20000.0f;  // Freigabe w in [0,1]        -> +-1.64
 
 static inline int16_t q15(double v, float scale) {
     double s = v * (double)scale;
@@ -61,7 +62,7 @@ struct RecFast {
     int16_t acc[3];    // m/s^2  * ACC_SCALE
 };
 
-// 74 B @100 Hz.
+// 76 B @100 Hz.
 struct RecSlow {
     uint32_t tick;         // absoluter 1-kHz-Tickzaehler (Quervergleich zum Fast-Ring)
     float    mocap_pos[3];
@@ -81,6 +82,11 @@ struct RecSlow {
     int16_t  F;            // * F_SCALE   [N]
     int16_t  aint[3];      // * AINT_SCALE
     int16_t  ufb[3];       // * UFB_SCALE [m/s^4]
+    // --- v3 -------------------------------------------------------------------
+    // Hoehenrampe: 0 = weder integriert noch adaptiert (Bodennaehe), 1 = voll.
+    // Ohne die mitzuloggen laesst sich ein Flug nicht deuten -- man saehe einen
+    // stehenden Integrator und wuesste nicht, ob er haelt oder nichts zu tun hat.
+    int16_t  w_adapt;      // * W_SCALE
 };
 
 // 64 B. Steht am Anfang der Dumpdatei; danach n_fast RecFast, dann n_slow RecSlow,
@@ -108,13 +114,13 @@ struct Header {
 #pragma pack(pop)
 
 static const uint16_t REC_FAST_LEN = 12;
-static const uint16_t REC_SLOW_LEN = 74;
+static const uint16_t REC_SLOW_LEN = 76;
 static const uint16_t HEADER_LEN   = 64;
 
 // Groessenannahmen hart absichern: das Format wandert 1:1 auf die Karte und wird
 // vom MATLAB-/Python-Leser mit genau diesen Offsets gelesen.
 static_assert(sizeof(RecFast) == REC_FAST_LEN, "RecFast != 12 B");
-static_assert(sizeof(RecSlow) == REC_SLOW_LEN, "RecSlow != 74 B");
+static_assert(sizeof(RecSlow) == REC_SLOW_LEN, "RecSlow != 76 B");
 static_assert(sizeof(Header)  == HEADER_LEN,   "Header  != 64 B");
 
 inline void fill_header(Header& h, uint8_t own_id, uint8_t hal_mode,

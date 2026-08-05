@@ -1,4 +1,4 @@
-function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts, kill)
+function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts, kill, w_adapt)
 %#codegen
 % flatness_ctrl Flachheitsbasierter Folgeregler (exakte Zustandslinearisierung).
 %   Als Alternative zur Kaskade pos_ctrl (GCS) + geo_attitude_ctrl (MCU). 
@@ -22,6 +22,7 @@ function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_re
 %     coefPhi  1x3  Brunovsky-Koeffizienten Yaw
 %     Ts       1x1  Abtastzeit des Reglers [s]
 %     kill     1x1  logical, gelatchter Not-Aus (safety_overspeed)
+%     w_adapt  1x1  Multipliziert nur den Zuwachs von k_hat
 %   Ausgaenge
 %     F        1x1  Sollschub [N]
 %     tau      3x1  Stellmoment [Nm]
@@ -81,7 +82,11 @@ dphi = (norm(txB)*w(3) - w(2)*yC.'*R(:,3)) / den;
 ep   = p - p_ref;
 ki   = coefPos(:,6);           
 AINT_MAX = 400; % TUNING-Knopf
-eint = eint + ep * Ts;
+% Nahe am Boden verfaelscht der Bodeneffekt den Positionsfehler und der
+% Integrierer laedt sich auf, ohne dass etwas auszuregeln waere (gemessen nach
+% einer Landung: +322 von 400 in gut 5 s). w_adapt nimmt den Zuwachs graduell
+% zurueck statt ihn abzuschneiden.
+eint = eint + w_adapt * ep * Ts;
 aint = ki .* eint;
 for kk = 1:3
     if     aint(kk) >  AINT_MAX, aint(kk) =  AINT_MAX; if ki(kk) > 0, eint(kk) = aint(kk)/ki(kk); end
@@ -117,7 +122,19 @@ dwz = ( zeta1*(u_4*xC.'*R(:,1) + 2*dphi*w(3)*xC.'*R(:,2) - 2*dphi*w(2)*xC.'*R(:,
 dw = [dwx; dwy; dwz];
 
 % --- Stellgroessen ---
-F   = m * zeta1 / max(k_hat, 1e-3); % [N] mit Schub-Skalenkorrektur k_hat
+% Schub-Skalenkorrektur ueber die Hoehenrampe geblendet (05.08.2026): k_hat
+% misst das FREIFLUG-Defizit (~0.85). Am Boden hebt der Bodeneffekt genau
+% dieses Defizit auf (gemessen: k_true bis 1.20 unter 0.15 m) -- die volle
+% Korrektur kommandiert dort 1/0.85 = 1.18*m*g, geliefert wird mehr als das
+% Gewicht, und die Drohne huepft (Grenzzyklus im Bodeneffekt, Box-Flug
+% t=21.8..23.6 s: z pendelt 0.13..0.27 m bei F = 0.84..1.25 m*g). Die Kaskade
+% huepft nur deshalb nicht, weil sich ihr c_T-Fehler und der Bodeneffekt am
+% Boden zufaellig aufheben. w_adapt ist genau das Mass "wie weit aus dem
+% Bodeneffekt heraus": w=0 -> Korrektur aus (kommandiert wie die Kaskade),
+% w=1 -> volle Korrektur, dazwischen stetig. Nach der ehrlichen
+% c_T-Buchhaltung (k_hat -> 1) wird der Ausdruck von selbst zur Identitaet.
+k_eff = 1 + w_adapt * (k_hat - 1);
+F   = m * zeta1 / max(k_eff, 1e-3); % [N]
 tau = J*dw + cross(w, J*w); % [Nm]
 dbg = [aint; u_fb_raw];     % nur Telemetrie, kein Rueckwirkungspfad
 

@@ -67,11 +67,12 @@ TEST(McuFlatGolden, RotorCmdMatchesGolden) {
             << ": got " << (int)y.led << " expected " << g->get(r,"led.1");
         ASSERT_LE(diff_throttle(y, *g, r), (double)GOLDEN_TOL)
             << "throttle-Golden-Divergenz in Zeile " << r;
-        // dbg = [k_hat; F; aint(3); u_fb_raw(3)]. Reine Telemetrie, greift nicht in
-        // die Regelung ein -- aber mitgeprueft, weil damit auch Schaetzer- und
-        // Integratorzustaende unter dem Golden liegen. Eine ungewollte Aenderung an
-        // flatness_khat oder am Anti-Windup schlaegt sonst erst im Flug auf.
-        for (int i = 0; i < 8; ++i) {
+        // dbg = [k_hat; F; aint(3); u_fb_raw(3); w_adapt]. Reine Telemetrie, greift
+        // nicht in die Regelung ein -- aber mitgeprueft, weil damit auch Schaetzer-,
+        // Integrator- und Freigabezustand unter dem Golden liegen. Eine ungewollte
+        // Aenderung an flatness_khat, am Anti-Windup oder an der Hoehenrampe
+        // schlaegt sonst erst im Flug auf.
+        for (int i = 0; i < 9; ++i) {
             const std::string col = "dbg." + std::to_string(i + 1);
             ASSERT_LE(std::abs(y.dbg[i] - g->get(r, col)), (double)GOLDEN_TOL)
                 << "dbg-Divergenz " << col << " in Zeile " << r

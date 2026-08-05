@@ -29,7 +29,7 @@ wayp3 = [wayp2(1)+1; wayp2(2); wayp2(3)];
 wayp4 = [wayp3(1); wayp3(2)-1; wayp3(3)];
 wayp5 = [wayp4(1)-1; wayp4(2); wayp4(3)];
 wayp6 = [wayp5(1); wayp5(2)+1; wayp5(3)];
-wayp7 = x0;
+wayp7 = x0 + [0;0;0.1];
 traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
@@ -43,13 +43,13 @@ traj.Tseg   = [ 2.0  2.5  2.5  2.5  2.5  2.0 ];
 traj.Tdwell = [ 4.0  1.0  1.0  1.0  1.0  1.0  1.0 ];
 
 % ===== S-4 Erste Start- und Landetrajektorie (Versuchsstand, Motoren AN) ==========
-TEST_S4 = true;
+TEST_S4 = false;
 if TEST_S4
-    z_hov = 0.5; % max Höhe [m]
-    traj.P      = [ x0, x0+[0;0;z_hov], x0 ]; % Boden -> z_hov -> Boden
+    z_hov = 1.5; % max Höhe [m]
+    traj.P      = [ x0, x0+[0;0;z_hov], x0+[0;0;0.1] ]; % Boden -> z_hov -> Boden
     traj.yaw    = [ yaw0  yaw0 ];
-    traj.Tseg   = [ 2.0   2.0 ]; 
-    traj.Tdwell = [ 4.0   6.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
+    traj.Tseg   = [ 3.0   3.0 ]; 
+    traj.Tdwell = [ 4.0   8.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
 end
 % ==============================================================================
 

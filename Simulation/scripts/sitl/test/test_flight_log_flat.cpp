@@ -14,7 +14,7 @@
 
 TEST(FlightLogFlat, LayoutIsFrozen) {
     EXPECT_EQ(12u, sizeof(flog::RecFast));
-    EXPECT_EQ(74u, sizeof(flog::RecSlow));
+    EXPECT_EQ(76u, sizeof(flog::RecSlow));
     EXPECT_EQ(64u, sizeof(flog::Header));
     // Offsets, auf die der Leser baut
     EXPECT_EQ(0u,  offsetof(flog::RecSlow, tick));
@@ -28,6 +28,7 @@ TEST(FlightLogFlat, LayoutIsFrozen) {
     EXPECT_EQ(60u, offsetof(flog::RecSlow, F));
     EXPECT_EQ(62u, offsetof(flog::RecSlow, aint));
     EXPECT_EQ(68u, offsetof(flog::RecSlow, ufb));
+    EXPECT_EQ(74u, offsetof(flog::RecSlow, w_adapt));
 }
 
 TEST(FlightLogFlat, ControllerStateScalesCoverTheirRanges) {
@@ -47,6 +48,11 @@ TEST(FlightLogFlat, ControllerStateScalesCoverTheirRanges) {
     EXPECT_LT(1.0 / flog::F_SCALE,    1e-2);
     EXPECT_LT(1.0 / flog::AINT_SCALE, 0.4);
     EXPECT_LT(1.0 / flog::UFB_SCALE,  0.7);
+    // w ist eine Freigabe in [0,1] -- beide Enden muessen exakt darstellbar sein,
+    // sonst laesst sich "voll frei" im Log nicht von "fast frei" unterscheiden.
+    EXPECT_EQ(0,     flog::q15(0.0, flog::W_SCALE));
+    EXPECT_EQ(20000, flog::q15(1.0, flog::W_SCALE));
+    EXPECT_LT(1.0 / flog::W_SCALE, 1e-3);
 }
 
 TEST(FlightLogFlat, HeaderRoundTrip) {
