@@ -1,4 +1,4 @@
-function [F, tau] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts, kill)
+function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts, kill)
 %#codegen
 % flatness_ctrl Flachheitsbasierter Folgeregler (exakte Zustandslinearisierung).
 %   Als Alternative zur Kaskade pos_ctrl (GCS) + geo_attitude_ctrl (MCU). 
@@ -15,16 +15,21 @@ function [F, tau] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_
 %     omega    3x1  Koerperdrehrate 
 %     p_ref..s_ref 3x1  flache Ausgaenge Position + Ableitungen (v,a,j,s)
 %     yawref   3x1  [yaw; dyaw; ddyaw]  (aus traj_gen; dyaw=ddyaw=0 bei Segment-Yaw)
-%     k_hat    1x1  Schub-Skalenschaetzung (aus flatness_khat; 1.0 wenn aus)
+%     k_hat    1x1  Schub-Skalenschaetzung (aus flatness_khat, 1.0 wenn aus)
 %     m,g      1x1  Masse, Erdbeschleunigung
 %     J        3x3  Traegheitstensor
 %     coefPos  3x6  Brunovsky-Koeffizienten je Achse (aus init_flatness)
 %     coefPhi  1x3  Brunovsky-Koeffizienten Yaw
 %     Ts       1x1  Abtastzeit des Reglers [s]
-%     kill     1x1  logical, gelatchter Not-Aus (safety_overspeed) -> Arming-Reset
+%     kill     1x1  logical, gelatchter Not-Aus (safety_overspeed)
 %   Ausgaenge
 %     F        1x1  Sollschub [N]
 %     tau      3x1  Stellmoment [Nm]
+%     dbg      6x1  [aint(3); u_fb_raw(3)] — nur zur Aufzeichnung, greift nicht in
+%                   die Regelung ein. aint ist der Integratorbeitrag, u_fb_raw die
+%                   Rueckfuehrung VOR der UFB_MAX-Begrenzung: |u_fb_raw| > UFB_MAX
+%                   heisst, der Regler steht in der Saettigung. Beides ist von
+%                   aussen sonst nicht beobachtbar (Zustaende sind persistent).
 %
 %   Interne Zustaende: zeta1 (spez. Schub), zeta2 (dessen Ableitung) -> die
 %   dynamische Erweiterung, die den Schub zum Brunovsky-Integratorzustand macht.
@@ -94,8 +99,8 @@ u_123 = s_ref ...
 
 % --- Begrenzung (vergroessert die Einzugsregion) ---------------------
 UFB_MAX = 700; % TUNING-Knopf [m/s^4]
-u_fb  = u_123 - s_ref;
-u_fb  = max(min(u_fb, UFB_MAX), -UFB_MAX);
+u_fb_raw = u_123 - s_ref;                              % vor der Klemme -> dbg
+u_fb  = max(min(u_fb_raw, UFB_MAX), -UFB_MAX);
 u_123 = s_ref + u_fb;
 
 % Yaw-Fehler auf (-pi,pi] wickeln, sonst wuerde ein Sollwert jenseits von
@@ -114,6 +119,7 @@ dw = [dwx; dwy; dwz];
 % --- Stellgroessen ---
 F   = m * zeta1 / max(k_hat, 1e-3); % [N] mit Schub-Skalenkorrektur k_hat
 tau = J*dw + cross(w, J*w); % [Nm]
+dbg = [aint; u_fb_raw];     % nur Telemetrie, kein Rueckwirkungspfad
 
 % --- Reglerzustaende integrieren (expliziter Euler) ---
 z2o = zeta2;

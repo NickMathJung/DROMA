@@ -58,7 +58,8 @@ if [ -d "$ARMF" ]; then
   cp "$INC/gcs_frame.hpp" "$INC/gcs_frame_flat.hpp" \
      "$INC/mcu_packet.hpp" "$INC/mcu_flat_packet.hpp" "$OUT/gcs_sender_flat/"
   cp "$HW/drone_hal_flat.cpp" "$OUT/drone_hal_flat/drone_hal_flat.ino"
-  cp "$INC/mcu_packet.hpp" "$INC/mcu_flat_packet.hpp" "$OUT/drone_hal_flat/"
+  cp "$INC/mcu_packet.hpp" "$INC/mcu_flat_packet.hpp" \
+     "$INC/flight_log_flat.hpp" "$OUT/drone_hal_flat/"
   for f in mcu_flat.cpp mcu_flat_data.cpp mcu_flat.h mcu_flat_types.h mcu_flat_private.h rtwtypes.h; do
     cp "$ARMF/$f" "$OUT/drone_hal_flat/"
   done

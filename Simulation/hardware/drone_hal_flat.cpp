@@ -49,8 +49,10 @@
 #ifdef printf
 #undef printf              // RF24 (Teensy) macht '#define printf Serial.printf' -> kollidiert
 #endif                     //   mit unserem Serial.printf (-> Serial.Serial.printf). Neutralisieren.
+#include <SD.h>            // Teensy-Core (SdFat); BUILTIN_SDCARD = SDIO 4-Bit
 #include "mcu_flat.h"          // generierte Klasse MCU_FLAT (ExtU/ExtY)
 #include "mcu_flat_packet.hpp" // pktf::Assembler / id_matches (single source of truth)
+#include "flight_log_flat.hpp" // Blackbox-Format (single source of truth)
 
 // ---- Betriebsart ------------------------------------------------------------
 // Zwei unabhaengige Schalter, damit sich "Motoren aus" und "ich sehe was" nicht
@@ -156,6 +158,23 @@ static IntervalTimer     g_timer;
 static uint32_t          g_tick_dt_max = 0;
 static uint32_t          g_tick_overruns = 0;
 static uint32_t          g_tick_count = 0;
+// ---- Blackbox ---------------------------------------------------------------
+// Zwei Ringe in RAM2 (DMAMEM), 25 s Tiefe. Waehrend des Flugs wird NICHT auf die
+// SD geschrieben -- eine Karte kann fuer ihre interne Verwaltung 50-100 ms
+// blockieren, und das saehe der 1-kHz-Tick. Geschrieben wird auf Kommando, mit
+// stehenden Motoren. Ring statt linearem Puffer: so liegen immer die letzten 25 s
+// vor, egal wie lange vor dem Start gebootet wurde.
+static constexpr uint32_t LOG_FAST_CAP = 25000;   // 25 s @ 1 kHz  -> 300.0 kB
+static constexpr uint32_t LOG_SLOW_CAP =  2500;   // 25 s @ 100 Hz ->  14.5 kB
+DMAMEM static flog::RecFast g_log_fast_mem[LOG_FAST_CAP];
+DMAMEM static flog::RecSlow g_log_slow_mem[LOG_SLOW_CAP];
+static flog::Ring<flog::RecFast> g_ring_fast;
+static flog::Ring<flog::RecSlow> g_ring_slow;
+static bool     g_sd_ok      = false;
+static bool     g_log_on     = true;   // Aufzeichnung laeuft (per Serial abschaltbar)
+static uint32_t g_log_tick   = 0;      // 1-kHz-Zaehler seit Boot
+static uint8_t  g_log_flags  = 0;      // Bit0 Link-Timeout, Bit1 Ring uebergelaufen
+
 // Link-Diagnose (BENCH): trennt "Sender emittiert nicht 100 Hz" (Windows/USB-Pacing)
 // von "auf der Luft verloren" (RF, AutoAck aus). Fenster = 1 s, ausgegeben in [tick].
 // Bei ZWEI Frames je Zyklus getrennt gezaehlt — so sieht man sofort, ob eine
@@ -350,6 +369,90 @@ static void selftest_report(const MCU_FLAT::ExtY_mcu_flat_T& y) {
 }
 #endif
 
+// ---------------------------- Blackbox-Dump ----------------------------------
+#if defined(HAL_MOTORS_MIN)
+static constexpr uint8_t HAL_MODE_ID = 0;   // BENCH
+#elif defined(HAL_REPORT)
+static constexpr uint8_t HAL_MODE_ID = 1;   // THRUST
+#else
+static constexpr uint8_t HAL_MODE_ID = 2;   // FLIGHT
+#endif
+
+// Einen Ring chronologisch geordnet rausschreiben: hoechstens zwei zusammen-
+// haengende Stuecke (ab Lesekopf bis Ende, dann von vorn bis Schreibkopf).
+// Bewusst untypisiert statt als Template: der Arduino-Praeprozessor zieht in der
+// .ino automatisch Prototypen und stolpert ueber Template-Signaturen.
+static void dump_ring_raw(File& f, const uint8_t* buf, uint32_t cap,
+                          uint32_t head, uint32_t n, uint32_t elem) {
+    if (n == 0) return;
+    const uint32_t start = (n == cap) ? head : 0;
+    const uint32_t first = (start + n <= cap) ? n : (cap - start);
+    f.write(buf + (size_t)start * elem, (size_t)first * elem);
+    if (first < n) f.write(buf, (size_t)(n - first) * elem);
+}
+
+// Schreibt die Ringe in eine neue Datei FLATnnn.BIN. Dauert einige hundert ms --
+// der Tick wird derweil verzoegert, deshalb ist der Dump bei laufenden Motoren
+// gesperrt. Der Timer laeuft weiter; g_tick ist ein Flag, es geht also hoechstens
+// ein Tick verloren und danach laeuft alles normal weiter.
+static void blackbox_dump() {
+    if (!g_sd_ok) { Serial.println("[log] keine SD-Karte erkannt"); return; }
+    const MCU_FLAT::ExtY_mcu_flat_T& y = g_mcu.getExternalOutputs();
+    double s = 0.0; for (int i=0;i<4;++i) s += y.throttle[i];
+    if (s > 0.0) { Serial.println("[log] ABGELEHNT: Motoren laufen (throttle > 0)"); return; }
+
+    const bool was_on = g_log_on;
+    g_log_on = false;                                  // Ringe einfrieren
+
+    char name[16] = "FLAT000.BIN";
+    for (int i = 0; i < 1000; ++i) {
+        snprintf(name, sizeof(name), "FLAT%03d.BIN", i);
+        if (!SD.exists(name)) break;
+    }
+    File f = SD.open(name, FILE_WRITE);
+    if (!f) { Serial.printf("[log] SD.open(%s) fehlgeschlagen\n", name); g_log_on = was_on; return; }
+
+    const uint32_t nf = g_ring_fast.n, ns = g_ring_slow.n;
+    flog::Header h;
+    flog::fill_header(h, g_own_id, HAL_MODE_ID, nf, ns,
+                      (nf ? g_log_tick - nf + 1 : 0), g_log_tick, millis());
+    const uint32_t t0 = millis();
+    f.write((const uint8_t*)&h, sizeof(h));
+    dump_ring_raw(f, (const uint8_t*)g_ring_fast.buf, g_ring_fast.cap,
+                  g_ring_fast.head, g_ring_fast.n, sizeof(flog::RecFast));
+    dump_ring_raw(f, (const uint8_t*)g_ring_slow.buf, g_ring_slow.cap,
+                  g_ring_slow.head, g_ring_slow.n, sizeof(flog::RecSlow));
+    f.close();
+    Serial.printf("[log] %s: %lu fast + %lu slow = %lu B in %lu ms (flags 0x%02X)\n",
+                  name, (unsigned long)nf, (unsigned long)ns,
+                  (unsigned long)(sizeof(h) + nf*sizeof(flog::RecFast) + ns*sizeof(flog::RecSlow)),
+                  (unsigned long)(millis()-t0), g_log_flags);
+    g_log_on = was_on;
+}
+
+// Serial-Kommandos. Bewusst minimal und nur aus loop() heraus aufgerufen.
+static void blackbox_console() {
+    while (Serial.available()) {
+        const int ch = Serial.read();
+        switch (ch) {
+        case 'd': blackbox_dump(); break;
+        case 'p': g_log_on = !g_log_on;
+                  Serial.printf("[log] Aufzeichnung %s\n", g_log_on ? "an" : "aus"); break;
+        case 'z': g_ring_fast.init(g_log_fast_mem, LOG_FAST_CAP);
+                  g_ring_slow.init(g_log_slow_mem, LOG_SLOW_CAP);
+                  g_log_flags &= 0x01u;
+                  Serial.println("[log] Ringe geleert"); break;
+        case 's': Serial.printf("[log] %s | fast %lu/%lu slow %lu/%lu | tick %lu | SD %s | flags 0x%02X\n",
+                                g_log_on ? "laeuft" : "pausiert",
+                                (unsigned long)g_ring_fast.n, (unsigned long)LOG_FAST_CAP,
+                                (unsigned long)g_ring_slow.n, (unsigned long)LOG_SLOW_CAP,
+                                (unsigned long)g_log_tick, g_sd_ok ? "ok" : "fehlt", g_log_flags);
+                  break;
+        default: break;   // Zeilenenden und Tippfehler ignorieren
+        }
+    }
+}
+
 // ------------------------------ setup ----------------------------------------
 void setup() {
     Serial.begin(115200);                                    // Timing-Budget-Report (non-blocking)
@@ -443,16 +546,29 @@ void setup() {
 
     g_mcu.initialize();   // seit der Spannungskorrektur nicht mehr statisch:
                           // initialize() setzt den RT_Vfilt-Startwert im Objekt
+
+    // Blackbox: Ringe scharf, SD nur anmelden (geschrieben wird erst auf Kommando).
+    // Eine fehlende Karte darf den Flug NICHT verhindern -- dann faellt nur der
+    // Dump aus, aufgezeichnet wird trotzdem.
+    g_ring_fast.init(g_log_fast_mem, LOG_FAST_CAP);
+    g_ring_slow.init(g_log_slow_mem, LOG_SLOW_CAP);
+    g_sd_ok = SD.begin(BUILTIN_SDCARD);
+
     g_timer.begin(on_tick, TICK_US);                         // 1 kHz
 #ifdef HAL_REPORT
     Serial.printf("[boot] 6 bias done [% .3f % .3f % .3f]; loop laeuft ab jetzt.\n",
                   g_gyro_bias[0], g_gyro_bias[1], g_gyro_bias[2]);
+    Serial.printf("[boot] 7 blackbox %s, %lu s Tiefe (%lu kB RAM2) — d=dump s=status p=pause z=leeren\n",
+                  g_sd_ok ? "SD bereit" : "OHNE SD (nur RAM)",
+                  (unsigned long)(LOG_FAST_CAP / 1000),
+                  (unsigned long)((sizeof(g_log_fast_mem)+sizeof(g_log_slow_mem))/1024));
 #endif
 }
 
 // ------------------------------ loop -----------------------------------------
 void loop() {
     nrf_poll();                                              // Pakete jederzeit annehmen
+    blackbox_console();                                      // d=dump p=pause z=leeren s=status
     if (!g_tick) return;
     g_tick = false;
     uint32_t t_tick0 = micros();                             // Timing-Budget: Tick-Start
@@ -464,7 +580,9 @@ void loop() {
     for (int k=0;k<3;++k) g_U.Bus_IMU_k.imu_acc[k]  = acc[k];
 
     // 2) Bus_Cmd_flat: letztes koherentes Kommandopaar (ZOH); Watchdog -> Hard-Kill
-    if (millis() - g_t_last_rx > LINK_TIMEOUT_MS) g_asm.cmd.estop = 2;
+    const bool link_lost = (millis() - g_t_last_rx > LINK_TIMEOUT_MS);
+    if (link_lost) g_asm.cmd.estop = 2;
+    g_log_flags = (uint8_t)((g_log_flags & ~0x01u) | (link_lost ? 0x01u : 0x00u));
     const pktf::CmdFlat& c = g_asm.cmd;
     for (int k=0;k<3;++k) g_U.Bus_Cmd_flat_l.mocap_pos[k] = c.mocap_pos[k];
     for (int k=0;k<4;++k) g_U.Bus_Cmd_flat_l.q_ext[k]     = c.q_ext[k];
@@ -502,6 +620,40 @@ void loop() {
 #ifdef HAL_REPORT
     selftest_report(y);
 #endif
+
+    // 5b) Blackbox: zwei memcpy, sonst nichts. Bewusst INNERHALB der Zeitmessung,
+    //     damit tickmax die Kosten mitzeigt (gemessen: unter 1 us).
+    ++g_log_tick;
+    if (g_log_on) {
+        flog::RecFast rf;
+        for (int k=0;k<3;++k) rf.gyro[k] = flog::q15(g_U.Bus_IMU_k.imu_gyro[k], flog::GYRO_SCALE);
+        for (int k=0;k<3;++k) rf.acc[k]  = flog::q15(g_U.Bus_IMU_k.imu_acc[k],  flog::ACC_SCALE);
+        g_ring_fast.push(rf);
+        if (g_ring_fast.wrapped()) g_log_flags |= 0x02u;
+
+        if ((g_log_tick % 10u) == 0u) {           // 100 Hz
+            flog::RecSlow rs;
+            rs.tick = g_log_tick;
+            for (int k=0;k<3;++k) rs.mocap_pos[k] = (float)c.mocap_pos[k];
+            for (int k=0;k<3;++k) rs.p_ref[k]     = (float)c.p_ref[k];
+            for (int k=0;k<4;++k) rs.q_ext[k]     = (float)c.q_ext[k];
+            for (int k=0;k<4;++k) {
+                double th = y.throttle[k] * 100.0;            // 0..100 % -> 0.01 %
+                rs.thr[k] = (uint16_t)(th < 0 ? 0 : (th > 10000 ? 10000 : th + 0.5));
+            }
+            rs.batt_count = (uint16_t)g_U.batt_count;
+            rs.estop = (uint8_t)g_U.Bus_Cmd_flat_l.estop;
+            rs.led   = (uint8_t)y.led;
+            rs.ack   = g_U.Bus_Cmd_flat_l.ack ? 1 : 0;
+            rs.flags = g_log_flags;
+            // dbg = [k_hat; F; aint(3); u_fb_raw(3)] aus dem Modellausgang
+            rs.k_hat = flog::q15(y.dbg[0], flog::KHAT_SCALE);
+            rs.F     = flog::q15(y.dbg[1], flog::F_SCALE);
+            for (int k=0;k<3;++k) rs.aint[k] = flog::q15(y.dbg[2+k], flog::AINT_SCALE);
+            for (int k=0;k<3;++k) rs.ufb[k]  = flog::q15(y.dbg[5+k], flog::UFB_SCALE);
+            g_ring_slow.push(rs);
+        }
+    }
 
     // 6) Timing-Budget: max. Tick-Dauer + Overruns (>1 ms) messen, ~1x/s melden.
     uint32_t dt = micros() - t_tick0;

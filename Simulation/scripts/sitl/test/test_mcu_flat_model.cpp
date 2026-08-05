@@ -67,6 +67,16 @@ TEST(McuFlatGolden, RotorCmdMatchesGolden) {
             << ": got " << (int)y.led << " expected " << g->get(r,"led.1");
         ASSERT_LE(diff_throttle(y, *g, r), (double)GOLDEN_TOL)
             << "throttle-Golden-Divergenz in Zeile " << r;
+        // dbg = [k_hat; F; aint(3); u_fb_raw(3)]. Reine Telemetrie, greift nicht in
+        // die Regelung ein -- aber mitgeprueft, weil damit auch Schaetzer- und
+        // Integratorzustaende unter dem Golden liegen. Eine ungewollte Aenderung an
+        // flatness_khat oder am Anti-Windup schlaegt sonst erst im Flug auf.
+        for (int i = 0; i < 8; ++i) {
+            const std::string col = "dbg." + std::to_string(i + 1);
+            ASSERT_LE(std::abs(y.dbg[i] - g->get(r, col)), (double)GOLDEN_TOL)
+                << "dbg-Divergenz " << col << " in Zeile " << r
+                << ": got " << y.dbg[i] << " expected " << g->get(r, col);
+        }
         // Struktur-Invariante (wie Kaskade): gemeinsamer Spannungsfaktor
         // throttle_i/polyval(P,omega_i) fuer alle nicht geklemmten Kanaele +
         // implizierte Spannung innerhalb der Klemmgrenzen.
@@ -325,16 +335,25 @@ TEST(McuFlatYaw, TorqueIsAntisymmetricInYawError) {
         for (int k = 0; k < 3000; ++k) { obj.setExternalInputs(&u); obj.step(); }
         return tau_z(obj.getExternalOutputs());
     };
+    // (1) Vorzeichen bei deutlicher Auslenkung -- das ist der eigentliche Waechter.
     const double tp = run(+30.0);
     const double tm = run(-30.0);
-    // Schutz gegen einen vakuum-gruenen Test: es muss ueberhaupt gestellt werden.
     ASSERT_GT(std::fabs(tp), 1.0)
         << "kein nennenswertes Giermoment (tp=" << tp << ") - Test aussagelos";
     EXPECT_LT(tp * tm, 0.0)
         << "gleiches Vorzeichen bei +30 und -30 deg Gierfehler (tp=" << tp
         << ", tm=" << tm << "): der Regler kennt den Drehsinn nicht";
-    EXPECT_NEAR(tp, -tm, 0.05 * std::fabs(tp))
-        << "Giermoment nicht antisymmetrisch: tp=" << tp << " tm=" << tm;
+
+    // (2) Betragssymmetrie nur bei KLEINER Auslenkung pruefen. Der Proxy sind
+    // Drosselwerte, und thr(omega) ist ein Polynom ueber sqrt(w^2) -- bei grossem
+    // Moment (mit coefPhi=[1 9 18] sind 30 deg schon 64% der Gierautoritaet)
+    // verzerrt allein diese Kennlinie die Betraege um ~8%, ohne dass das Moment
+    // unsymmetrisch waere. Bei 5 deg ist die Abbildung praktisch linear.
+    const double sp = run(+5.0);
+    const double sm = run(-5.0);
+    ASSERT_GT(std::fabs(sp), 1.0) << "5-deg-Fall liefert kein messbares Moment";
+    EXPECT_NEAR(sp, -sm, 0.05 * std::fabs(sp))
+        << "Giermoment bei +-5 deg nicht antisymmetrisch: sp=" << sp << " sm=" << sm;
 }
 
 // Batterie-FSM: fallende Spannung -> led 0(NORMAL)->1(WARN,<=14.0)->2(CRIT,<=13.4).

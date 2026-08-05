@@ -25,7 +25,15 @@ for jr = 1:3
     cp = conv(cp, [1 eigenvalInt(jr)]);   
     coefPos(jr,:) = cp;
 end
-eigenvalPhi = [1 2]; % Yaw: Doppelintegrator-Pole
+% Yaw: Doppelintegrator-Pole. Der Kanal hat KEINEN Integrator, ein konstantes
+% Stoermoment hinterlaesst also den bleibenden Fehler e = tau_d/(J_zz*c3) --
+% c3 = prod(eigenvalPhi) ist der einzige Hebel darauf. [1 2] war zu weich
+% (Flug 03.08.2026: bis 28 deg Ausschlag beim Aufsetzen); [3 6] verneunfacht
+% die Steifigkeit. Obergrenze ist die Gierautoritaet: sie ist 5.8x schwaecher
+% als die Rollautoritaet (tau_z,max = 0.163 Nm bei Schwebedrehzahl), und ein
+% 60-deg-Sprung treibt die Drossel damit auf 77% (bei [4 8] schon auf 97%).
+% Rauschverstaerkung ist unkritisch (c2*sigma_gyro = 0.06% des Budgets).
+eigenvalPhi = [3 6];
 coefPhi = conv([1 eigenvalPhi(2)], [1 eigenvalPhi(1)]);
 
 fctrl.eigenvalPos = eigenvalPos;

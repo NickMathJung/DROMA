@@ -130,6 +130,18 @@ target_compile_definitions(test_link_flat_codec PRIVATE GOLDEN_DIR="${GOLDEN_DIR
 target_link_libraries(test_link_flat_codec PRIVATE GTest::gtest_main)
 gtest_discover_tests(test_link_flat_codec)
 
+# --- Blackbox-Format (include/flight_log_flat.hpp): Record-Layout + Ring-Chronologie.
+# Header-only, keine Codegen-Abhaengigkeit -> laeuft immer.
+add_executable(test_flight_log_flat test/test_flight_log_flat.cpp)
+target_include_directories(test_flight_log_flat PRIVATE include test)
+target_link_libraries(test_flight_log_flat PRIVATE GTest::gtest_main)
+gtest_discover_tests(test_flight_log_flat)
+
+# Erzeugt eine Beispieldatei aus denselben Strukturen; read_flight_log_flat.m liest
+# sie gegen -> Kreuzcheck der Byte-Interpretation Firmware <-> MATLAB.
+add_executable(gen_flight_log_sample test/gen_flight_log_sample.cpp)
+target_include_directories(gen_flight_log_sample PRIVATE include)
+
 # --- GS-Frame-Cross-Check: MATLAB pack_gcs_frame == C++ gcs::parse (gcs_frame.hpp)
 add_executable(test_gcs_frame test/test_gcs_frame.cpp)
 target_include_directories(test_gcs_frame PRIVATE include test)

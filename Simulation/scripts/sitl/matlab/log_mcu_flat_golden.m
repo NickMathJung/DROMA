@@ -13,7 +13,10 @@ TOP_MODEL = 'quadcop_flat';
 MCU_BLOCK = 'quadcop_flat/mcu_flat_ref';
 T_STOP    = 5.0;                  % [s] Simulationsdauer
 IN_NAMES  = {'Bus_IMU','Bus_Cmd_flat','batt_count','btn_ack'};
-OUT_NAMES = {'rotor_cmd','led','throttle'};
+% dbg = [k_hat; F; aint(3); u_fb_raw(3)] -- reine Telemetrie, wird trotzdem
+% mitgegolden: dann faellt jede ungewollte Aenderung an Schaetzer oder Integrator
+% im Golden-Vergleich auf, nicht erst im Flug.
+OUT_NAMES = {'rotor_cmd','led','throttle','dbg'};
 OUT_CSV   = fullfile(fileparts(mfilename('fullpath')),'..','data','golden_mcu_flat_io.csv');
 
 load_system(TOP_MODEL);
@@ -105,7 +108,20 @@ function cols = flatten_and_zoh(vals, prefix, t, cols)
     end
     tt = vals.Time(:);
     n  = numel(tt);
-    D  = double(reshape(vals.Data, n, []));
+    % Orientierung NICHT annehmen: Simulink legt Data je nach Signal als N x W,
+    % W x N oder W x 1 x N ab. Ein blindes reshape(...,n,[]) liest spaltenweise und
+    % verschiebt die Komponenten dann um eine Position pro Zeitschritt gegeneinander
+    % — im Golden sah man das als wandernde Werte, nicht als offensichtlichen Fehler.
+    D = squeeze(vals.Data);
+    if isvector(D)
+        D = D(:);
+    elseif size(D,1) ~= n && size(D,2) == n
+        D = D.';
+    end
+    assert(size(D,1) == n, ...
+        'Signal "%s": %d Zeitpunkte, Data ist %s — Orientierung unklar.', ...
+        prefix, n, mat2str(size(vals.Data)));
+    D = double(D);
     for c = 1:size(D,2)
         cols(end+1) = struct('name', sprintf('%s.%d',prefix,c), ...
                              'data', zoh_resample(tt, D(:,c), t)); %#ok<AGROW>
