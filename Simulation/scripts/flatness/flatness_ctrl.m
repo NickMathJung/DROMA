@@ -19,7 +19,8 @@ function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_re
 %     m,g      1x1  Masse, Erdbeschleunigung
 %     J        3x3  Traegheitstensor
 %     coefPos  3x6  Brunovsky-Koeffizienten je Achse (aus init_flatness)
-%     coefPhi  1x3  Brunovsky-Koeffizienten Yaw
+%     coefPhi  1x4  Brunovsky-Koeffizienten Yaw (inkl. Integrator, letzter
+%                   Koeffizient = Integralgain wie bei coefPos)
 %     Ts       1x1  Abtastzeit des Reglers [s]
 %     kill     1x1  logical, gelatchter Not-Aus (safety_overspeed)
 %     w_adapt  1x1  Multipliziert nur den Zuwachs von k_hat
@@ -37,7 +38,7 @@ function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_re
 
 % --- Reglerzustaende + Arming-Reset -------------------------------------------
 % Der Regler rechnet auch bei aktivem Not-Aus weiter (der Kill nullt nur die
-% Stellgroessen hinter dem Mixer). Ohne Reset laufen die drei Integratorzustaende
+% Stellgroessen hinter dem Mixer). Ohne Reset laufen die Integratorzustaende
 % dabei mit: solange die Drohne am Boden liegt und die Trajektorie weiterfaehrt,
 % laedt eint den Positionsfehler auf, und zeta1/zeta2 wandern vom Hover weg. Weil
 % ein Integrator bei ep=0 nicht selbst abbaut, bleibt dieser Zustand stehen, bis
@@ -46,11 +47,12 @@ function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_re
 % Deshalb: solange kill anliegt, werden die Zustaende auf den Hover-Arbeitspunkt
 % geklemmt. Der Regler startet damit IMMER aus zeta1=g, zeta2=0, eint=0 —
 % bumpless transfer, auch beim Re-Armen nach einem Overspeed-Trip im Flug.
-persistent zeta1 zeta2 eint
+persistent zeta1 zeta2 eint eintPhi
 if isempty(zeta1) || kill
     zeta1 = g; % Hover: spez. Schub = g
     zeta2 = 0;
     eint  = [0;0;0]; % Positions-Integrierer (nullt konstante Stoerungen)
+    eintPhi = 0;     % Yaw-Integrierer
 end
 
 eZ = [0;0;1];
@@ -111,7 +113,20 @@ u_123 = s_ref + u_fb;
 % Yaw-Fehler auf (-pi,pi] wickeln, sonst wuerde ein Sollwert jenseits von
 % +-180 deg als fast volle Umdrehung statt auf dem kurzen Weg ausgeregelt.
 ephi = atan2(sin(phi - yawref(1)), cos(phi - yawref(1)));
-u_4 = yawref(3) - coefPhi(2)*(dphi - yawref(2)) - coefPhi(3)*ephi;
+% --- Yaw-Integrierer mit Anti-Windup (05.08.2026) -----------------------------
+% Das Giermoment-Gleichgewicht ist nicht null und wandert (Box-Flug: Yaw
+% -13..+8 deg, impliziertes Stoermoment bis ~0.05 Nm = 28 % der Autoritaet).
+% Klemme bei 6 rad/s^2 (= J_zz*6 ~ 0.066 Nm, 40 % der Gierautoritaet, ueber dem
+% beobachteten Bedarf) — P/D behalten damit immer >= 60 % der Autoritaet.
+% Zuwachs wie beim Positions-Integrierer ueber w_adapt geblendet: am Boden
+% haelt die Reibung die Drohne fest, dort ist der Fehler nicht ausregelbar.
+AINT_PHI_MAX = 6; % TUNING-Knopf [rad/s^2]
+eintPhi = eintPhi + w_adapt * ephi * Ts;
+aintPhi = coefPhi(4) * eintPhi;
+if     aintPhi >  AINT_PHI_MAX, aintPhi =  AINT_PHI_MAX; eintPhi = aintPhi/coefPhi(4);
+elseif aintPhi < -AINT_PHI_MAX, aintPhi = -AINT_PHI_MAX; eintPhi = aintPhi/coefPhi(4);
+end
+u_4 = yawref(3) - coefPhi(2)*(dphi - yawref(2)) - coefPhi(3)*ephi - aintPhi;
 
 % --- Winkelbeschleunigungen aus den Brunovsky-Stellgroessen ---
 dwx = (-R(:,2).'*u_123 - 2*zeta2*w(1) + zeta1*w(2)*w(3))/zeta1;
