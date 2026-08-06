@@ -1,6 +1,7 @@
 // Generiert von run_mcu_recert.m aus quadcop.p_from_omega — bitte nicht editieren.
 // throttle = clamp(polyval(P_THROTTLE, rotor_cmd) * U_DS / Vc, 0, 100)
-//   mit Vc = clamp(V_filt, V_THR_MIN, V_THR_MAX) aus safety_battery.
+//   mit Vc = clamp(V_lp, V_THR_MIN, V_THR_MAX); V_lp = Tiefpass (safety.tau_thr)
+//   ueber batt_k*batt_count + batt_b (schneller V-Pfad, 05.08.2026).
 // Eingang ist rotor_cmd (= omega), NICHT omega^2 — das Polynom wurde auf
 // omega umgestellt (Fit durch den Ursprung, Residuum 0.8% statt 5.6%).
 #ifndef THROTTLE_POLY_HPP

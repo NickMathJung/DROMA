@@ -13,6 +13,13 @@ quadcop = evalin('base','quadcop');
 oldcd = cd(sitl);                    % slbuild-Ausgabe -> scripts\sitl\mcu_ert_rtw
 cleanup = onCleanup(@() cd(oldcd));
 
+% Ausgabeordner EXPLIZIT setzen (gleicher Fix wie run_mcu_flat_recert: das
+% Projekt pinnt CodeGenFolder auf die Wurzel, sonst bricht slbuild ab, sobald
+% in derselben Sitzung vorher ein anderer Codegen-Lauf lief).
+Simulink.fileGenControl('set','CodeGenFolder',sitl,'CacheFolder',sitl,'createDir',true);
+restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
+    'CodeGenFolder',proj_root,'CacheFolder',proj_root,'createDir',true)); %#ok<NASGU>
+
 fprintf('== configure_mcu_codegen + slbuild ==\n');
 clear configure_mcu_codegen
 configure_mcu_codegen('mcu');
@@ -29,7 +36,8 @@ hpp = fullfile(sitl,'include','throttle_poly.hpp');
 fid = fopen(hpp,'w'); assert(fid>0,'throttle_poly.hpp nicht schreibbar');
 fprintf(fid,'// Generiert von run_mcu_recert.m aus quadcop.p_from_omega — bitte nicht editieren.\n');
 fprintf(fid,'// throttle = clamp(polyval(P_THROTTLE, rotor_cmd) * U_DS / Vc, 0, 100)\n');
-fprintf(fid,'//   mit Vc = clamp(V_filt, V_THR_MIN, V_THR_MAX) aus safety_battery.\n');
+fprintf(fid,'//   mit Vc = clamp(V_lp, V_THR_MIN, V_THR_MAX); V_lp = Tiefpass (safety.tau_thr)\n');
+fprintf(fid,'//   ueber batt_k*batt_count + batt_b (schneller V-Pfad, 05.08.2026).\n');
 fprintf(fid,'// Eingang ist rotor_cmd (= omega), NICHT omega^2 — das Polynom wurde auf\n');
 fprintf(fid,'// omega umgestellt (Fit durch den Ursprung, Residuum 0.8%% statt 5.6%%).\n');
 fprintf(fid,'#ifndef THROTTLE_POLY_HPP\n#define THROTTLE_POLY_HPP\nnamespace mcuref {\n');
