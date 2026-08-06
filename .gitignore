@@ -36,3 +36,6 @@ Simulation/scripts/sitl/codegen/
 # --- to workspace von bench.slx
 Simulation/data/*.mat
 
+# --- Pro-Flug-Sicherungskopien der Auswertung (datierte Ordner, lokal behalten)
+Simulation/data/*_2026*/
+
