@@ -1,11 +1,11 @@
 %% setup_buses.m  --  erzeugt die drei Schnittstellen-Busse im Data Dictionary
-%  Einmalig ausfuehren bzw. als Projekt-Shortcut bei Aenderung der Busdefinition.
+%  Einmalig ausführen bzw. als Projekt-Shortcut bei Änderung der Busdefinition.
 %  Passe ddName an deinen Dateinamen an.
 
 ddName = 'project.sldd';
 
 % --- Busdefinitionen:  {Elementname, Dimension}
-busState = buildBus({ ...      % Strecken-Wahrheit (nur Simulation)
+busState = buildBus({ ...      % Streckenzustände (nur für Simulation)
     'x', 3; ...      % Position {A}
     'v',3; ...       % Geschwindigkeit {A}
     'q',4; ...       % Lage-Quaternion

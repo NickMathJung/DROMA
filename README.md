@@ -1,187 +1,203 @@
-# DROMA — Quadcopter SITL Simulation & Firmware
+# DROMA — quadcopter testbench (Drohnenversuchsstand)
 
-MATLAB/Simulink **model of a quadcopter, plus the
-C++ flight-firmware generated from it**. Part of the **DROMA** testbench (a swarm of
-quadcopters verified against an infrared motion-capture system). The same
-Simulink flight controller (`mcu.slx` and `mcu_flat.slx`) is code-generated to a **Teensy 4.1**, so
-the simulation and the real drone run the same control law.
+DROMA is a testbench for small quadcopters flying indoors under an OptiTrack
+infrared motion-capture system. This repository contains everything that makes
+one drone fly: the Simulink models of the plant and of **two** flight
+controllers, the code-generation and verification pipeline, the Teensy firmware
+for drone and ground station, the motion-capture toolchain, and the flight-test
+documentation.
 
-> Model frame is **z-up** (not NED). `scripts/params.m` the single source of
-> truth for all parameters.
+The core principle is model-based design taken all the way: the flight
+controller is built and simulated in Simulink, code-generated to C++, proven
+bit-equal against the model by golden tests, and flashed onto a **Teensy 4.1**
+on the drone. The controller you simulate is literally the controller that
+flies.
 
----
+Three conventions before you touch anything:
 
-## Architecture
-
-`models/quadcop.slx` is the top-level simulation model. It wires
-five referenced models into a closed loop:
-
-| Model         | Role                                  | Deployment  | Key inputs → outputs |
-|---------------|---------------------------------------|-------------|----------------------|
-| `plant.slx`   | 6-DOF rigid-body + propeller dynamics | SITL (host) | `rotor_cmd` → `Bus_State, accel_body, dω/dt, R` |
-| `sensors.slx` | IMU + motion-capture model            | SITL (host) | plant motion → `Bus_IMU, Bus_Mocap` |
-| `mcu.slx`     | **Flight controller** (→ C++)         | Deployed SW (drone) | `Bus_IMU, Bus_Cmd, batt_count` → `rotor_cmd, led, throttle` |
-| `link.slx`    | Radio link (TX/RX codec, packet loss) | SITL (host) | `Bus_Cmd_In` → `cmd_out` |
-| `gcu.slx`     | Ground-control station                | Deployed SW (ground) | `Bus_Mocap, Bus_State, estop, ack` → `Bus_Cmd` |
-
-**Control is distributed:** the inner **attitude** loop (Mahony estimator +
-geometric attitude controller) runs on the drone MCU at **1 kHz**
-(`Ts_inner = 1e-3`); the outer **position** loop + landing supervisor run on the
-ground station at **100 Hz**. The radio link carries the setpoint bus
-(`Bus_Cmd`) between them.
-
-SysML views of this structure live in the repo root:
-[`../DROMA_BDD.puml`](../DROMA_BDD.puml) (composition hierarchy) and
-[`../DROMA_IBD.puml`](../DROMA_IBD.puml) (signal flow, logical vs. physical
-interfaces). Render with the VS Code *PlantUML* extension (needs Java + Graphviz).
+- The model frame is **z-up**, not NED.
+- Every parameter lives in `Simulation/scripts/params.m` (via the
+  `scripts/init/init_*.m` builders). A number typed into a block is a bug.
+- The MATLAB Function blocks are thin `_sl` wrappers; the real algorithms are
+  `.m` files in `scripts/functions/` and `scripts/flatness/`. Edit those, never
+  the blocks — `.slx` is binary and inline code never shows up in a diff.
 
 ---
 
-## Repository layout
+## The system at a glance
 
 ```
-Simulation/
-├── DROMA.prj                 MATLAB project (open this first — sets up paths)
-├── models/                   Simulink models
-│   ├── quadcop.slx           top-level SITL harness (run this)
-│   ├── mcu.slx  gcu.slx  plant.slx  sensors.slx  link.slx
-├── scripts/
-│   ├── params.m              central parameter file (runs via PreLoadFcn)
-│   ├── setup_buses.m         Simulink bus object definitions
-│   ├── init/                 init_*.m — per-subsystem parameter builders
-│   ├── functions/            MATLAB Function / Stateflow sources + codec (sm3, link_tx/rx)
-│   ├── test/                 verify_*.m (battery, overspeed, quat codegen)
-│   └── sitl/                 host-side C++ golden tests + codegen automation
-│       ├── SITL_Runbook.md   how to re-certify mcu.slx after a change
-│       ├── README.md         golden-test decision table
-│       ├── matlab/           configure_mcu_codegen, log_mcu_golden, run_gate_a, …
-│       ├── include/ src/ test/   CMake + GoogleTest/CTest suite
-├── hardware/                 Teensy firmware (Arduino/PlatformIO)
-│   ├── drone_hal.cpp         drone HAL (wraps the ARM-generated MCU class)
-│   ├── gcs_sender.cpp        ground-station sender Teensy (USB → nRF24)
-│   ├── esc_calibrate.cpp  i2c_scan.cpp   bench tools
-│   ├── mcu_arm/              ARM (Cortex-M7) generated flight-controller code
-│   └── build_sketches.sh     assembles flashable sketches (+ --compile/--upload)
-├── data/project.sldd         Simulink data dictionary
-└── Handover_Drohnenschwarm_Sim_7.md   detailed engineering log / decisions
+OptiTrack cameras ──► Motive (PC, streams rigid-body pose via NatNet, Up Axis = Z)
+        │
+        ▼
+bench(_flat).slx      Simulink "ground control" on the PC, 100 Hz
+        │  USB frame
+        ▼
+gcs_sender(_flat)     ground-station Teensy ── nRF24 radio (ch 76, 250 kbps) ──►
+        ▼
+drone_hal(_flat)      drone Teensy 4.1: MPU-6050, battery ADC, generated
+                      controller class at 1 kHz, OneShot125 → ESCs
+```
+
+The drone (m = 0.985 kg, 4S pack) is tracked by the cameras; Motive streams its
+pose to the PC, the bench model computes/relays setpoints, the radio carries
+them to the drone, the drone flies, the cameras see it — closed loop. Several
+airframes exist (`id=1`, `id=2`, …); the firmware selects per-drone IMU mount
+calibration via ID pins.
+
+Two SysML views of this structure live next to this file:
+[`DROMA_BDD.puml`](DROMA_BDD.puml) (what contains what, down to the `.m`
+functions) and [`DROMA_IBD.puml`](DROMA_IBD.puml) (signal flow, logical vs.
+physical interfaces). Render with PlantUML (needs Java + Graphviz).
+
+---
+
+## Two controller variants
+
+|                    | Cascade                                   | Flatness-based                              |
+|--------------------|-------------------------------------------|---------------------------------------------|
+| Control law        | PD position (ground, 100 Hz) + geometric attitude (drone, 1 kHz) | Flatness-based tracking control (exact linearization), entirely on the drone at 1 kHz; the ground streams mocap pose + trajectory incl. feedforward (2-frame OTA protocol) |
+| Simulink models    | `quadcop.slx`, `bench.slx`, `mcu.slx`, `gcu.slx`, `link.slx` | same names with `_flat` suffix              |
+| Algorithm sources  | `scripts/functions/`                      | `scripts/flatness/`                         |
+| Firmware           | `drone_hal.cpp`, `gcs_sender.cpp`         | `drone_hal_flat.cpp`, `gcs_sender_flat.cpp` |
+| Recert pipeline    | `run_mcu_recert`, `run_mcu_arm_codegen`   | `run_mcu_flat_recert`, `run_mcu_flat_arm_codegen` |
+| Git                | flight-proven state on `main`             | developed on `feature/flatness-tracking`    |
+
+The `_flat` family is strictly additive — the cascade stays untouched and
+flyable at all times. Drone **and** sender Teensy must always run the same
+variant.
+
+---
+
+## Repository map
+
+```
+DROMA/
+├── README.md                    you are here
+├── DROMA_BDD.puml               SysML: composition hierarchy
+├── DROMA_IBD.puml               SysML: signal flow
+├── LICENSE
+├── Motive/                      OptiTrack side: camera calibrations (.mcal),
+│                                NatNet MATLAB plugin + DLLs, Motive quick-start guide
+└── Simulation/                  the engineering content
+    ├── DROMA.prj                MATLAB project — open this FIRST (paths + PreLoadFcn)
+    ├── README.md                deep dive: simulation, codegen gates, firmware, safety
+    ├── Testmatrix_Erstflug.md   flight-test campaign, living document (German)
+    ├── Handover_Drohnenschwarm_Sim_7.md   long engineering log: locked decisions, pinouts
+    ├── models/                  quadcop/bench + referenced models, plus the *_flat family
+    ├── scripts/
+    │   ├── params.m             single source of truth for every parameter
+    │   ├── setup_buses.m        Simulink bus definitions
+    │   ├── init/                init_*.m parameter builders, one per subsystem
+    │   ├── functions/           cascade algorithms (the real sources)
+    │   ├── flatness/            flatness controller + its init/link/eval scripts
+    │   ├── motive/              NatNet path setup, mocap origin, IMU mount calibration
+    │   ├── sitl/                C++ golden tests, codegen automation, SITL_Runbook.md
+    │   └── test/                verify_*.m unit checks
+    ├── hardware/                Teensy firmware (both variants), bench tools,
+    │                            build_sketches.sh, generated ARM code (mcu_arm/, mcu_flat_arm/)
+    └── data/                    flight logs and per-flight evaluation results
 ```
 
 ---
 
-## Requirements
+## New here? Read in this order
 
-**Simulation (MATLAB):** MATLAB/Simulink **R2025b** with
-- Stateflow, Aerospace Blockset (accelerometer/gyroscope/quaternion blocks),
-- MATLAB Coder, Simulink Coder, Embedded Coder (C++ code generation),
-- Simulink Desktop Real-Time (the *Real-Time Synchronization* block).
+1. This file, then the two PlantUML diagrams.
+2. [`Simulation/README.md`](Simulation/README.md) — how the simulation is
+   built, the wrapper pattern, the safety latches, the two codegen gates, the
+   firmware. Written for the cascade; the flatness variant mirrors it 1:1 with
+   the `_flat` suffix.
+3. [`Simulation/Testmatrix_Erstflug.md`](Simulation/Testmatrix_Erstflug.md) —
+   what has been proven on hardware, what is open, current blockers (German).
+4. [`Simulation/Handover_Drohnenschwarm_Sim_7.md`](Simulation/Handover_Drohnenschwarm_Sim_7.md)
+   — the reasoning behind locked design decisions.
+5. Before you change `mcu.slx` or `mcu_flat.slx`:
+   [`Simulation/scripts/sitl/SITL_Runbook.md`](Simulation/scripts/sitl/SITL_Runbook.md).
 
-**Host golden tests (`scripts/sitl/`):** CMake ≥ 3.15 and a C++17 compiler (MSVC).
-Leaf-codegen tests additionally need `MATLAB_ROOT` (for `tmwtypes.h`).
-
-**Firmware (`hardware/`):** `arduino-cli` with Teensy core `teensy:avr@1.60.0`
-and the `RF24` library (1.6.1). Target board: `teensy:avr:teensy41`.
-> Build firmware from a path **without spaces** (this repo path contains
-> “MAS Versuchsaufbau”) — copy the sketch to a scratch dir or use `build_sketches.sh`.
-
----
-
-## Getting started (simulation)
-
-1. **Open the project:** launch MATLAB and open `DROMA.prj` (adds `scripts/`,
-   `scripts/init/`, `scripts/functions/` to the path). Alternatively add those
-   folders to the path manually.
-2. **Open the top model:** open `models/quadcop.slx`. Its `PreLoadFcn` runs
-   `scripts/params.m`, which populates the workspace via the `init_*` builders:
-   `quadcop, imu, mocap, link_params, controller, safety, mahony, traj, supervisor`.
-3. **Run.** The model uses a fixed-step **ode4** solver at `Ts_sim = Ts_inner =
-   1e-3 s`. Every sample time in the model is an integer multiple of `Ts_inner`
-   (mocap/GCS/link at 100 Hz, battery monitor slower).
-
-### Changing parameters
-Edit `scripts/params.m` and the `scripts/init/init_*.m` builders — never hard-code
-values in the blocks. Examples:
-- `init_quadcop.m` — mass, inertia, geometry, `p_from_omega_sq` (ω²→throttle poly)
-- `init_sensors.m` — IMU FSR/noise, mocap rate
-- `init_controller.m` / `init_estimator.m` — attitude gains, Mahony `ka/kE`
-- `init_safety.m` / `init_battery_manag.m` — `omega_max = 8.5 rad/s`, battery
-  scale `batt_k = 0.0166737 V/count`, floor `12.0 V`
-- `init_link.m` — packet fields, drop probability `pdrop = 0.02`
+**First hour:** open `Simulation/DROMA.prj` in MATLAB (sets up all paths), open
+`models/quadcop.slx`, press Run. Opening a top model triggers `params.m`, which
+fills the workspace with every parameter struct the model needs.
 
 ---
 
-## Re-certifying the flight controller (SITL codegen)
+## Everyday workflows
 
-When you change `mcu.slx` (or a signal at the MCU boundary), re-verify that the
-**generated C++** still matches the model. Full procedure in
-[`scripts/sitl/SITL_Runbook.md`](scripts/sitl/SITL_Runbook.md). Short version —
-two gates, always in this order:
+**Run the full simulation** — `quadcop.slx` (cascade) or `quadcop_flat.slx`:
+everything simulated, fixed-step ode4 at 1 ms.
 
-**Gate A — SIL (in MATLAB, closed loop):**
+**Fly on hardware** — `bench.slx` / `bench_flat.slx`: same ground station, but
+mocap comes in live from Motive and commands go out over serial to the sender
+Teensy. Runs at 10 ms; Simulation Pacing must be 1.0×.
+
+**Change a parameter** — `scripts/params.m` → `scripts/init/init_*.m` (or
+`scripts/flatness/init_flatness.m`). Position gains and everything ground-side
+take effect on the next run, no flash. Anything inside `mcu(_flat).slx` is
+firmware and needs the full cycle below.
+
+**Change controller logic** — edit the `.m` source, then re-certify and flash:
+
 ```matlab
-clear configure_mcu_codegen
-configure_mcu_codegen('mcu')     % pins class name MCU + SingleTasking
-slbuild('mcu')                   % -> scripts/sitl/mcu_ert_rtw/ (C++ class MCU, packNGo)
-run scripts/sitl/matlab/log_mcu_golden.m   % -> scripts/sitl/data/golden_mcu_io.csv
-sil_check_mcu                    % expect rotor_cmd max|d| ~1e-14, led 0 mismatches
-```
-> The MCU block’s `led` output must be wired in the top model (a Terminator is
-> enough) or `log_mcu_golden.m` aborts by design.
-
-**Gate B — host golden (MATLAB-free, tick-exact, CTest):**
-```powershell
-cd scripts/sitl
-cmake --build build --config Release
-ctest --test-dir build -C Release -R McuGolden --output-on-failure
-```
-If Gate B fails, diagnose with the replay target:
-```powershell
-cmake --build build --config Release --target diag_mcu_replay
-./build/Release/diag_mcu_replay.exe
+run_mcu_recert('<repo>\Simulation')        % cascade:  regen C++ + golden CSV
+run_mcu_flat_recert('<repo>\Simulation')   % flatness: same for mcu_flat
 ```
 
-**ARM code generation** (for the Teensy), which writes to `hardware/mcu_arm/`
-without touching the SITL build:
-```matlab
-run scripts/sitl/matlab/run_mcu_arm_codegen.m   % target = 'arm' (Cortex-M7, double, LE)
-```
+then Gate B on the host (`ctest -C Release` in `scripts/sitl/build`, plus the
+Debug exe if Smart App Control blocks a freshly built test binary), then ARM
+codegen (`run_mcu_arm_codegen` / `run_mcu_flat_arm_codegen`), then flash.
 
----
+**Flash** (from `Simulation/hardware/`, Git bash):
 
-## Firmware (Teensy 4.1)
-
-- `hardware/drone_hal.cpp` — 1 kHz tick: MPU-6050 → `Bus_IMU`, ADC(pin 40) →
-  `batt_count`, nRF24 unpack → `Bus_Cmd`, runs the generated `MCU` class,
-  `throttle` → OneShot125 ESCs, watchdog → `estop = 2`. Needs the ARM `mcu.h`
-  (`hardware/mcu_arm/mcu_ert_rtw/`) and the codec SSOT `mcu_packet.hpp`
-  (`scripts/sitl/include/`) on the include path.
-- `hardware/gcs_sender.cpp` — ground-station Teensy: USB frame from Simulink →
-  `gcs::parse` → `pkt::pack` → nRF24 broadcast (channel 76, 1 Mbps, auto-ack off).
-- Bench tools: `i2c_scan.cpp` (find MPU at 0x68), `esc_calibrate.cpp` (ESC learn /
-  motor test), and `drone_hal.cpp`’s `HAL_SELFTEST` build.
-
-Compile example:
 ```bash
-arduino-cli compile -b teensy:avr:teensy41 <sketch-dir>
+./build_sketches.sh --compile                    # compile-check every sketch, all modes
+./build_sketches.sh --upload-drone-flight        # cascade drone firmware
+./build_sketches.sh --upload-sender              # cascade ground-station Teensy
+./build_sketches.sh --upload-drone-flat-flight   # flatness drone firmware
+./build_sketches.sh --upload-sender-flat         # flatness ground-station Teensy
 ```
 
-### ⚠️ Operational safety (read before any bench/HW test)
-- The drone **boots with `estop = 2`** (no link) → hard-kill latch set. Once the
-  link is up (`estop = 0`), rotors/throttle stay **0** until a **rising `ack`
-  edge** (button on pin 21, or GCS `ack=1` pulse) releases the latch. Any link
-  loss re-arms the kill → re-arm again.
-- `batt_land` is **permanent**: if `Vf ≤ 12.0 V` the battery latch forces a hard
-  descent until **power-cycle**, even if voltage recovers. When testing on a bench
-  supply, keep it **> 12 V**.
-- Driving the ground-station chain from Simulink requires **Simulation Pacing at
-  1.0×** (otherwise a frame burst trips the drone watchdog immediately).
+Firmware modes: `BENCH` (motors dead), `THRUST` (motors + telemetry report),
+`FLIGHT`. There are also `--upload-drone-{bench,thrust}` /
+`--upload-drone-flat-{bench,thrust}` targets and bench tools
+(`--upload-scan/esccal/freq/batt/chanscan`).
+
+**Evaluate a flight** — run the bench model during the flight, then
+`scripts/functions/flight_evaluation.m` (cascade) or
+`scripts/flatness/flight_evaluation_flat.m`. Both shift the logged reference
+back by `T_lead` before computing errors: the ground station evaluates the
+trajectory at `t + T_lead` to compensate the chain dead time, so the *logged*
+reference is the time-advanced one, and errors must be measured on the
+space-time schedule. Results land in `Simulation/data/`.
 
 ---
 
-## Further reading
-- [`Handover_Drohnenschwarm_Sim_7.md`](Handover_Drohnenschwarm_Sim_7.md) —
-  detailed session log, locked design decisions, pin assignments, gate status.
-- [`scripts/sitl/SITL_Runbook.md`](scripts/sitl/SITL_Runbook.md) — codegen
-  re-certification procedure and the MCU port contract.
-- [`scripts/sitl/README.md`](scripts/sitl/README.md) — host golden-test decision
-  table and codegen switch-over.
-```
+## Safety — the things that surprise everyone
+
+Condensed; full list in [`Simulation/README.md`](Simulation/README.md).
+
+- The drone **boots latched** (`estop = 2`, no link yet). Motors stay at zero
+  until a rising `ack` edge arms it; every link loss latches again.
+- The **battery latch is permanent**: filtered voltage ≤ 12.0 V forces a
+  descent until power-cycle, even if the voltage recovers. Bench supplies stay
+  above 12 V.
+- **Battery health is a flight parameter.** A worn pack (high internal
+  resistance) collapses under hover load and quietly ruins tracking long before
+  the latch trips — see the pre-flight blocker note in `Testmatrix_Erstflug.md`
+  and measure packs before flying.
+- `bench.slx` without Simulation Pacing 1.0× trips the drone watchdog
+  immediately.
+
+---
+
+## Requirements (short)
+
+- **MATLAB/Simulink R2025b** with Stateflow, Aerospace Blockset, MATLAB /
+  Simulink / Embedded Coder, Simulink Desktop Real-Time; Instrument Control
+  Toolbox for the bench serial blocks.
+- **Motive** streaming over NatNet with **Up Axis = Z**; plugin and DLLs are in
+  `Motive/`, path helper in `Simulation/scripts/motive/`.
+- **Host tests:** CMake ≥ 3.15, C++17 compiler (MSVC is what is used).
+- **Firmware:** `arduino-cli` with Teensy core `teensy:avr@1.60.0` and the RF24
+  library; board `teensy:avr:teensy41`.
+
+Details and the version pins live in [`Simulation/README.md`](Simulation/README.md).
