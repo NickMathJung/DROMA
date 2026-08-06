@@ -20,4 +20,7 @@ controller.kOmega =  diag(2 * zeta * quadcop.J * omega_n_Lage);
 % steht also schon vor der Klammer. 
 controller.Kp = diag(omega_n_pos.^2);
 controller.Kd =  diag(2 * zeta * omega_n_pos);
+
+% Ausgleich von Totzeit im System: gcu wertet die Trajektorie bei t + T_lead aus
+controller.T_lead = 0.05; % [s]
 end
