@@ -253,17 +253,17 @@ TEST(McuButton, EdgeKillsHeldBlocksRearmBusAckClears) {
 }
 
 // Tilt-Cutoff im generierten Code: der Estimator wird ueber die Mocap-Referenz
-// (Bus_Cmd.q_ext) plus passenden Accel in eine 85-deg-Kippung gezogen; nach der
+// (Bus_Cmd.q_ext) plus passenden Accel in eine 95-deg-Kippung gezogen; nach der
 // Entprellung (80 Ticks) muss der Kill greifen. Das prueft zugleich, dass q_hat
 // ueberhaupt an safety_overspeed verdrahtet ist.
 TEST(McuTilt, SustainedTiltKills) {
     MCU obj; obj.initialize();
     MCU::ExtU_mcu_T u{};
     const double d2r = 3.14159265358979323846 / 180.0;
-    const double phi = 85.0 * d2r;                  // Rollwinkel um x
+    const double phi = 95.0 * d2r;                  // Rollwinkel um x
     u.Bus_Cmd_l.q_des[0] = 1.0;
     u.Bus_Cmd_l.q_ref[0] = 1.0;
-    // Mocap-Referenz: 85 deg Roll (scalar-first [w x 0 0]).
+    // Mocap-Referenz: 95 deg Roll (scalar-first [w x 0 0]).
     u.Bus_Cmd_l.q_ext[0] = std::cos(phi / 2);
     u.Bus_Cmd_l.q_ext[1] = std::sin(phi / 2);
     // Accel passend zur Kippung (Body-Up-Richtung), damit der Accel-Term nicht

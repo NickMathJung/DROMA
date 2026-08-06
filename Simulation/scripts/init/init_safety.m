@@ -9,7 +9,8 @@ arguments (Output)
 end
 
 % 8.5 rad/s (~487 deg/s) per Achse ggf. per-Achse differenzieren
-safety.omega_max = 12.5; % [rad/s]
+% (unter Gyro-FSR 8.727 -> Kill bleibt scharf; 12.5 waere ueber FSR = Kill tot)
+safety.omega_max = 8.5; % [rad/s]
 
 % N aufeinanderfolgende Samples gegen Gyro-Spikes
 safety.debounce_N = uint16(4);

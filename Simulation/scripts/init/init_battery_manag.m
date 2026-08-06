@@ -28,6 +28,21 @@ safety.batt_b = 0.0; % offset
 % --- Tiefpass ---
 safety.batt_tau   = 0.7; % gegen Last-Einbruch + Rauschen (0.5..1)
 safety.batt_alpha = 1 - exp(-Ts_batt/safety.batt_tau);  % Hysterese-Koeffizient
+
+% --- Eigener, SCHNELLER Tiefpass fuer die Drossel-Spannungskompensation --------
+% Die Kompensation thr = poly(omega)*U_ds/V soll Spannungseinbrueche aufheben,
+% BEVOR sie Schub werden. V_filt (0.7 s, oben) taugt dafuer nicht -- er ist
+% absichtlich traege fuer batt_land, und safety_battery laeuft obendrein nur im
+% Sekundentakt: bei der im Flug gemessenen 0.46-Hz-Lastschwingung (Batterie
+% corr zur Drossel -0.62, 1.7 % Spannungshub -> quadratisch ~3.4 % Schubhub)
+% ist er schlicht blind. Zwei Verbraucher, zwei Filter (Nicks Vorschlag,
+% 05.08.2026): batt_land behaelt die traege Hysterese, die Drossel bekommt
+% diesen schnellen Pfad (mcu_flat: G_batt_k -> B_batt_b -> LP_V_thr @ Ts_inner).
+% tau-Wahl: 0.1 s laesst 0.46 Hz zu 96 % durch (16 deg Verzug) und drueckt das
+% ADC-Rauschen (~30 counts RMS, dominant ~45 Hz) auf ~0.3 % Drosselaequivalent.
+% Die Mitkopplungsschleife thr -> I -> V-Sag -> thr hat Kreisverstaerkung
+% thr*R_batt*(dI/dthr)/V ~ 0.04..0.13 -- unkritisch.
+safety.tau_thr = 0.1; % [s]
  
 % --- Schwellen (4S LiPo, unter Last). final auf HW bestaetigen ---
 safety.V_warn = 14.0; % 3.50 V/Zelle -> LED WARN, Bediener handeln
