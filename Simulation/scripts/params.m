@@ -1,13 +1,13 @@
 %% params.m  --  Zentrale Parameterdatei
-%  Aufruf ueber die PreLoadFcn des Top-Modells:  run(fullfile(projRoot,'scripts','params.m'))
+%  wird über die PreLoadFcn von DROMA.prj aufgerufen
 clear;
 clc;
 close all;
 %% ------------------------------------------------------------------ Raten
-% Base rate = Ts_inner. Every other sample time in the model has to be an
-% integer multiple of Ts_inner, otherwise the ode4 fixed-step scheduler is invalid.
+% Grundrate = Ts_inner (f_base). Jede andere Sampletime muss ein ganzzahliges 
+% vielfaches von Ts_inner sein, sonst streikt der ode4 fixed-step scheduler
 f_base = 100; % Grundrate
-rate_outer2inner = 10; % factor by how much the controller on the drone is sampled faster compared to the ground station
+rate_outer2inner = 10; % Faktor um den mcu schneller sein soll als Takt in SIMULINK
 Ts_inner = 1/(rate_outer2inner*f_base);            
 Ts_sim = Ts_inner; % Fixed-step Grundschrittweite (ode4)
 
@@ -41,6 +41,12 @@ traj = init_trajectory();
 
 %% ------------------------------------------------------------ Batterie management
 safety = init_battery_manag(quadcop, safety, Ts_batt);
+
+%% ---------------------------------------------- Flatness-Variante (Baseline)
+% gcu_flat braucht fctrl.T_lead (Referenz-Vorhalt) schon beim Laden von
+% bench_flat -- dessen InitFcn baut fctrl NICHT (nur quadcop_flat/mcu_flat tun
+% das und ueberschreiben diese Baseline bei jedem Lauf ohnehin).
+fctrl = init_flatness(quadcop);
 
 %% ------------------------------------------------------------ Supervisor (Soft-Land)
 supervisor = init_supervisor(quadcop,Ts_gcs);

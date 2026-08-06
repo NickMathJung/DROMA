@@ -1,4 +1,4 @@
-function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj_gen(t, traj, quadcop)
+function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref, s_ref] = traj_gen(t, traj, quadcop)
 %#codegen
 % traj_gen  Minimum-Snap Punkt-zu-Punkt-Trajektorie.
 %
@@ -21,7 +21,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
 %
 %   Ausgaenge:
 %     x_ref,v_ref,a_ref 3x1 Soll-Pos/Geschw/Beschl 
-%     yaw_ref     1x1 Soll-Yaw 
+%     yaw_ref     3x1 [yaw; dyaw; ddyaw]  (Segment-Yaw: dyaw=ddyaw=0)
 %     Omega_ref   3x1 Vorsteuer-Drehrate (Body) 
 %     tau_ff      3x1 Vorsteuer-Moment (Body) 
 %     q_ref       4x1 nominelles Soll-Quaternion
@@ -79,7 +79,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
         a_ref = D*s2 / T^2;
         j_ref = D*s3 / T^3;
         s_ref = D*s4 / T^4;
-        yaw_ref = traj.yaw(k);
+        yaw_s = traj.yaw(k);
     elseif mode == int8(0) % Rastpunkt
         x_ref = traj.P(:,sel_wp);
         v_ref = zeros(3,1);  
@@ -87,9 +87,9 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
         j_ref = zeros(3,1);
         s_ref = zeros(3,1);
         if sel_wp < N
-            yaw_ref = traj.yaw(sel_wp);    % Yaw des kommenden Segments
+            yaw_s = traj.yaw(sel_wp);    % Yaw des kommenden Segments
         else
-            yaw_ref = traj.yaw(N-1);
+            yaw_s = traj.yaw(N-1);
         end
     else % End-Halt
         x_ref = traj.P(:,N);
@@ -97,8 +97,12 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
         a_ref = zeros(3,1);
         j_ref = zeros(3,1);
         s_ref = zeros(3,1);
-        yaw_ref = traj.yaw(N-1);
+        yaw_s = traj.yaw(N-1);
     end
+
+    % Yaw-Ausgang als 3x1 [yaw; dyaw; ddyaw]; Segment-Yaw -> Ableitungen 0.
+    % (Fuer flatness_ctrl.yawref; die Kaskade nutzt in pos_ctrl nur yaw_ref(1).)
+    yaw_ref = [yaw_s; 0; 0];
 
     % --- Flache Ausgänge und ihre Ableitungen in die Sollzustände umrechnen ---
     % Schubachse:  F*z_B = m*alpha,  alpha = a_ref - g_grav
@@ -114,7 +118,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
     zBdd = alphadd/n - 2*alphad*nd/n^2 - alpha*ndd/n^2 + 2*alpha*nd^2/n^3;
 
     % Heading (konstanter Yaw je Segment -> xC konstant, Ableitungen 0)
-    xC = [cos(yaw_ref); sin(yaw_ref); 0];
+    xC = [cos(yaw_s); sin(yaw_s); 0];
 
     c   = cross(zB,   xC);
     cd  = cross(zBd,  xC);
@@ -150,27 +154,6 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref] = traj
 end
 
 % --- Lokale Helfer ---
-
-% function [s0,s1,s2,s3,s4] = restpoly(tau)
-% % Minimum-Snap rest-to-rest Einheitsprofil 0->1 ueber tau in [0,1].
-% % s und erste drei Ableitungen = 0 an beiden Enden (Snap != 0 an den Enden!).
-%     if tau < 0  
-%         tau = 0; 
-%     elseif tau > 1 
-%         tau = 1; 
-%     end
-%     t2=tau*tau; 
-%     t3=t2*tau; 
-%     t4=t3*tau; 
-%     t5=t4*tau; 
-%     t6=t5*tau; 
-%     t7=t6*tau;
-%     s0 =  35*t4 -  84*t5 +  70*t6 -  20*t7;
-%     s1 = 140*t3 - 420*t4 + 420*t5 - 140*t6;     % ds/dtau
-%     s2 = 420*t2 -1680*t3 +2100*t4 - 840*t5;     % d2s/dtau2
-%     s3 = 840*tau-5040*t2 +8400*t3 -4200*t4;     % d3s/dtau3
-%     s4 = 840    -10080*tau+25200*t2-16800*t3;   % d4s/dtau4
-% end
 function [s0,s1,s2,s3,s4] = restpoly(tau)
 % Minimum-Crackle rest-to-rest Einheitsprofil 0->1 ueber tau in [0,1].
 % s und die ersten vier Ableitungen (v,a,j,s) sind an beiden Enden null,

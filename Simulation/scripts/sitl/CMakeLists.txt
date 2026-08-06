@@ -122,12 +122,40 @@ target_compile_definitions(test_link_codec PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
 target_link_libraries(test_link_codec PRIVATE GTest::gtest_main)
 gtest_discover_tests(test_link_codec)
 
+# --- Flatness-Codec-Cross-Check: MATLAB link_tx_flat/link_rx_flat == C++ pktf
+# (include/mcu_flat_packet.hpp, 2-Frame-OTA) gegen dump_link_flat_codec_golden.m.
+add_executable(test_link_flat_codec test/test_link_flat_codec.cpp)
+target_include_directories(test_link_flat_codec PRIVATE include test)
+target_compile_definitions(test_link_flat_codec PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
+target_link_libraries(test_link_flat_codec PRIVATE GTest::gtest_main)
+gtest_discover_tests(test_link_flat_codec)
+
+# --- Blackbox-Format (include/flight_log_flat.hpp): Record-Layout + Ring-Chronologie.
+# Header-only, keine Codegen-Abhaengigkeit -> laeuft immer.
+add_executable(test_flight_log_flat test/test_flight_log_flat.cpp)
+target_include_directories(test_flight_log_flat PRIVATE include test)
+target_link_libraries(test_flight_log_flat PRIVATE GTest::gtest_main)
+gtest_discover_tests(test_flight_log_flat)
+
+# Erzeugt eine Beispieldatei aus denselben Strukturen; read_flight_log_flat.m liest
+# sie gegen -> Kreuzcheck der Byte-Interpretation Firmware <-> MATLAB.
+add_executable(gen_flight_log_sample test/gen_flight_log_sample.cpp)
+target_include_directories(gen_flight_log_sample PRIVATE include)
+
 # --- GS-Frame-Cross-Check: MATLAB pack_gcs_frame == C++ gcs::parse (gcs_frame.hpp)
 add_executable(test_gcs_frame test/test_gcs_frame.cpp)
 target_include_directories(test_gcs_frame PRIVATE include test)
 target_compile_definitions(test_gcs_frame PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
 target_link_libraries(test_gcs_frame PRIVATE GTest::gtest_main)
 gtest_discover_tests(test_gcs_frame)
+
+# --- dito FLATNESS: MATLAB pack_gcs_frame_flat == C++ gcsf::parse, plus der
+# Vollpfad USB -> pktf::pack -> Assembler (faengt widen()-Feldfehler im Sender).
+add_executable(test_gcs_frame_flat test/test_gcs_frame_flat.cpp)
+target_include_directories(test_gcs_frame_flat PRIVATE include test)
+target_compile_definitions(test_gcs_frame_flat PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")
+target_link_libraries(test_gcs_frame_flat PRIVATE GTest::gtest_main)
+gtest_discover_tests(test_gcs_frame_flat)
 
 set(MODEL_ROOT "${CMAKE_SOURCE_DIR}/mcu_ert_rtw" CACHE PATH
     "slbuild/packNGo-Ausgabe von mcu (enthaelt mcu.cpp, mcu_data.cpp, mcu.h ...)")
@@ -158,4 +186,27 @@ if(EXISTS "${_MR}/mcu.cpp")
   target_include_directories(diag_mcu_replay PRIVATE include test "${_MR}")
   target_compile_definitions(diag_mcu_replay PRIVATE
       GOLDEN_MCU_CSV="${GOLDEN_MCU_CSV}" DIAG_TOL=${GOLDEN_TOL})
+endif()
+
+# --- FLATNESS-MCU: Modell-Golden (mcu_flat_ert_rtw, Klasse MCU_FLAT) ----------
+set(MODEL_FLAT_ROOT "${CMAKE_SOURCE_DIR}/mcu_flat_ert_rtw" CACHE PATH
+    "slbuild-Ausgabe von mcu_flat (enthaelt mcu_flat.cpp, mcu_flat.h ...)")
+set(GOLDEN_MCU_FLAT_CSV "${GOLDEN_DIR}/golden_mcu_flat_io.csv" CACHE FILEPATH
+    "Golden-I/O aus log_mcu_flat_golden.m")
+
+file(TO_CMAKE_PATH "${MODEL_FLAT_ROOT}" _MFR)
+if(EXISTS "${_MFR}/mcu_flat.cpp")
+  file(GLOB _MCUF_SRC "${_MFR}/*.cpp")
+  list(FILTER _MCUF_SRC EXCLUDE REGEX "ert_main\\.cpp$")
+
+  add_executable(test_mcu_flat_model test/test_mcu_flat_model.cpp ${_MCUF_SRC})
+  target_include_directories(test_mcu_flat_model PRIVATE include test "${_MFR}")
+  target_compile_definitions(test_mcu_flat_model PRIVATE
+      GOLDEN_MCU_FLAT_CSV="${GOLDEN_MCU_FLAT_CSV}" GOLDEN_TOL=${GOLDEN_TOL})
+  target_link_libraries(test_mcu_flat_model PRIVATE GTest::gtest_main)
+  gtest_discover_tests(test_mcu_flat_model)
+else()
+  message(STATUS
+    "test_mcu_flat_model uebersprungen: ${_MFR}/mcu_flat.cpp fehlt "
+    "(erst configure_mcu_flat_codegen -> slbuild('mcu_flat') laufen lassen).")
 endif()

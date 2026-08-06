@@ -124,7 +124,32 @@ tau_i = [0; 0; c_tau];
 tau = [skew(r1)*f_i-tau_i  skew(r2)*f_i+tau_i  skew(r3)*f_i-tau_i  skew(r4)*f_i+tau_i];
 quadcop.Gamma = [F; tau];
 
-quadcop.Gamma_inv = inv(quadcop.Gamma);
+% --- Schub-Mismatch Strecke <-> Reglermodell ---------------------------------
+% Gamma_inv geht in den Mixer (Regler), Gamma in die Strecke (plant.slx). Solange
+% beide dasselbe Gamma benutzen, kuerzt sich JEDE c_T-Korrektur im geschlossenen
+% Kreis exakt heraus: der Mixer kommandiert genau so viel mehr omega, wie die
+% Strecke weniger Schub pro omega^2 macht. Die Liftoff-Korrektur oben ist damit
+% im Regelkreis wirkungslos -- die Simulation liefert per Konstruktion exakt den
+% kommandierten Schub (k = 1.0) und kann den Schubmangel der echten Drohne
+% ueberhaupt nicht zeigen. Genau daran sind alle bisherigen Sim-Regressionen
+% vorbeigelaufen.
+% Deshalb: Gamma_inv VOR der Skalierung bilden, dann nur die Strecke skalieren.
+%
+% k_thrust gemessen im Flug 05.08.2026 (FLAT001), Impulsbilanz im Halteflug bei
+% 1.585 m ueber 6.5 s:  k = m*(zdd + g) / (F_cmd * cos(Neigung)) = 0.838 +- 0.035.
+% Der Schub-Schaetzer an Bord fand im selben Fenster unabhaengig 0.847. Der
+% gefesselte Liftoff-Test (oben, 9.66/12.22 = 0.79) liegt in derselben
+% Groessenordnung, wurde aber am Boden gemessen.
+% k_thrust = 1.0 stellt den frueheren, idealen Zustand wieder her.
+%
+% Skaliert wird NUR Zeile 1 (die Schubkraft) -- gleiche Konvention wie
+% thrust_scale in droma_flatness_sim/test_flatness_blocks, und der Momentenpfad
+% bleibt unangetastet. Steckt das Defizit dagegen in der Throttle-Kennlinie
+% (reale Drehzahl niedriger als kommandiert), muessten ALLE vier Zeilen
+% skaliert werden. Welches von beidem zutrifft, klaert erst der S-1-Waagentest.
+quadcop.k_thrust = 0.84;
+quadcop.Gamma_inv = inv(quadcop.Gamma);                          % Regler: MODELL
+quadcop.Gamma(1,:) = quadcop.k_thrust * quadcop.Gamma(1,:);      % Strecke: REAL
 
 % uncomment to test robustness
 % test_c_tau = 2; % factor

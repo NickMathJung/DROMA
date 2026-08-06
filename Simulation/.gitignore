@@ -9,6 +9,7 @@
 
 # --- CMake-Build (Exes + CMakeCache mit Absolutpfaden -> immer maschinenspezifisch)
 scripts/sitl/build/
+scripts/sitl/build_cg/
 
 # --- Arduino-Sketch-Assembly (build_sketches.sh)
 hardware/build/
@@ -23,6 +24,11 @@ scripts/sitl/mcu.zip
 scripts/sitl/mcu_ert_rtw/
 hardware/mcu_arm/
 
+# --- dito Flatness-Variante (run_mcu_flat_recert / run_mcu_flat_arm_codegen)
+scripts/sitl/mcu_flat_ert_rtw/
+scripts/sitl/mcu_flat.zip
+hardware/mcu_flat_arm/
+
 # --- Standalone-Leaf-Codegen (gen_lib_codegen.m)
 scripts/sitl/codegen/
 
@@ -35,3 +41,6 @@ scripts/sitl/codegen/
 #   scripts/sitl/data/*.csv        (Golden-Vektoren)
 #   scripts/sitl/include/throttle_poly.hpp  (generiert, aber klein + Test-Input)
 data/norm_e_p.mat
+
+# --- Einzelner MOUNT-Setup-Screenshot (Doku-Byproduct, nicht tracken)
+hardware/setting_MOUNT_drone_hal.png
