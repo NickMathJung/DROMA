@@ -1,9 +1,5 @@
-% flight_evaluation  Tracking-Auswertung eines bench-Laufs (out), Kaskade.
-%
-% Seit dem Referenz-Vorhalt (controller.T_lead, 06.08.2026) loggt gcu die
-% VORGESCHOBENE Referenz. Massstab ist der Raum-Zeitplan: die geloggte
-% Referenz wird vor dem Vergleich um T_lead zurueckgeschoben (identisch zu
-% flight_evaluation_flat.m, dort steht die Begruendung).
+% flight_evaluation Auswertung eines Flugversuchs und plotten der einzelnen
+% Trackingfehler
 
 t_flight = out.tout;
 x = squeeze(out.mocap_pos.Data);
@@ -15,7 +11,7 @@ F_des = squeeze(out.F_des.Data)';
 mocap_quat = squeeze(out.mocap_quat.Data)';
 
 % ------- Referenz um T_lead zurueckschieben, da Totzeit im System durch zu 
-%     frühes senden der Solltrajektorie (100ms) ausgeglichen wird ---------
+%         frühes senden der Solltrajektorie (50ms) ausgeglichen wird ------
 if ~exist('controller','var') || ~isfield(controller,'T_lead')
     error(['controller.T_lead fehlt im Workspace (params.m nicht gelaufen?) -- ' ...
            'ohne T_lead ist die Referenz nicht in den Zeitplan rueckbar.']);
@@ -69,8 +65,7 @@ save(fullfile(zielOrdner, dateiname_mocap_quat), 'mocap_quat');
 save(fullfile(zielOrdner,'t_flight.mat'),'t_flight');
 
 function A = shift_time_dim(A, n, nt)
-% Signal um n Abtastungen nach SPAET schieben (= Referenz zurueck in den
-% Zeitplan); Anfang mit dem ersten Wert auffuellen, Laenge bleibt gleich.
+% Signal um n Abtastungen nach verschieben 
 if size(A,1) == nt
     A = [repmat(A(1,:), n, 1); A(1:end-n, :)];
 elseif size(A,2) == nt
