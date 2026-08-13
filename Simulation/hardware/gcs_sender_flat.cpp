@@ -67,15 +67,16 @@ static void forward_frame(const uint8_t frame[gcsf::SIZE]) {
 }
 
 // --- USB-Serial: byteweiser Sync-Hunt (resynct nach jeder Stoerung) ----------
-// NUR die frischeste vollstaendige Frame pro Drain funken — Begruendung wie in
+// NUR die frischeste vollstaendige Frame PRO id funken — Begruendung wie in
 // gcs_sender.cpp: ein Echtzeit-Setpoint-Link darf keine veraltete Warteschlange
 // abspielen (Alt-Frames mit frischer seq sehen fuer den Empfaenger gueltig aus).
+// Pro id statt global, damit im Schwarmbetrieb keine Drohne verhungert.
 static void serial_pump() {
     static uint8_t buf[gcsf::SIZE];
     static int idx = 0;
     static uint8_t st = 0;                       // 0=HUNT0, 1=HUNT1, 2=FILL
-    uint8_t  latest[gcsf::SIZE];
-    bool     have = false;
+    uint8_t  latest[16][gcsf::SIZE];             // frischeste Frame je id (BCD 0..15)
+    bool     have[16] = {};
     while (Serial.available()) {
         uint8_t b = (uint8_t)Serial.read();
         switch (st) {
@@ -88,14 +89,18 @@ static void serial_pump() {
             default:
                 buf[idx++] = b;
                 if (idx >= gcsf::SIZE) {                          // vollstaendige Frame:
-                    for (int i = 0; i < gcsf::SIZE; ++i) latest[i] = buf[i]; // merken,
-                    have = true;                                  // aber noch NICHT senden
+                    uint8_t fid = buf[gcsf::off::ID];             // CRC prueft forward_frame
+                    if (fid < 16) {
+                        for (int i = 0; i < gcsf::SIZE; ++i) latest[fid][i] = buf[i];
+                        have[fid] = true;                         // merken, noch NICHT senden
+                    }
                     st = 0;
                 }
                 break;
         }
     }
-    if (have) forward_frame(latest);             // pro Drain nur die neueste
+    for (int i = 0; i < 16; ++i)
+        if (have[i]) forward_frame(latest[i]);   // pro Drain je id nur die neueste
 }
 
 void setup() {
