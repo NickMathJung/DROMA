@@ -1,27 +1,29 @@
-% flight_evaluation Auswertung eines Flugversuchs und plotten der einzelnen
-% Trackingfehler
-
-t_flight = out.tout;
-x = squeeze(out.mocap_pos.Data);
-x_ref = squeeze(out.x_ref.Data)';
-v_hat = squeeze(out.v_hat.Data)';
-v_ref = squeeze(out.v_ref.Data)';
-q_des = squeeze(out.q_des.Data)';
-F_des = squeeze(out.F_des.Data)';
-mocap_quat = squeeze(out.mocap_quat.Data)';
-
-% ------- Referenz um T_lead zurueckschieben, da Totzeit im System durch zu 
-%         frühes senden der Solltrajektorie (50ms) ausgeglichen wird ------
-if ~exist('controller','var') || ~isfield(controller,'T_lead')
-    error(['controller.T_lead fehlt im Workspace (params.m nicht gelaufen?) -- ' ...
-           'ohne T_lead ist die Referenz nicht in den Zeitplan rueckbar.']);
+function flight_evaluation(d)
+%flight_evaluation  Auswertung eines Flugversuchs von Drohne d und Plot der
+%   Trackingfehler. Liest die Suffix-Logs (mocap_pos_d, x_ref_d, ...) aus out.
+arguments
+    d (1,1) double = 1
 end
-dt_ref = median(diff(out.x_ref.Time));
+out        = evalin('base', 'out');
+controller = evalin('base', 'controller');
+
+g = @(name) orient_ts(out.get(sprintf('%s_%d', name, d)).Data, numel(out.tout));
+t_flight   = out.tout;
+x          = g('mocap_pos');
+x_ref      = g('x_ref');
+v_hat      = g('v_hat');
+v_ref      = g('v_ref');
+q_des      = g('q_des');
+F_des      = g('F_des').';
+mocap_quat = g('mocap_quat');
+
+% ------- Referenz um T_lead zurueckschieben, da Totzeit im System durch zu
+%         frühes senden der Solltrajektorie (50ms) ausgeglichen wird ------
+dt_ref = median(diff(t_flight));
 n_lead = round(controller.T_lead / dt_ref);
 if n_lead > 0
-    shift_back = @(A) shift_time_dim(A, n_lead, numel(out.x_ref.Time));
-    x_ref = shift_back(x_ref);
-    v_ref = shift_back(v_ref);
+    x_ref = [repmat(x_ref(1,:), n_lead, 1); x_ref(1:end-n_lead, :)];
+    v_ref = [repmat(v_ref(1,:), n_lead, 1); v_ref(1:end-n_lead, :)];
 end
 
 e_p = x - x_ref;
@@ -32,45 +34,35 @@ norm_e_p = vecnorm(e_p,2,2);
 norm_e_p_x = vecnorm(e_p_x,2,2);
 norm_e_p_y = vecnorm(e_p_y,2,2);
 norm_e_p_z = vecnorm(e_p_z,2,2);
-% plot(t_flight, norm_e_p);
+figure('Name', sprintf('Drohne %d', d));
 plot(t_flight, norm_e_p_x);
 hold on
 plot(t_flight, norm_e_p_y);
-hold on
 plot(t_flight, norm_e_p_z);
-% title("Norm of the tracking error $\|p - p_s\|_2$", 'Interpreter','latex');
-title("Norm of the individual tracking errors per axis $\|p_i - p_{s,i}\|_2$, $i=x,y,z$", 'Interpreter','latex');
+title(sprintf(['Norm of the individual tracking errors per axis ' ...
+    '$\\|p_i - p_{s,i}\\|_2$, $i=x,y,z$ (drone %d)'], d), 'Interpreter','latex');
 xlabel("t in [s]");
-% ylabel("$\|p - p_s\|_2$", 'Interpreter','latex');
 ylabel("$\|p_i - p_{s,i}\|_2$", 'Interpreter','latex');
 legend("$\|p_x - p_{s,x}\|_2$", "$\|p_y - p_{s,y}\|_2$", "$\|p_z - p_{s,z}\|_2$", 'Interpreter','latex');
+
+% ------- Speichern: Dateiname mit Drohnen-Suffix, Variablennamen kanonisch ---
 zielOrdner = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
-dateiname_tr_err = 'norm_e_p.mat';
-dateiname_x = 'x.mat';
-dateiname_x_ref = 'x_ref.mat';
-dateiname_v_hat = 'v_hat.mat';
-dateiname_v_ref = 'v_ref.mat';
-dateiname_q_des = 'q_des.mat';
-dateiname_F_des = 'F_des.mat';
-dateiname_mocap_quat = 'mocap_quat.mat';
+sfx = sprintf('_%d', d);
+save(fullfile(zielOrdner, ['norm_e_p'   sfx '.mat']), 'norm_e_p');
+save(fullfile(zielOrdner, ['x'          sfx '.mat']), 'x');
+save(fullfile(zielOrdner, ['x_ref'      sfx '.mat']), 'x_ref');
+save(fullfile(zielOrdner, ['v_hat'      sfx '.mat']), 'v_hat');
+save(fullfile(zielOrdner, ['v_ref'      sfx '.mat']), 'v_ref');
+save(fullfile(zielOrdner, ['q_des'      sfx '.mat']), 'q_des');
+save(fullfile(zielOrdner, ['F_des'      sfx '.mat']), 'F_des');
+save(fullfile(zielOrdner, ['mocap_quat' sfx '.mat']), 'mocap_quat');
+save(fullfile(zielOrdner, ['t_flight'   sfx '.mat']), 't_flight');
+end
 
-save(fullfile(zielOrdner, dateiname_tr_err), 'norm_e_p');
-save(fullfile(zielOrdner, dateiname_x), 'x');
-save(fullfile(zielOrdner, dateiname_x_ref), 'x_ref');
-save(fullfile(zielOrdner, dateiname_v_hat), 'v_hat');
-save(fullfile(zielOrdner, dateiname_v_ref), 'v_ref');
-save(fullfile(zielOrdner, dateiname_q_des), 'q_des');
-save(fullfile(zielOrdner, dateiname_F_des), 'F_des');
-save(fullfile(zielOrdner, dateiname_mocap_quat), 'mocap_quat');
-save(fullfile(zielOrdner,'t_flight.mat'),'t_flight');
-
-function A = shift_time_dim(A, n, nt)
-% Signal um n Abtastungen nach verschieben 
-if size(A,1) == nt
-    A = [repmat(A(1,:), n, 1); A(1:end-n, :)];
-elseif size(A,2) == nt
-    A = [repmat(A(:,1), 1, n), A(:, 1:end-n)];
-else
-    error('Zeitachse (%d Punkte) passt zu keiner Dimension von %s.', nt, mat2str(size(A)));
+function A = orient_ts(A, nt)
+% Timeseries-Daten robust auf [nt x k] orientieren (Mux- vs. Matrix-Signale).
+A = squeeze(A);
+if size(A,1) ~= nt && size(A,2) == nt
+    A = A.';
 end
 end

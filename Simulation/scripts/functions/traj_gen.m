@@ -1,39 +1,58 @@
-function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref, s_ref] = traj_gen(t, traj, quadcop)
+function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref, s_ref] = traj_gen(t, traj, quadcop, d)
 %#codegen
-% traj_gen  Minimum-Snap Punkt-zu-Punkt-Trajektorie.
+% traj_gen  Minimum-Snap-Trajektorie siehe Paper Mellinger und Kumar (2011).
 %
 %   Liefert die Trajektorien für die flachen Ausgänge beim Arbeitspunktwechsel
 %   und daraus die Vorsteuerung.
 %
-%   Verdrahtung (2-DOF):
+%   2-DOF-Prinzip:
 %     x_ref, v_ref, a_ref, yaw_ref  -> Positionsfolgeregler (äußere Kaskade)
-%     q_ref, Omega_ref, tau_ff      -> Bus_Cmd   (reine Vorsteuerung)
-%     F_ref   -> nur Debug/Verifikation (optional, unverbunden ok)
+%     q_ref, Omega_ref, tau_ff      -> Bus_Cmd   (Vorsteuerung)
+%     F_ref                         -> nur Debug/Verifikation 
 %
 %   Eingaenge:
-%     t    : Simulationszeit [s]  (z.B. Clock-Block)
+%     t    : Simulationszeit [s] 
 %     traj : struct, N >= 2
 %                  .P      3 x N      Wegpunkte
-%                  .yaw    1 x (N-1)  Yaw je Segment (konstant je Segment)
+%                  .yaw    1 x (N-1)  Yaw je Segment
 %                  .Tseg   1 x (N-1)  Bewegungsdauer je Segment
 %                  .Tdwell 1 x N      Rastdauer je Wegpunkt
 %     quadcop  : struct  .m  .g  .J
+%     d    : optional Drohnenindex (Schwarm: traj-Felder mit gestapelter
+%            3. Dim bzw. Zeile je Drohne; Einzelstrukturen laufen mit d=1)
 %
-%   Ausgaenge:
+%   Ausgänge:
 %     x_ref,v_ref,a_ref 3x1 Soll-Pos/Geschw/Beschl 
-%     yaw_ref     3x1 [yaw; dyaw; ddyaw]  (Segment-Yaw: dyaw=ddyaw=0)
+%     yaw_ref     3x1 [yaw; dyaw; ddyaw]  
 %     Omega_ref   3x1 Vorsteuer-Drehrate (Body) 
 %     tau_ff      3x1 Vorsteuer-Moment (Body) 
 %     q_ref       4x1 nominelles Soll-Quaternion
-%     F_ref       1x1 nomineller Schubbetrag = m*||a_d - g|| [N] -- Debug
+%     F_ref       1x1 nomineller Schubbetrag -- Debug
 %
 
     g_grav = [0; 0; quadcop.g];
-    N = size(traj.P, 2);
+    if nargin < 4
+        d = 1; % Einzeldrohnen-Aufrufe (Sim/SITL/Tests)
+    end
+    trj = traj_slice(traj, d);
+    N = size(trj.P, 2);
+
+    % ------ Tabelle für Schwarm: Referenz aus vorberechneter Tabelle -----
+    % traj.tab_* kommt aus init_trajectory_swarm (swarm_ref.mat).
+    % Ohne/mit leerem tab_p fällt der Zweig zur Codegen-Zeit weg
+    if isfield(trj, 'tab_p') && ~isempty(trj.tab_p)
+        [x_ref, v_ref, a_ref, j_ref] = tab_lookup(t, trj);
+        s_ref = zeros(3,1);   % Snap nicht tabelliert; nur Vorsteuer-Feinheit
+        yaw_s = 0;            % Schwarm fliegt yaw = 0
+        yaw_ref = [yaw_s; 0; 0];
+        [Omega_ref, tau_ref, q_ref, F_ref] = ...
+            flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop);
+        return;
+    end
 
     % --- Phase bestimmen ---
     % Phasenfolge: dwell(1), move(1), dwell(2), move(2), ..., dwell(N)
-    mode    = int8(2); % 0=Rast, 1=Bewegung, 2=End-Halt (Default)
+    mode    = int8(2); % 0=Rast, 1=Bewegung, 2=End-Halt 
     sel_wp  = N; % aktiver Wegpunkt (Rast/Halt)
     sel_seg = 1; % aktives Segment (Bewegung)
     tloc    = 0.0; % lokale Zeit in der Phase
@@ -45,7 +64,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
     else
         acc = 0.0;
         for i = 1:N
-            Dd = traj.Tdwell(i); % Rast an WP i
+            Dd = trj.Tdwell(i); % Rast an WP i
             if (t >= acc) && (t < acc + Dd)
                 mode = int8(0); 
                 sel_wp = i; 
@@ -54,7 +73,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
             end
             acc = acc + Dd;
             if i < N
-                Tm = traj.Tseg(i); % Bewegung WP i -> i+1
+                Tm = trj.Tseg(i); % Bewegung WP i -> i+1
                 if (t >= acc) && (t < acc + Tm)
                     mode = int8(1); 
                     sel_seg = i; 
@@ -70,40 +89,46 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
     % --- Trajektorie erzeugen ---
     if mode == int8(1) % fliegt Trajektoriensegment ab
         k  = sel_seg;
-        T  = traj.Tseg(k);
+        T  = trj.Tseg(k);
         tau = tloc / T;
         [s0,s1,s2,s3,s4] = restpoly(tau);
-        D   = traj.P(:,k+1) - traj.P(:,k); % Differenz zwischen den Wegpunkten
-        x_ref = traj.P(:,k) + D*s0;
+        D   = trj.P(:,k+1) - trj.P(:,k); % Differenz zwischen den Wegpunkten
+        x_ref = trj.P(:,k) + D*s0;
         v_ref = D*s1 / T;
         a_ref = D*s2 / T^2;
         j_ref = D*s3 / T^3;
         s_ref = D*s4 / T^4;
-        yaw_s = traj.yaw(k);
+        yaw_s = trj.yaw(k);
     elseif mode == int8(0) % Rastpunkt
-        x_ref = traj.P(:,sel_wp);
+        x_ref = trj.P(:,sel_wp);
         v_ref = zeros(3,1);  
         a_ref = zeros(3,1);
         j_ref = zeros(3,1);
         s_ref = zeros(3,1);
         if sel_wp < N
-            yaw_s = traj.yaw(sel_wp);    % Yaw des kommenden Segments
+            yaw_s = trj.yaw(sel_wp);    % Yaw des kommenden Segments
         else
-            yaw_s = traj.yaw(N-1);
+            yaw_s = trj.yaw(N-1);
         end
     else % End-Halt
-        x_ref = traj.P(:,N);
-        v_ref = zeros(3,1);  
+        x_ref = trj.P(:,N);
+        v_ref = zeros(3,1);
         a_ref = zeros(3,1);
         j_ref = zeros(3,1);
         s_ref = zeros(3,1);
-        yaw_s = traj.yaw(N-1);
+        yaw_s = trj.yaw(N-1);
     end
 
     % Yaw-Ausgang als 3x1 [yaw; dyaw; ddyaw]; Segment-Yaw -> Ableitungen 0.
     % (Fuer flatness_ctrl.yawref; die Kaskade nutzt in pos_ctrl nur yaw_ref(1).)
     yaw_ref = [yaw_s; 0; 0];
 
+    [Omega_ref, tau_ref, q_ref, F_ref] = ...
+        flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop);
+end
+
+% --- Vorsteuerung aus flachen Ausgängen (gemeinsam fuer beide Modi) ------
+function [Omega_ref, tau_ref, q_ref, F_ref] = flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop)
     % --- Flache Ausgänge und ihre Ableitungen in die Sollzustände umrechnen ---
     % Schubachse:  F*z_B = m*alpha,  alpha = a_ref - g_grav
     alpha = a_ref + g_grav;
@@ -150,12 +175,46 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
 
     tau_ref    = quadcop.J*Omega_dot + cross(Omega_ref, quadcop.J*Omega_ref);
     F_ref = quadcop.m * n;
-    q_ref  = dcm2quat_local(Rd.');            % Rd' = R_{b<-n}
+    q_ref  = dcm2quat_local(Rd.'); % Rd' = R_{b<-n}
 end
 
 % --- Lokale Helfer ---
+function trj = traj_slice(traj, d)
+% Scheibe der Drohne d: P/tab_* ueber die 3. Dim, yaw/Tseg/Tdwell zeilenweise.
+% Einzeldrohnen-Strukturen (2-D/einzeilig) laufen mit d=1 unveraendert durch.
+    trj.P      = traj.P(:,:,d);
+    trj.yaw    = traj.yaw(d,:);
+    trj.Tseg   = traj.Tseg(d,:);
+    trj.Tdwell = traj.Tdwell(d,:);
+    if isfield(traj, 'tab_p')
+        trj.tab_Ts = traj.tab_Ts;
+        trj.tab_p  = traj.tab_p(:,:,d);
+        trj.tab_v  = traj.tab_v(:,:,d);
+        trj.tab_a  = traj.tab_a(:,:,d);
+        trj.tab_j  = traj.tab_j(:,:,d);
+    end
+end
+
+function [p, v, a, j] = tab_lookup(t, traj)
+% Lineare Interpolation auf dem uniformen tab_Ts-Raster; nach Tabellenende
+% Position halten (v/a/j -> 0), vor t=0 den Startpunkt.
+    Ts = traj.tab_Ts;
+    Tn = size(traj.tab_p, 1);
+    tend = (Tn - 1) * Ts;
+    tt = min(max(t, 0), tend);
+    k = min(floor(tt / Ts) + 1, Tn - 1);
+    f = (tt - (k-1)*Ts) / Ts;
+    p = ((1-f)*traj.tab_p(k,:) + f*traj.tab_p(k+1,:)).';
+    v = ((1-f)*traj.tab_v(k,:) + f*traj.tab_v(k+1,:)).';
+    a = ((1-f)*traj.tab_a(k,:) + f*traj.tab_a(k+1,:)).';
+    j = ((1-f)*traj.tab_j(k,:) + f*traj.tab_j(k+1,:)).';
+    if t <= 0 || t >= tend
+        v = zeros(3,1); a = zeros(3,1); j = zeros(3,1);
+    end
+end
+
 function [s0,s1,s2,s3,s4] = restpoly(tau)
-% Minimum-Crackle rest-to-rest Einheitsprofil 0->1 ueber tau in [0,1].
+% Minimum-Crackle Arbeitspunktwechsel 0->1 über tau in [0,1].
 % s und die ersten vier Ableitungen (v,a,j,s) sind an beiden Enden null,
 % also Grad 9. Der Snap ist an den Enden stetig (==0), damit tau_ref an den
 % Wegpunktuebergaengen nicht springt.
@@ -184,8 +243,7 @@ function v = vee(S)
 end
 
 function q = dcm2quat_local(R)
-% Shepperd, Skalar zuerst, R = Inertial->Koerper (R_{b<-n}).
-% Muss vorzeichengleich zur Projektversion bleiben.
+% Shepperd-Algorithmus, Skalar zuerst, R = Inertial->Koerper (R_{b<-n})
     r11=R(1,1); r22=R(2,2); r33=R(3,3);
     tr = r11+r22+r33;
     if tr > 0

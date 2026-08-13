@@ -24,11 +24,11 @@ else % Fallback ohne Motive
 end
 
 wayp1 = x0;
-wayp2 = [wayp1(1); wayp1(2); wayp1(3)+1.5];
-wayp3 = [wayp2(1)+1.5; wayp2(2); wayp2(3)];
+wayp2 = [wayp1(1); wayp1(2); wayp1(3)+1.0];
+wayp3 = [wayp2(1)+1.5; wayp2(2); wayp2(3)+1.0];
 wayp4 = [wayp3(1); wayp3(2)-1.5; wayp3(3)];
 wayp5 = [wayp4(1)-1.5; wayp4(2); wayp4(3)];
-wayp6 = [wayp5(1); wayp5(2)+1.5; wayp5(3)];
+wayp6 = [wayp5(1); wayp5(2)+1.5; wayp5(3)-1.0];
 wayp7 = x0 + [0;0;0.1];
 traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 
@@ -40,7 +40,7 @@ traj.yaw    = [ yaw0   yaw0   yaw0   yaw0   yaw0   yaw0];
 traj.Tseg   = [ 2.0  1.5  1.5  1.5  1.5  2.0 ];
 
 % Rastdauer je Wegpunkt (N Werte)  -- erster Wert = Anfangs-Hover
-traj.Tdwell = [ 4.0  1.0  1.0  1.0  1.0  1.0  1.0 ];
+traj.Tdwell = [ 4.0  0.0  0.0  0.0  0.0  0.0  1.0 ];
 
 % ===== S-4 Erste Start- und Landetrajektorie (Versuchsstand, Motoren AN) ==========
 TEST_S4 = false;
@@ -52,6 +52,14 @@ if TEST_S4
     traj.Tdwell = [ 4.0   8.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
 end
 % ==============================================================================
+
+% Leere Tabellenfelder: einheitliche traj-Struktur fuer die gcu-Instanzparameter
+% (Tabellenmodus: init_trajectory_swarm; tab_p leer => Wegpunktmodus in traj_gen).
+traj.tab_Ts = 0.01;
+traj.tab_p  = zeros(0,3);
+traj.tab_v  = zeros(0,3);
+traj.tab_a  = zeros(0,3);
+traj.tab_j  = zeros(0,3);
 
 % Sanity-Checks (offline)
 assert(size(traj.P,2) >= 2,                 'traj.P braucht >= 2 Wegpunkte');
