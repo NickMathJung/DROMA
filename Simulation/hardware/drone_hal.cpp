@@ -170,18 +170,22 @@ static void mpu_write(uint8_t reg, uint8_t val) {
 static const double MOUNT[5][3][3] = {
     // id=0 -- unbenutzt (kein BCD gesteckt) -> Identitaet
     {{1,0,0},{0,1,0},{0,0,1}},
-    // id=1 -- neu vermessen 2026-08-01 (IMU-Befestigung geaendert; Neigung ~4.6 deg aus R33)
+    // id=1 -- neu vermessen 2026-08-01 
     {{ 1.0000, -0.0003,  0.0075 },
      {-0.0003,  0.9968,  0.0800 },
      {-0.0075, -0.0800,  0.9968}},
-    // id=2 -- neu vermessen 2026-08-01 (IMU-Befestigung geaendert; Neigung ~0.8 deg aus R33)
+    // id=2 -- neu vermessen 2026-08-01 
     {{ 1.0000,  0.0000, -0.0021 },
      { 0.0000,  0.9999,  0.0115 },
      { 0.0021, -0.0115,  0.9999}},
-    // id=3 -- NOCH NICHT VERMESSEN
-    {{1,0,0},{0,1,0},{0,0,1}},
+    // id=3 neu vermessen 2026-08-13 
+    {{ 1.0000,  0.0001,  0.0031 },
+     { 0.0001,  0.9994, -0.0343 },
+     {-0.0031,  0.0343,  0.9994}},
     // id=4 -- NOCH NICHT VERMESSEN
-    {{1,0,0},{0,1,0},{0,0,1}},
+    {{ 0.9999,  0.0002, -0.0152 },
+     { 0.0002,  0.9995,  0.0304 },
+     { 0.0152, -0.0304,  0.9994}},
 };
 static const double (*g_R_mount)[3] = MOUNT[0];   // sichere Identitaet bis setup() die BCD-id kennt
 
