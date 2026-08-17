@@ -85,8 +85,8 @@ classdef MotiveMocapMulti < matlab.System
                 end
                 for i = 1:data.nRigidBodies
                     rb = data.RigidBodies(i);
-                    k = find(obj.StreamingIDs == rb.ID, 1);
-                    if isempty(k), continue; end
+                    k = find(obj.StreamingIDs == rb.ID);   % alle Spalten dieser id
+                    if isempty(k), continue; end           % (doppelt = Solobetrieb)
                     p = [double(rb.x); double(rb.y); double(rb.z)];
                     q = [double(rb.qw); double(rb.qx); double(rb.qy); double(rb.qz)];
                     nq = norm(q);
@@ -94,8 +94,11 @@ classdef MotiveMocapMulti < matlab.System
                         continue;   % untracked -> ZOH fuer diesen Body
                     end
                     q = q / nq;
-                    obj.lastPos(:,k) = p;  obj.lastQuat(:,k) = q;
-                    pos(:,k) = p;  quat(:,k) = q;  valid(k) = true;
+                    obj.lastPos(:,k)  = repmat(p, 1, numel(k));
+                    obj.lastQuat(:,k) = repmat(q, 1, numel(k));
+                    pos(:,k)  = repmat(p, 1, numel(k));
+                    quat(:,k) = repmat(q, 1, numel(k));
+                    valid(k) = true;
                 end
                 if ~any(valid) && ~obj.warnedNoRB
                     warning('MotiveMocapMulti:noRigidBody', ...

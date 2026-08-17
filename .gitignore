@@ -39,3 +39,6 @@ Simulation/data/*.mat
 # --- Pro-Flug-Sicherungskopien der Auswertung (datierte Ordner, lokal behalten)
 Simulation/data/*_2026*/
 
+# --- Schwarm-Animationsvideos (swarm_animation.m, lokal behalten)
+Simulation/data/videos/
+

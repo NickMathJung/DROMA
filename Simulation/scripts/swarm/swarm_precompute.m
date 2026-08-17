@@ -10,7 +10,7 @@ function ref = swarm_precompute(kappa, p0_drones, cfg_extra)
 %   Die Bench-InitFcn laedt NUR die .mat (main_DROMA ist zu schwer fuer den
 %   Ladepfad, und params.m macht clear).
 arguments
-    kappa     (1,1) double = 1.3
+    kappa     (1,1) double = 1.5
     p0_drones double = []
     cfg_extra struct = struct()
 end
@@ -28,6 +28,24 @@ Ts = 0.01; % Ts_gcs
 addpath(CONTAINMENT);
 cfg = cfg_extra;
 cfg.p0_drones = p0_drones;
+% Standard-Auslegung "Segel" (13.08.2026): stehende Bezierflaeche z 0.8..3.0
+% (Leader-Quader um y gekippt), Start senkrecht unter der eigenen Flaechen-
+% position -> downwashfreie Anfluege auf die Ecken; omega=0 (Demo = Einschwingen,
+% Rotation wuerde die Hoehenschichten wieder kreuzen). kappa=1.5 wegen des
+% Einschwing-Peaks ueber ~2.5 m Steighoehe. Alles per cfg_extra uebersteuerbar.
+SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 1 0; -1 0 0], ...
+              'z_offset', 0.8, 'ground_under_agent', true, 'omega', 0);
+fn = fieldnames(SAIL);
+for k = 1:numel(fn)
+    if ~isfield(cfg, fn{k}), cfg.(fn{k}) = SAIL.(fn{k}); end
+end
+% Agenten-Defaults der Segel-Geometrie (alle Paare downwashfrei)
+if ~isfield(cfg, 'agents') || isempty(cfg.agents)
+    AG = {[], [1 1; 20 9], [1 1; 20 1; 1 9], [1 1; 20 1; 1 9; 20 9]};
+    nD = max(2, size(p0_drones, 2));
+    assert(nD <= 4, 'swarm_precompute: fuer n > 4 agents explizit angeben.');
+    cfg.agents = AG{nD};
+end
 res = main_DROMA(cfg);
 
 % --- kappa-Zeitstreckung + Abtastung auf das GCS-Raster -----------------------
@@ -60,13 +78,20 @@ for d = 1:n
         ref.agents(d,1), ref.agents(d,2), lim.', vmax, amax, tag);
     ok = ok && good;
 end
-% Abstands-/Downwash-Check (Skalierung aendert Geometrie nicht, kappa nur Zeit)
-d12  = vecnorm(ref.p(:,:,1) - ref.p(:,:,2), 2, 2);
-dxy  = vecnorm(ref.p(:,1:2,1) - ref.p(:,1:2,2), 2, 2);
-dz   = abs(ref.p(:,3,1) - ref.p(:,3,2));
-fprintf('[swarm_precompute] Abstand min %.2f m | Downwash-Momente (dxy<0.8 & dz>0.3): %d\n', ...
-    min(d12), nnz(dxy < 0.8 & dz > 0.3));
-assert(min(d12) > 0.6, 'Agentenabstand < 0.6 m -- Paarwahl/Radius pruefen.');
+% Abstands-/Downwash-Check ueber alle Paare (kappa streckt nur die Zeit)
+dmin_all = inf;
+for a = 1:n
+    for b = a+1:n
+        dab  = vecnorm(ref.p(:,:,a) - ref.p(:,:,b), 2, 2);
+        dxy  = vecnorm(ref.p(:,1:2,a) - ref.p(:,1:2,b), 2, 2);
+        dz   = abs(ref.p(:,3,a) - ref.p(:,3,b));
+        fprintf(['[swarm_precompute] Paar %d-%d: Abstand min %.2f m | ' ...
+                 'Downwash-Momente (dxy<0.8 & dz>0.3): %d\n'], a, b, ...
+                min(dab), nnz(dxy < 0.8 & dz > 0.3));
+        dmin_all = min(dmin_all, min(dab));
+    end
+end
+assert(dmin_all > 0.6, 'Agentenabstand < 0.6 m -- Paarwahl/Radius pruefen.');
 if ~ok, warning('swarm_precompute:limits', 'Grenzverletzung -- siehe Report oben.'); end
 
 % --- Schlanke Animationsdaten (Agenten + Leader, ohne Beobachterzustaende) ----

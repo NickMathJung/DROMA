@@ -39,8 +39,8 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
 
     % ------ Tabelle für Schwarm: Referenz aus vorberechneter Tabelle -----
     % traj.tab_* kommt aus init_trajectory_swarm (swarm_ref.mat).
-    % Ohne/mit leerem tab_p fällt der Zweig zur Codegen-Zeit weg
-    if isfield(trj, 'tab_p') && ~isempty(trj.tab_p)
+    % Ohne tab_p bzw. mit 1-Zeilen-Dummy fällt der Zweig zur Codegen-Zeit weg
+    if isfield(trj, 'tab_p') && size(trj.tab_p, 1) > 1
         [x_ref, v_ref, a_ref, j_ref] = tab_lookup(t, trj);
         s_ref = zeros(3,1);   % Snap nicht tabelliert; nur Vorsteuer-Feinheit
         yaw_s = 0;            % Schwarm fliegt yaw = 0

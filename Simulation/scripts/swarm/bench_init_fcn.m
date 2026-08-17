@@ -1,17 +1,22 @@
 function bench_init_fcn(mocap)
 %bench_init_fcn  InitFcn des Schwarm-bench: Urspruenge lesen, traj/xi0 je Drohne.
-%   Tabellen-traj (trajd mit tab_p) bleibt unangetastet, der Start wird nur gegen
-%   die gemessene Pose geprueft; ohne Tabelle faellt Drohne d auf die Box zurueck.
-%   Vorsicht Box-Fallback: gilt er fuer BEIDE Drohnen, koennen sich die Boxen
-%   schneiden -- dann nur eine Drohne einschalten.
+%   Alles id-adressiert: Drohne mit ids(d) = mocap.streaming_ids(d) nutzt
+%   traj_id<id> (Schwarmtabelle aus init_trajectory_swarm(id) ODER Wegpunkt-
+%   Fallback aus init_trajectory). GCS-Pfad d bedient ids(d); gestapelt landet
+%   alles im geteilten traj (3. Dim) und xi0_all (Spalte je Pfad).
+%   Vorsicht Wegpunkt-Fallback: gilt er fuer mehrere EINGESCHALTETE Drohnen,
+%   koennen sich die Bahnen schneiden -- dann nur eine Drohne einschalten.
 ids = mocap.streaming_ids;
+n = numel(ids);
 [p0, q0] = read_swarm_origins(ids, mocap.host_ip, mocap.client_ip);
-for d = 1:numel(ids)
+xi0_all = zeros(6, n);
+for d = 1:n
     x0 = p0(:,d);
     yaw0 = atan2(2*(q0(1,d)*q0(4,d) + q0(2,d)*q0(3,d)), 1 - 2*(q0(3,d)^2 + q0(4,d)^2));
-    tn = sprintf('traj%d', d);
+    tn = sprintf('traj_id%d', ids(d));
     has_tab = evalin('base', sprintf( ...
-        'exist(''%s'',''var'') && isfield(%s,''tab_p'')', tn, tn));
+        'exist(''%s'',''var'') && isfield(%s,''tab_p'') && size(%s.tab_p,1) > 1', ...
+        tn, tn, tn));
     if has_tab
         tp = evalin('base', tn);
         e0 = norm(x0 - tp.tab_p(1,:).');
@@ -21,16 +26,18 @@ for d = 1:numel(ids)
     else
         assignin('base', tn, init_trajectory(x0, yaw0));
     end
-    assignin('base', sprintf('xi0%d', d), [x0; 0; 0; 0]);
+    xi0_all(:,d) = [x0; 0; 0; 0];
 end
+assignin('base', 'xi0_all', xi0_all);
 
-% traj1..n zum geteilten Multi-traj stapeln (gcu waehlt per drone_idx die Scheibe)
-T = evalin('base', 'traj1');
+% traj_id* zum geteilten Multi-traj stapeln (gcu-Instanz d nimmt Scheibe d)
+T = evalin('base', sprintf('traj_id%d', ids(1)));
 szP = size(T.P); szT = size(T.tab_p);
-for d = 2:numel(ids)
-    td = evalin('base', sprintf('traj%d', d));
+for d = 2:n
+    td = evalin('base', sprintf('traj_id%d', ids(d)));
     assert(isequal(szP, size(td.P)) && isequal(szT, size(td.tab_p)), ...
-        'bench InitFcn: traj1..%d muessen denselben Modus/dieselbe Laenge haben.', d);
+        'bench InitFcn: traj_id%d passt nicht zu traj_id%d (Modus/Laenge).', ...
+        ids(d), ids(1));
     T.P      = cat(3, T.P, td.P);
     T.yaw    = [T.yaw;    td.yaw];
     T.Tseg   = [T.Tseg;   td.Tseg];

@@ -29,7 +29,7 @@ wayp3 = [wayp2(1)+1.5; wayp2(2); wayp2(3)+1.0];
 wayp4 = [wayp3(1); wayp3(2)-1.5; wayp3(3)];
 wayp5 = [wayp4(1)-1.5; wayp4(2); wayp4(3)];
 wayp6 = [wayp5(1); wayp5(2)+1.5; wayp5(3)-1.0];
-wayp7 = x0 + [0;0;0.1];
+wayp7 = x0 + [0;0;0];
 traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
@@ -45,21 +45,23 @@ traj.Tdwell = [ 4.0  0.0  0.0  0.0  0.0  0.0  1.0 ];
 % ===== S-4 Erste Start- und Landetrajektorie (Versuchsstand, Motoren AN) ==========
 TEST_S4 = false;
 if TEST_S4
-    z_hov = 1.5; % max Höhe [m]
+    z_hov = 0.5; % max Höhe [m]
     traj.P      = [ x0, x0+[0;0;z_hov], x0+[0;0;0.1] ]; % Boden -> z_hov -> Boden
     traj.yaw    = [ yaw0  yaw0 ];
     traj.Tseg   = [ 3.0   3.0 ]; 
-    traj.Tdwell = [ 4.0   8.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
+    traj.Tdwell = [ 4.0   6.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
 end
 % ==============================================================================
 
-% Leere Tabellenfelder: einheitliche traj-Struktur fuer die gcu-Instanzparameter
-% (Tabellenmodus: init_trajectory_swarm; tab_p leer => Wegpunktmodus in traj_gen).
+% Dummy-Tabellenfelder: einheitliche traj-Struktur fuer die gcu-Instanzen
+% (Tabellenmodus: init_trajectory_swarm; nur 1 Zeile => Wegpunktmodus in
+% traj_gen. Nicht leer lassen -- leere Struct-Felder kann Simulink nicht
+% als Parameter abbilden.)
 traj.tab_Ts = 0.01;
-traj.tab_p  = zeros(0,3);
-traj.tab_v  = zeros(0,3);
-traj.tab_a  = zeros(0,3);
-traj.tab_j  = zeros(0,3);
+traj.tab_p  = zeros(1,3);
+traj.tab_v  = zeros(1,3);
+traj.tab_a  = zeros(1,3);
+traj.tab_j  = zeros(1,3);
 
 % Sanity-Checks (offline)
 assert(size(traj.P,2) >= 2,                 'traj.P braucht >= 2 Wegpunkte');

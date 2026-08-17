@@ -71,9 +71,10 @@ mocap.dropout_p = 0.01; % Wahrscheinlichkeit ausfall pro Sample
 mocap.host_ip      = '127.0.0.1';
 mocap.client_ip    = '127.0.0.1';
 
-% Streaming-IDs der Drohnen-Rigid-Bodies in Motive (Assets-Pane). 
+% Streaming-IDs der Drohnen-Rigid-Bodies in Motive (Assets-Pane).
 % Reihenfolge = Drohnenindex d: ids(d) gehoert zu trajd/xi0d und wird als Funk-Frame-id gesendet.
-mocap.streaming_ids = [1 2];
+% Doppelte id (z.B. [1 1]) = Solobetrieb: beide GCS-Pfade regeln dieselbe Drohne.
+mocap.streaming_ids = [1 2 3];
 % Motive muss auf Z-Up streamen (Settings -> Streaming -> Up Axis = Z)t. 
 % MotiveMocap transformiert absichtlich nicht: eine zweite Korrekturstelle 
 % waere wieder eine doppelte Kompensation. NatNet liefert Meter und 

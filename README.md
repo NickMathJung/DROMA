@@ -130,6 +130,50 @@ everything simulated, fixed-step ode4 at 1 ms.
 mocap comes in live from Motive and commands go out over serial to the sender
 Teensy. Runs at 10 ms; Simulation Pacing must be 1.0×.
 
+**Swarm mode vs. single-drone waypoint flight** — `bench.slx` is a two-drone
+ground station: `MotiveMocapMulti` streams every rigid body listed in
+`mocap.streaming_ids` (`scripts/init/init_sensors.m`). Everything user-facing
+is addressed by **drone id**: `init_trajectory_swarm(id)` writes
+`traj_id<id>`, `flight_evaluation(id)` saves `*_id<id>.mat`, the radio frame
+carries the id. Which GCS path serves which id follows from the order of
+`mocap.streaming_ids`. Which mode flies is decided purely by the workspace
+at Run:
+
+- *Swarm following* — generate the containment reference tables, then fly:
+
+  ```matlab
+  ref = swarm_precompute(1.3, read_swarm_origins(mocap.streaming_ids));
+  init_trajectory_swarm(1);      % argument = drone id, writes traj_id<id>
+  init_trajectory_swarm(3);
+  ```
+
+  The model InitFcn (`bench_init_fcn`) verifies each drone against its table
+  start (< 0.2 m, else the start aborts), prepends a 4 s arm phase and stacks
+  the tables. Do not move the drones between `swarm_precompute` and takeoff.
+  Agent assignment defaults to grid agents (1,1)/(1,9) — same height layer of
+  the surface, structurally downwash-free; override with
+  `swarm_precompute(kappa, p0, struct('agents', [i1 j1; i2 j2]))`. Mixed-layer
+  pairs cross in xy during the settling transient and are rejected by the
+  pairwise checks.
+
+- *Single-drone waypoint flight (classic cascade)* — make sure no `traj_id*`
+  tables are in the workspace (a fresh model open runs `params.m`, which
+  clears them). The InitFcn then falls back to the waypoint trajectory
+  from `scripts/init/init_trajectory.m` (`traj.P` waypoints, `traj.Tseg`
+  segment durations, `traj.Tdwell` dwell times), anchored per drone at its
+  measured pose. Both ids must be *tracked*, but power up **only** the drone
+  that should fly — two powered drones in waypoint mode can collide. With
+  only one physical drone in the cage, set `mocap.streaming_ids = [id id]`:
+  both GCS paths then control the same drone (identical frames; the sender
+  forwards one per id).
+
+**Swap in a different airframe** (e.g. `id=2` → `id=3`) — set the BCD id pins
+on the drone (the firmware binary is the same for every id), measure its IMU
+mount and enter `MOUNT[id]` in `hardware/drone_hal.cpp` (procedure in the
+comment above the table; identity = not yet measured), create a Motive rigid
+body with that streaming id, and update `mocap.streaming_ids` in
+`init_sensors.m`.
+
 **Change a parameter** — `scripts/params.m` → `scripts/init/init_*.m` (or
 `scripts/flatness/init_flatness.m`). Position gains and everything ground-side
 take effect on the next run, no flash. Anything inside `mcu(_flat).slx` is
@@ -162,8 +206,8 @@ Firmware modes: `BENCH` (motors dead), `THRUST` (motors + telemetry report),
 (`--upload-scan/esccal/freq/batt/chanscan`).
 
 **Evaluate a flight** — run the bench model during the flight, then
-`scripts/functions/flight_evaluation.m` (cascade) or
-`scripts/flatness/flight_evaluation_flat.m`. Both shift the logged reference
+`flight_evaluation(id)` with the drone id (cascade; results land as
+`*_id<id>.mat`) or `scripts/flatness/flight_evaluation_flat.m`. Both shift the logged reference
 back by `T_lead` before computing errors: the ground station evaluates the
 trajectory at `t + T_lead` to compensate the chain dead time, so the *logged*
 reference is the time-advanced one, and errors must be measured on the

@@ -29,12 +29,14 @@ while toc(t0) < timeout_s
     got = false(1, n);
     for i = 1:data.nRigidBodies
         rb = data.RigidBodies(i);
-        k = find(ids == rb.ID, 1);
+        k = find(ids == rb.ID);   % alle Spalten dieser id (doppelt = Solobetrieb)
         if isempty(k), continue; end
         p = [double(rb.x); double(rb.y); double(rb.z)];
         q = [double(rb.qw); double(rb.qx); double(rb.qy); double(rb.qz)];
         if norm(q) < 0.5 || any(~isfinite(p)), continue; end
-        p0(:,k) = p;  q0(:,k) = q / norm(q);  got(k) = true;
+        p0(:,k) = repmat(p, 1, numel(k));
+        q0(:,k) = repmat(q / norm(q), 1, numel(k));
+        got(k) = true;
     end
     if all(got)
         fprintf('[read_swarm_origins] Posen: %s\n', mat2str(round(p0, 3)));

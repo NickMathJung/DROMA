@@ -1,11 +1,15 @@
-function flight_evaluation(d)
-%flight_evaluation  Auswertung eines Flugversuchs von Drohne d und Plot der
-%   Trackingfehler. Liest die Suffix-Logs (mocap_pos_d, x_ref_d, ...) aus out.
+function flight_evaluation(id)
+%flight_evaluation  Auswertung eines Flugversuchs von Drohne id, Plot der
+%   Trackingfehler. Der GCS-Pfad (Log-Suffix) folgt aus mocap.streaming_ids.
 arguments
-    d (1,1) double = 1
+    id (1,1) double = 1
 end
 out        = evalin('base', 'out');
 controller = evalin('base', 'controller');
+ids = evalin('base', 'mocap.streaming_ids');
+d = find(ids == id, 1);
+assert(~isempty(d), 'flight_evaluation: id=%d nicht in mocap.streaming_ids %s.', ...
+    id, mat2str(ids));
 
 g = @(name) orient_ts(out.get(sprintf('%s_%d', name, d)).Data, numel(out.tout));
 t_flight   = out.tout;
@@ -34,20 +38,20 @@ norm_e_p = vecnorm(e_p,2,2);
 norm_e_p_x = vecnorm(e_p_x,2,2);
 norm_e_p_y = vecnorm(e_p_y,2,2);
 norm_e_p_z = vecnorm(e_p_z,2,2);
-figure('Name', sprintf('Drohne %d', d));
+figure('Name', sprintf('Drohne id=%d', id));
 plot(t_flight, norm_e_p_x);
 hold on
 plot(t_flight, norm_e_p_y);
 plot(t_flight, norm_e_p_z);
 title(sprintf(['Norm of the individual tracking errors per axis ' ...
-    '$\\|p_i - p_{s,i}\\|_2$, $i=x,y,z$ (drone %d)'], d), 'Interpreter','latex');
+    '$\\|p_i - p_{s,i}\\|_2$, $i=x,y,z$ (drone id=%d)'], id), 'Interpreter','latex');
 xlabel("t in [s]");
 ylabel("$\|p_i - p_{s,i}\|_2$", 'Interpreter','latex');
 legend("$\|p_x - p_{s,x}\|_2$", "$\|p_y - p_{s,y}\|_2$", "$\|p_z - p_{s,z}\|_2$", 'Interpreter','latex');
 
 % ------- Speichern: Dateiname mit Drohnen-Suffix, Variablennamen kanonisch ---
 zielOrdner = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
-sfx = sprintf('_%d', d);
+sfx = sprintf('_id%d', id);
 save(fullfile(zielOrdner, ['norm_e_p'   sfx '.mat']), 'norm_e_p');
 save(fullfile(zielOrdner, ['x'          sfx '.mat']), 'x');
 save(fullfile(zielOrdner, ['x_ref'      sfx '.mat']), 'x_ref');
