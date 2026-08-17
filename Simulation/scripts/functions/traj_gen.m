@@ -43,7 +43,9 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
     if isfield(trj, 'tab_p') && size(trj.tab_p, 1) > 1
         [x_ref, v_ref, a_ref, j_ref] = tab_lookup(t, trj);
         s_ref = zeros(3,1);   % Snap nicht tabelliert; nur Vorsteuer-Feinheit
-        yaw_s = 0;            % Schwarm fliegt yaw = 0
+        yaw_s = trj.yaw(1);   % Start-Yaw halten (bench_init_fcn traegt es ein);
+                              % hartes yaw=0 drehte verdreht stehende Drohnen
+                              % bis in den Overspeed-Kill (13.08., 3er-Flug)
         yaw_ref = [yaw_s; 0; 0];
         [Omega_ref, tau_ref, q_ref, F_ref] = ...
             flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop);

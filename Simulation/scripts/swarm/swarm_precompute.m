@@ -1,16 +1,15 @@
 function ref = swarm_precompute(kappa, p0_drones, cfg_extra)
-%swarm_precompute  Containment-Referenzen fuer den Schwarmflug erzeugen.
-%   ref = swarm_precompute()               Standardlauf ohne Mocap (p0 = [])
-%   ref = swarm_precompute(1.3, read_swarm_origins([1 2]))   mit Startposen
+%swarm_precompute - Referenzen fuer den Schwarmflug erzeugen.
+%   ref = swarm_precompute() - Standardlauf ohne Mocap (p0 = [])
+%   ref = swarm_precompute(1.3, read_swarm_origins([1 2])) - mit Startposen
 %
 %   Ruft main_DROMA (Containment-Repo), streckt die Zeit um kappa
 %   (v/kappa, a/kappa^2, j/kappa^3 -- macht den Einschwing-Transienten
-%   fliegbar, ohne die MAS-Dynamik anzufassen), tastet auf das Ts_gcs-Raster
-%   ab, prueft Kaefig- und Envelope-Grenzen und schreibt data\swarm_ref.mat.
-%   Die Bench-InitFcn laedt NUR die .mat (main_DROMA ist zu schwer fuer den
-%   Ladepfad, und params.m macht clear).
+%   fliegbar, ohne die MAS-Dynamik anzufassen), tastet auf das Ts_gcs Zeitraster
+%   ab, prüft Käfiggrenzen und schreibt data\swarm_ref.mat für bench.slx/gcu.slx.
+%   Die Bench-InitFcn lädt nur die .mat.
 arguments
-    kappa     (1,1) double = 1.5
+    kappa     (1,1) double = 1.45
     p0_drones double = []
     cfg_extra struct = struct()
 end
@@ -28,13 +27,18 @@ Ts = 0.01; % Ts_gcs
 addpath(CONTAINMENT);
 cfg = cfg_extra;
 cfg.p0_drones = p0_drones;
-% Standard-Auslegung "Segel" (13.08.2026): stehende Bezierflaeche z 0.8..3.0
-% (Leader-Quader um y gekippt), Start senkrecht unter der eigenen Flaechen-
-% position -> downwashfreie Anfluege auf die Ecken; omega=0 (Demo = Einschwingen,
-% Rotation wuerde die Hoehenschichten wieder kreuzen). kappa=1.5 wegen des
-% Einschwing-Peaks ueber ~2.5 m Steighoehe. Alles per cfg_extra uebersteuerbar.
-SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 1 0; -1 0 0], ...
-              'z_offset', 0.8, 'ground_under_agent', true, 'omega', 0);
+% Standard-Auslegung "Kuppel" (13.08.2026): Leader-Quader z 0.8..3.0 (zentriert,
+% z_offset = Mitte), um y gekippt + 180-deg-Flip -> Sattelbauch woelbt sich NACH
+% OBEN, Ecken unten auf EINER Hoehe (deshalb ist die Rotation downwash-frei).
+% Start senkrecht unter der eigenen Flaechenposition; omega=0.25 kreist die
+% Kuppel um die eigene Hochachse. Alles per cfg_extra uebersteuerbar.
+% Zieldynamik (s+2.5)^2 + Randpole -3.3..-2.5: steif genug, dass die Formation
+% der Rotation bis omega=1 folgt (|G(j1)|=0.86; weich (s+1.5)^2 schrumpfte auf
+% 69 % -> Abstands-Assert), weich genug fuer den Einschwing-Transienten (kappa 1.45).
+SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 -1 0; 1 0 0], ...
+              'z_offset', 1.9, 'center_leaders', true, ...
+              'ground_under_agent', true, 'omega', 1.0, ...
+              'a1', 5, 'b1', 6.25, 'poles_z', linspace(-3.3, -2.5, 18));
 fn = fieldnames(SAIL);
 for k = 1:numel(fn)
     if ~isfield(cfg, fn{k}), cfg.(fn{k}) = SAIL.(fn{k}); end

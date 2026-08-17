@@ -23,6 +23,8 @@ for d = 1:n
         assert(e0 < 0.2, ['bench InitFcn: Drohne id=%d ist %.2f m vom ' ...
             'Tabellenstart entfernt - Schwarmreferenz neu erzeugen ' ...
             '(swarm_precompute).'], ids(d), e0);
+        tp.yaw(:) = yaw0;   % gemessenes Start-Yaw halten (kein Zudrehen auf 0)
+        assignin('base', tn, tp);
     else
         assignin('base', tn, init_trajectory(x0, yaw0));
     end
