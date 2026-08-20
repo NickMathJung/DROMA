@@ -52,7 +52,9 @@ The firmware selects drone specific IMU mount calibration via the individual ids
 Two SysML views of this structure live next to this file:
 [`DROMA_BDD.puml`](DROMA_BDD.puml) (what contains what, down to the `.m`
 functions) and [`DROMA_IBD.puml`](DROMA_IBD.puml) (signal flow, logical vs.
-physical interfaces). Render with PlantUML (needs Java + Graphviz).
+physical interfaces). The IBD file holds two diagrams, one for the full
+simulation and one for the swarm on hardware. Render with PlantUML (needs Java
++ Graphviz).
 
 ---
 
@@ -109,27 +111,15 @@ DROMA/
 
 ---
 
-## New here? Read in this order
 
-1. This file, then the two PlantUML diagrams.
-2. [`Simulation/README.md`](Simulation/README.md): how the simulation is
-   built, the wrapper pattern, the safety latches, the two codegen gates, the
-   firmware. Written for the cascade. The flatness variant mirrors it 1:1 with
-   the `_flat` suffix.
-3. [`Simulation/Testmatrix_Erstflug.md`](Simulation/Testmatrix_Erstflug.md):
-   what has been proven on hardware, what is open, current blockers (German).
-4. [`Simulation/Handover_Drohnenschwarm_Sim_7.md`](Simulation/Handover_Drohnenschwarm_Sim_7.md):
-   the reasoning behind locked design decisions.
-5. Before you change `mcu.slx` or `mcu_flat.slx`:
-   [`Simulation/scripts/sitl/SITL_Runbook.md`](Simulation/scripts/sitl/SITL_Runbook.md).
 
-**First hour:** open `Simulation/DROMA.prj` in MATLAB (sets up all paths), open
+**First steps:** open `Simulation/DROMA.prj` in MATLAB (sets up all paths), open
 `models/quadcop.slx`, press Run. Opening a top model triggers `params.m`, which
 fills the workspace with every parameter struct the model needs.
 
 ---
 
-## Everyday workflows
+## Workflow
 
 **Run the full simulation**: `quadcop.slx` (cascade) or `quadcop_flat.slx`.
 Everything simulated, fixed-step ode4 at 1 ms.
@@ -141,7 +131,7 @@ Teensy. Runs at 10 ms. Simulation Pacing must be 1.0x.
 **Swarm mode vs. single-drone waypoint flight**: `bench.slx` is a four-drone
 ground station. `MotiveMocapMulti` streams every rigid body listed in
 `mocap.streaming_ids` (`scripts/init/init_sensors.m`), one GCS path per entry.
-Each path builds its own 82 B radio frame, the four frames are concatenated
+Each path builds its own 82 Byte radio frame, the four frames are concatenated
 into a single 328 B USB frame, and the sender Teensy keeps and forwards the
 freshest frame per id. Everything user-facing is addressed by **drone id**:
 `init_trajectory_swarm(id)` writes `traj_id<id>`, `flight_evaluation(id)`

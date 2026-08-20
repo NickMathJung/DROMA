@@ -1,7 +1,7 @@
 @startuml DROMA_IBD
 ' =====================================================================
-'  DROMA — SysML Internal Block Diagram (Signalfluss)
-'  Quelle: Verschaltung der fünf Modellreferenzen in quadcop.slx
+'  DROMA - SysML Internal Block Diagram (Signalfluss)
+'  Quelle: Verschaltung der fuenf Modellreferenzen in quadcop.slx
 '  blau gestrichelt = Datenbus, rot durchgezogen = physikalisch
 ' =====================================================================
 skinparam backgroundColor #FEFEFE
@@ -18,22 +18,22 @@ skinparam component {
   FontColor black
 }
 
-title <b>DROMA — Signalfluss in quadcop.slx</b>\n<size:10>Der Lageregelkreis läuft mit 1 kHz auf der Drohne, die Positionsregelung mit 100 Hz auf der Bodenstation</size>
+title <b>DROMA - Signalfluss in quadcop.slx</b>\n<size:10>Der Lageregelkreis laeuft mit 1 kHz auf der Drohne, die Positionsregelung mit 100 Hz auf der Bodenstation</size>
 
 package "Drohne" as ZDRONE {
-  component "**Flugregler**\n<size:9>mcu.slx, wird zu C++</size>\n<size:8>Lageschätzer, Lageregler, Notabstieg,</size>\n<size:8>Kill-Latch, Batterieüberwachung</size>" as MCU <<Deployed Software>>
+  component "**Flugregler**\n<size:9>mcu.slx, wird zu C++</size>\n<size:8>Lageschaetzer, Lageregler, Notabstieg,</size>\n<size:8>Kill-Latch, Batterieueberwachung</size>" as MCU <<Deployed Software>>
   component "Akku\n<size:9>Pin 41, rohe 12-Bit-Counts</size>" as BATT <<HW>>
   component "Taster\n<size:9>Pin 21, schaltet gegen Masse</size>" as BTN <<HW>>
 }
 
 package "Simulation auf dem Host-PC" as ZSITL {
-  component "**Flugdynamik**\n<size:9>plant.slx, Starrkörper und Propeller</size>" as PLANT <<SITL Environment>>
+  component "**Flugdynamik**\n<size:9>plant.slx, Starrkoerper und Propeller</size>" as PLANT <<SITL Environment>>
   component "**Sensorik**\n<size:9>sensors.slx, IMU und Mocap</size>\n<size:8>hier wird der Gyro-Bias abgezogen</size>" as SENS <<SITL Environment>>
-  component "**Funkstrecke**\n<size:9>link.slx, Sender, Kanal, Empfänger</size>" as LINK <<SITL Environment>>
+  component "**Funkstrecke**\n<size:9>link.slx, Sender, Kanal, Empfaenger</size>" as LINK <<SITL Environment>>
 }
 
 package "Bodenstation" as ZGS {
-  component "**Bodenstation**\n<size:9>gcu.slx</size>\n<size:8>Bahnplanung, Positionsregler, Supervisor</size>" as GCU <<Deployed Software>>
+  component "**Bodenstation**\n<size:9>gcu.slx</size>\n<size:8>Bahnplanung, Positionsregler, Beobachter, Supervisor</size>" as GCU <<Deployed Software>>
 }
 
 ' ================= physikalisch (rot, durchgezogen) ==================
@@ -43,7 +43,7 @@ BTN   -[#C0392B,bold]->  MCU   : btn_ack\n<size:9>Tastendruck zum Entriegeln</si
 
 ' ================= Datenbusse (blau, gestrichelt) ====================
 SENS  -[#1F77B4,dashed]->  MCU  : Bus_IMU
-LINK  -[#1F77B4,dashed]->  MCU  : Bus_Cmd\n<size:9>Sollwerte für Schub und Lage, dazu estop und ack</size>
+LINK  -[#1F77B4,dashed]->  MCU  : Bus_Cmd\n<size:9>Sollwerte fuer Schub und Lage, dazu estop und ack</size>
 GCU   -[#1F77B4,dashed]->  LINK : Bus_Cmd
 SENS  -[#1F77B4,dashed]->  GCU  : Bus_Mocap
 PLANT -[#1F77B4,dashed]->  GCU  : Bus_State\n<size:9>Telemetrie, langsamer getaktet</size>
@@ -51,24 +51,24 @@ BATT  -[#1F77B4,dashed]->  MCU  : batt_count
 
 ' ================= Anmerkungen =======================================
 note bottom of MCU
-  Zwei weitere Ausgänge gehen auf der echten Drohne an die
+  Zwei weitere Ausgaenge gehen auf der echten Drohne an die
   Hardware, in der Simulation werden sie nur mitgeschrieben:
   throttle steuert die vier ESCs, led zeigt den Ladezustand
   in drei Stufen an.
 
   Der Kill-Latch rastet ein, wenn die Drehrate zu hoch wird,
-  estop auf 2 geht, die Drohne länger als 80 ms mehr als
-  80 Grad kippt, oder jemand den Taster drückt. Gelöst wird er
+  estop auf 2 geht, die Drohne laenger als 80 ms mehr als
+  80 Grad kippt, oder jemand den Taster drueckt. Geloest wird er
   nur durch eine steigende Flanke auf ack.
 end note
 
 note as N_BENCH
   <b>Das zweite Modell, bench.slx</b>
   Dort fehlen Flugdynamik, Sensorik und Funkstrecke.
-  Die Lage kommt stattdessen live von OptiTrack, und die
-  Kommandos gehen über die serielle Schnittstelle an den
-  Sende-Teensy, der sie per Funk zur echten Drohne bringt.
-  Simuliert wird nur noch die Bodenstation.
+  Die Lage kommt live von OptiTrack, die Kommandos gehen
+  ueber die serielle Schnittstelle an den Sende-Teensy.
+  Simuliert wird nur noch die Bodenstation, und zwar
+  vierfach. Siehe das zweite Diagramm in dieser Datei.
 end note
 N_BENCH .. ZGS
 
@@ -76,8 +76,91 @@ legend right
   |= Linie |= Bedeutung |
   |<#1F77B4>  - -   | Datenbus zwischen zwei Rechnern |
   |<#C0392B>  ===   | physikalisch: Kraft, Messung, Tastendruck |
-  |<#D4E6F1>        | Code, der später auf einem Rechner läuft |
+  |<#D4E6F1>        | Code, der spaeter auf einem Rechner laeuft |
   |<#D5F5E3>        | nur simuliert, auf dem Host-PC |
   |<#FADBD8>        | echte Hardware |
+endlegend
+@enduml
+
+@startuml DROMA_IBD_bench
+' =====================================================================
+'  DROMA - SysML Internal Block Diagram (Signalfluss bench.slx)
+'  Schwarmbetrieb mit bis zu vier Drohnen
+'  blau gestrichelt = Datenbus, rot durchgezogen = physikalisch
+' =====================================================================
+skinparam backgroundColor #FEFEFE
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName "Segoe UI"
+skinparam component {
+  BackgroundColor<<Deployed Software>> #D4E6F1
+  BorderColor<<Deployed Software>>     #2E86C1
+  BackgroundColor<<HW>>                #FADBD8
+  BorderColor<<HW>>                    #C0392B
+  BackgroundColor<<Werkzeug>>          #E8DAEF
+  BorderColor<<Werkzeug>>              #7D3C98
+  FontColor black
+}
+
+title <b>DROMA - Signalfluss in bench.slx (Schwarm)</b>\n<size:10>Ein Mocap-Client, vier Bodenstations-Pfade, ein USB-Kanal, ein Funksender, bis zu vier Drohnen</size>
+
+package "Vor dem Flug" as ZPRE {
+  component "**Referenzerzeugung**\n<size:9>main_DROMA -> swarm_precompute</size>\n<size:8>prueft Kaefig, Envelope, Abstand, Downwash</size>" as PRE <<Werkzeug>>
+  component "**Tabellen je Drohne**\n<size:9>init_trajectory_swarm(id)</size>\n<size:8>schreibt traj_id&lt;id&gt; in den Workspace</size>" as TAB <<Werkzeug>>
+}
+
+package "Kaefig" as ZCAGE {
+  component "**OptiTrack**\n<size:9>acht Kameras, Motive auf dem PC</size>\n<size:8>Up Axis = Z, NatNet-Stream</size>" as OPTI <<HW>>
+}
+
+package "bench.slx auf dem Host-PC, 100 Hz" as ZBENCH {
+  component "**Motive-Anbindung**\n<size:9>MotiveMocapMulti, ein NatNet-Client</size>" as MOT <<Deployed Software>>
+  component "**GCS-Pfad d = 1..4**\n<size:9>Spaltenauswahl, Halteschalter, gcu-Instanz</size>\n<size:8>Instanzparameter drone_idx, xi0_all(:,d), m_all(d)</size>" as PATH <<Deployed Software>>
+  component "**Frame-Verkettung**\n<size:9>4 x 82 Byte = 328 Byte</size>" as CAT <<Deployed Software>>
+  component "**Bedienelemente**\n<size:9>Drehschalter estop, Kippschalter ack</size>" as UI <<Deployed Software>>
+}
+
+package "Hardware" as ZHW {
+  component "**Sende-Teensy**\n<size:9>gcs_sender.cpp</size>\n<size:8>haelt die frischeste Frame je id und funkt sie einzeln</size>" as SEND <<HW>>
+  component "**Drohne id**\n<size:9>Teensy 4.1, drone_hal.cpp + mcu-Klasse, 1 kHz</size>\n<size:8>nimmt nur Frames mit der eigenen id an</size>" as DRONE <<HW>>
+}
+
+' ================= vor dem Flug ======================================
+PRE  -[#7D3C98,dashed]-> TAB  : data/swarm_ref.mat
+TAB  -[#7D3C98,dashed]-> PATH : traj_id&lt;id&gt;\n<size:9>die InitFcn stapelt sie zu traj</size>
+
+' ================= physikalisch (rot) ================================
+DRONE -[#C0392B,bold]-> OPTI : Bewegung im Kaefig
+SEND  -[#C0392B,bold]-> DRONE : nRF24, ch 76, 250 kbps
+
+' ================= Datenbusse (blau) =================================
+OPTI -[#1F77B4,dashed]-> MOT  : Pose je Rigid Body\n<size:9>Position, Lage, valid</size>
+MOT  -[#1F77B4,dashed]-> PATH : Spalte d\n<size:9>Bus_Mocap, bei valid=0 wird gehalten</size>
+UI   -[#1F77B4,dashed]-> PATH : estop, ack\n<size:9>gemeinsam fuer alle Pfade</size>
+PATH -[#1F77B4,dashed]-> CAT  : Frame je Pfad\n<size:9>Bus_Cmd + id + CRC-8</size>
+CAT  -[#1F77B4,dashed]-> SEND : USB, 328 Byte
+
+note bottom of PATH
+  Pfad d bedient die Drohne mit der id mocap.streaming_ids(d).
+  Die Reihenfolge dieser Liste ist die einzige Stelle, an der
+  die Zuordnung steht. Doppelte ids sind erlaubt und bedeuten
+  Solobetrieb: alle Pfade regeln dieselbe Drohne.
+end note
+
+note bottom of MOT
+  Verliert Motive einen Rigid Body, wird die letzte gueltige
+  Pose gehalten und der Regler kommandiert weiter gegen eine
+  Pose, die sich nicht mehr bewegt. Vor dem Armen pruefen,
+  dass alle Kameras stehen und jede Drohne getrackt wird.
+end note
+
+legend right
+  |= Linie |= Bedeutung |
+  |<#1F77B4>  - -   | Datenbus im Betrieb |
+  |<#7D3C98>  - -   | Daten, die vor dem Flug erzeugt werden |
+  |<#C0392B>  ===   | physikalisch: Funk, Bewegung |
+  |<#D4E6F1>        | Simulink auf dem Host-PC |
+  |<#FADBD8>        | echte Hardware |
+  |<#E8DAEF>        | Werkzeug, laeuft vor dem Flug |
 endlegend
 @enduml

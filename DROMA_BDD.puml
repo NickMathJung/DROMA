@@ -1,8 +1,7 @@
 @startuml DROMA_BDD
 ' =====================================================================
-'  DROMA — SysML Block Definition Diagram (Kompositions-Hierarchie)
+'  DROMA - SysML Block Definition Diagram (Kompositions-Hierarchie)
 '  Quelle: quadcop.slx / bench.slx + mcu/gcu/plant/sensors/link.slx
-'          (aus den .slx-Archiven geparst)
 '  Die schwarze Raute zeigt, woraus ein Block besteht.
 ' =====================================================================
 left to right direction
@@ -23,16 +22,18 @@ skinparam class {
   BorderColor<<Testbench>>             #B7950B
   BackgroundColor<<Hardware>>          #FADBD8
   BorderColor<<Hardware>>              #C0392B
+  BackgroundColor<<Werkzeug>>          #E8DAEF
+  BorderColor<<Werkzeug>>              #7D3C98
   BackgroundColor<<part>>              #FBFCFC
   BorderColor<<part>>                  #85929E
   FontColor black
 }
 
-title <b>DROMA — Blockstruktur der Simulink-Modelle</b>\n<size:10>Es gibt zwei Top-Level-Modelle: quadcop.slx simuliert alles, bench.slx fliegt die echte Drohne</size>
+title <b>DROMA - Blockstruktur der Simulink-Modelle</b>\n<size:10>Es gibt zwei Top-Level-Modelle: quadcop.slx simuliert alles, bench.slx fliegt bis zu vier echte Drohnen</size>
 
 ' =====================  EBENE 0: die zwei Harnesses  =================
-class "Volle Simulation\n(quadcop.slx)\n<size:9>Grundschritt 1 ms</size>" as SYS <<Testbench>>
-class "Hardware-Prüfstand\n(bench.slx)\n<size:9>Grundschritt 10 ms</size>" as BENCH <<Testbench>>
+class "Volle Simulation\n(quadcop.slx)\n<size:9>Grundschritt 1 ms, eine Drohne</size>" as SYS <<Testbench>>
+class "Hardware-Pruefstand\n(bench.slx)\n<size:9>Grundschritt 10 ms, bis zu vier Drohnen</size>" as BENCH <<Testbench>>
 
 ' =====================  EBENE 1: Komponenten  ========================
 class "Flugregler\n(mcu.slx, wird zu C++)" as MCU <<Deployed Software>>
@@ -47,55 +48,83 @@ SYS *-- PLANT
 SYS *-- SENS
 SYS *-- LINK
 
-' --- bench.slx: gleiche Bodenstation, aber echte Sensorik und Funk ---
-class "Motive-Anbindung\n<size:9>OptiTrack über NatNet, liefert Bus_Mocap</size>" as B_MOT <<part>>
-class "Frame-Packer\n<size:9>pack_gcs_frame, 82 Byte mit CRC-8</size>"           as B_PKT <<part>>
-class "Serial Send\n<size:9>über USB an den Sende-Teensy</size>"                 as B_SER <<part>>
-class "Bedienelemente\n<size:9>Drehschalter für estop, Kippschalter für ack</size>" as B_UI <<part>>
+' =====================  bench.slx: vier Pfade  =======================
+class "Motive-Anbindung\n<size:9>MotiveMocapMulti, ein NatNet-Client</size>\n<size:8>streamt alle Rigid Bodies aus mocap.streaming_ids,</size>\n<size:8>liefert Position, Lage und valid je Drohne</size>" as B_MOT <<part>>
+class "GCS-Pfad\n<size:9>Spaltenauswahl, Halteschalter bei valid=0,</size>\n<size:9>Bus_Mocap, gcu-Instanz, Frame-Packer</size>" as B_PATH <<part>>
+class "Frame-Verkettung\n<size:9>vier Frames zu 82 Byte ergeben 328 Byte</size>" as B_CAT <<part>>
+class "Serial Send\n<size:9>ein USB-Kanal an den Sende-Teensy</size>" as B_SER <<part>>
+class "Bedienelemente\n<size:9>Drehschalter fuer estop, Kippschalter fuer ack</size>\n<size:8>gelten gemeinsam fuer alle Pfade</size>" as B_UI <<part>>
+class "InitFcn\n<size:9>bench_init_fcn</size>\n<size:8>liest alle Urspruenge in einem Frame, prueft den</size>\n<size:8>Tabellenstart, haelt das Start-Yaw, stapelt traj</size>" as B_INIT <<part>>
 
-BENCH *-- GCU
 BENCH *-- B_MOT
-BENCH *-- B_PKT
+BENCH *-- "4" B_PATH : d = 1..4
+BENCH *-- B_CAT
 BENCH *-- B_SER
 BENCH *-- B_UI
+BENCH *-- B_INIT
+B_PATH *-- GCU
 
-class "Echte Drohne\n<size:9>Teensy 4.1, Cortex-M7</size>" as HW <<Hardware>>
-MCU ..> HW : läuft auf
-note right of HW
-  In bench.slx wird die Drohne nicht simuliert.
-  Der generierte Reglercode läuft auf der echten
-  Drohne, angebunden über den Sende-Teensy und
-  die nRF24-Funkstrecke.
+note bottom of B_PATH
+  Pfad d bedient die Drohne mit der id mocap.streaming_ids(d).
+  Die gcu-Instanz bekommt drone_idx, xi0_all(:,d) und m_all(d)
+  als Instanzparameter, der Frame-Packer die id als Konstante.
+  Ein Wechsel der Drohnen aendert nur mocap.streaming_ids,
+  nicht das Modell.
 end note
 
+class "Echte Drohne\n<size:9>Teensy 4.1, Cortex-M7</size>\n<size:8>id ueber BCD-Pins, MOUNT je id</size>" as HW <<Hardware>>
+class "Sende-Teensy\n<size:9>gcs_sender.cpp</size>\n<size:8>haelt die frischeste Frame je id</size>" as HWS <<Hardware>>
+MCU ..> HW : laeuft auf
+B_SER ..> HWS : USB
+HWS ..> HW : nRF24, ch 76
+note right of HW
+  In bench.slx wird die Drohne nicht simuliert.
+  Der generierte Reglercode laeuft auf der echten
+  Drohne. Jede Drohne nimmt nur die Frames mit
+  ihrer eigenen id an.
+end note
+
+' =====================  Schwarm-Referenzen  ==========================
+class "Containment-MAS\n<size:9>main_DROMA.m, eigenes Repository</size>\n<size:8>Bezierflaeche mit rotierenden Leadern</size>" as W_MAS <<Werkzeug>>
+class "Referenzerzeugung\n<size:9>swarm_precompute</size>\n<size:8>Zeitstreckung kappa, Kaefig- und Envelope-Pruefung,</size>\n<size:8>Abstand und Downwash ueber alle Paare</size>" as W_PRE <<Werkzeug>>
+class "Tabellen je Drohne\n<size:9>init_trajectory_swarm(id) schreibt traj_id&lt;id&gt;</size>" as W_TAB <<Werkzeug>>
+class "Auswertung\n<size:9>flight_evaluation(id), swarm_animation(ids), mp4_to_gif</size>" as W_EVAL <<Werkzeug>>
+
+W_MAS --> W_PRE : Agentenbahnen
+W_PRE --> W_TAB : data/swarm_ref.mat
+W_TAB --> B_INIT : traj_id&lt;id&gt;
+BENCH --> W_EVAL : Logs je Pfad
+
 ' =====================  EBENE 2: Flugregler  =========================
-class "Lageschätzer\n<size:9>mahony_filter</size>"                        as F_EST  <<part>>
+class "Lageschaetzer\n<size:9>mahony_filter</size>"                        as F_EST  <<part>>
 class "Geometrischer\nLageregler\n<size:9>geo_attitude_ctrl</size>"       as F_CTRL <<part>>
-class "Kill-Latch\n<size:9>safety_overspeed</size>\n<size:8>rastet bei Overspeed, estop=2,</size>\n<size:8>zu großem Kippwinkel oder Taster</size>" as F_KILL <<part>>
-class "Batterieüberwachung\n<size:9>safety_battery, liefert led, batt_land und V_filt</size>" as F_BAT <<part>>
-class "Notabstieg\n<size:9>safety_landcmd, überschreibt die Sollwerte</size>" as F_LAND <<part>>
+class "Kill-Latch\n<size:9>safety_overspeed</size>\n<size:8>rastet bei Overspeed, estop=2,</size>\n<size:8>zu grossem Kippwinkel oder Taster</size>" as F_KILL <<part>>
+class "Batterieueberwachung\n<size:9>safety_battery, liefert led, batt_land und V_filt</size>" as F_BAT <<part>>
+class "Notabstieg\n<size:9>safety_landcmd, ueberschreibt die Sollwerte</size>" as F_LAND <<part>>
 MCU *-- F_EST
 MCU *-- F_CTRL
 MCU *-- F_KILL
 MCU *-- F_BAT
 MCU *-- F_LAND
 note bottom of F_CTRL
-  Aus omega² macht ein Polynom den Throttle in Prozent,
-  anschließend auf 0 bis 100 begrenzt. Das ist der Ausgang
-  "throttle". Der frühere ADC-Quantisierer sitzt nicht mehr
+  Aus omega^2 macht ein Polynom den Throttle in Prozent,
+  anschliessend auf 0 bis 100 begrenzt. Das ist der Ausgang
+  "throttle". Der fruehere ADC-Quantisierer sitzt nicht mehr
   hier, die HAL schickt bereits rohe Counts.
 end note
 
 ' =====================  EBENE 2: Bodenstation  ======================
-class "Bahnplanung\n<size:9>traj_gen</size>"                                  as G_TRAJ <<part>>
-class "Positionsregler (PD)\n<size:9>pos_ctrl</size>"                         as G_POS  <<part>>
+class "Bahnplanung\n<size:9>traj_gen</size>\n<size:8>Wegpunkte oder Schwarmtabelle, je nach traj</size>" as G_TRAJ <<part>>
+class "Positionsregler (PD)\n<size:9>pos_ctrl, mit Anti-Windup-Integrator</size>\n<size:8>Vorsteuerung mit der Masse m_drone dieser Instanz</size>" as G_POS  <<part>>
+class "Geschwindigkeitsschaetzer\n<size:9>Luenberger-Beobachter, Anfangswert xi0</size>" as G_OBS <<part>>
 class "Supervisor\n<size:9>gcs_supervisor, steuert Soft-Landing und estop</size>" as G_SUP <<part>>
 GCU *-- G_TRAJ
 GCU *-- G_POS
+GCU *-- G_OBS
 GCU *-- G_SUP
 
 ' =====================  EBENE 2: Flugdynamik  =======================
-class "Starrkörperdynamik\n<size:9>6 Freiheitsgrade</size>"                 as P_RB   <<part>>
+class "Starrkoerperdynamik\n<size:9>6 Freiheitsgrade</size>"                 as P_RB   <<part>>
 class "Propellermodell\n<size:9>Schub- und Momentbeiwerte</size>"            as P_PROP <<part>>
 PLANT *-- P_RB
 PLANT *-- P_PROP
@@ -110,28 +139,39 @@ SENS *-- S_MOC
 
 ' =====================  EBENE 2: Funkstrecke  =======================
 class "Sender\n<size:9>link_tx, packt in int16 und smallest-three</size>" as L_TX <<part>>
-class "Kanalmodell\n<size:9>drei Signale über Ratenwechsel und Totzeit,</size>\n<size:9>dazu Paketverlust</size>" as L_CH <<part>>
-class "Empfänger\n<size:9>link_rx</size>"                                 as L_RX <<part>>
+class "Kanalmodell\n<size:9>drei Signale ueber Ratenwechsel und Totzeit,</size>\n<size:9>dazu Paketverlust</size>" as L_CH <<part>>
+class "Empfaenger\n<size:9>link_rx</size>"                                 as L_RX <<part>>
 LINK *-- L_TX
 LINK *-- L_CH
 LINK *-- L_RX
 
 note as N_WRAP
   <b>Beim Bearbeiten beachten</b>
-  In den MATLAB-Function-Blöcken steht kein Algorithmus.
+  In den MATLAB-Function-Bloecken steht kein Algorithmus.
   Jeder Block ruft nur die passende .m-Datei aus
   scripts/functions auf, erkennbar am Suffix _sl.
-  Wer etwas ändern will, ändert die .m-Datei.
+  Wer etwas aendern will, aendert die .m-Datei.
 end note
 N_WRAP .. MCU
 N_WRAP .. GCU
 
+note as N_FLAT
+  <b>Zweite Reglervariante</b>
+  Neben dieser Kaskade gibt es die flachheitsbasierte
+  Variante mit denselben Modellnamen und dem Suffix _flat.
+  Sie regelt komplett auf der Drohne, die Quellen liegen
+  in scripts/flatness. Sie fliegt nur eine Drohne.
+  Der Schwarm laeuft auf der Kaskade.
+end note
+N_FLAT .. BENCH
+
 legend right
   |= Farbe |= Was der Block ist |
   |<#FCF3CF>   | Top-Level-Modell, das man startet |
-  |<#D4E6F1>   | Code, der später auf einem Rechner läuft |
+  |<#D4E6F1>   | Code, der spaeter auf einem Rechner laeuft |
   |<#D5F5E3>   | nur simuliert, auf dem Host-PC |
   |<#FADBD8>   | echte Hardware |
+  |<#E8DAEF>   | Werkzeug, laeuft vor oder nach dem Flug |
   |<#FBFCFC>   | Teilblock innerhalb eines Modells |
 endlegend
 @enduml
