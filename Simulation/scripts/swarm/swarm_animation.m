@@ -14,7 +14,7 @@ HET  = ['C:\Users\Rakete\Documents\Drohnenversuchsstand\' ...
         'hyperbolic-2d-containment-control-with-bezier-surfaces\heterogeneous'];
 if isempty(ids), ids = evalin('base', 'mocap.streaming_ids'); end
 if isempty(filename), filename = char("swarm_" + strjoin(string(ids), "_")); end
-T_arm = 4;  % Arm-Phase der Tabellen (init_trajectory_swarm-Default)
+T_arm = 4; % Arm-Phase der Tabellen
 
 S = load(fullfile(DATA, 'swarm_ref.mat'), 'anim');
 n = numel(ids);
@@ -23,7 +23,7 @@ for k = 1:n
     x  = getfield(load(fullfile(DATA, sprintf('x_id%d.mat', ids(k)))), 'x');
     q  = getfield(load(fullfile(DATA, sprintf('mocap_quat_id%d.mat', ids(k)))), 'mocap_quat');
     tf = getfield(load(fullfile(DATA, sprintf('t_flight_id%d.mat', ids(k)))), 't_flight');
-    t  = tf - T_arm;                     % Flugzeit -> Agenten-/Tabellenzeit
+    t  = tf - T_arm; % Flugzeit -> Agenten-/Tabellenzeit
     m  = t >= 0;
     % Zustandslayout von createDroneAnimation: Spalten 1:3 Pos, 7:10 Quaternion
     t_drones{k} = t(m);
@@ -31,8 +31,7 @@ for k = 1:n
 end
 
 addpath(HET, fullfile(HET, 'visualization'), fullfile(HET, 'drones'));
-% Nur die Rotorgeometrie wird gebraucht (X-Konfiguration wie init_quadcop;
-% quadrotor_params hat einen c_tau-Laufzeitfehler und bleibt unangetastet).
+% Rotorgeometrie, X-Konfiguration
 l = 0.124; alpha = 38.4;
 a = l*sind(alpha); b = l*cosd(alpha);
 P_drone.rotor_pos = [a -b 0; a b 0; -a b 0; -a -b 0].';

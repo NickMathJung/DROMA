@@ -4,23 +4,19 @@ function [p_ref, v_ref, a_ref, j_ref, s_ref, yaw_ref] = ...
 %#codegen
 % safety_landcmd_flat  Onboard-Notabstieg der Flatness-Variante (Batterie leer).
 %
-% Sitzt im Pfad zwischen Bus_Cmd_flat-Referenzen und flatness_ctrl. Ist
-% batt_land = true, ersetzt er die empfangene Trajektorie durch einen
-% kontrollierten Sinkflug: x/y werden auf der aktuellen Schaetzposition
-% eingefroren, z rampt mit v_sink bis z_ground. Anders als die "blinde"
-% Kaskaden-Variante (safety_landcmd) hat die Flatness-MCU eine Positions-
-% schaetzung (Luenberger + Mocap-Stream) -> geregelter Abstieg statt
-% Schub-Reduktion.
+% Ist batt_land = true, wird die empfangene Trajektorie durch einen
+% kontrollierten Sinkflug ersetzt: x/y werden auf der aktuellen Schaetzposition
+% eingefroren, z rampt mit v_sink bis z_ground.
 %
 % Eingaenge:
-%   p_ref_in..s_ref_in : 3x1  flache Referenzen aus Bus_Cmd_flat
+%   p_ref_in..s_ref_in : 3x1  flache Referenzen
 %   yaw_ref_in         : 3x1  [yaw; dyaw; ddyaw]
-%   batt_land          : bool aus safety_battery
-%   x_hat              : 3x1  Positionsschaetzung (Luenberger)
-%   v_sink             : 1x1  Sinkgeschwindigkeit [m/s]     (supervisor.v_sink)
-%   z_ground           : 1x1  Bodenhoehe [m]                (supervisor.z_ground)
-%   Ts                 : 1x1  Abtastzeit dieses Blocks [s]
-% Ausgaenge: Referenzsatz an flatness_ctrl.
+%   batt_land          : bool
+%   x_hat              : 3x1  Positionsschaetzung
+%   v_sink             : 1x1  Sinkgeschwindigkeit
+%   z_ground           : 1x1  Bodenhoehe
+%   Ts                 : 1x1  Abtastzeit dieses Blocks
+% Ausgaenge: Referenzsatz fuer den Regler.
 
 persistent landing x0 y0 yaw0 zref
 if isempty(landing)
@@ -30,7 +26,7 @@ if isempty(landing)
 end
 
 if batt_land && ~landing
-    landing = true;                 % Flanke: Ist-Zustand latchen
+    landing = true; % Flanke: Ist-Zustand latchen
     x0   = x_hat(1);
     y0   = x_hat(2);
     zref = x_hat(3);

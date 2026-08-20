@@ -1,7 +1,5 @@
 function frame = pack_gcs_frame(cmd, id)
 %pack_gcs_frame  GS-USB-Frame [sync|id|Bus_Cmd(float32)|estop|ack|crc8] (82 B).
-%   Spiegelt gcs_frame.hpp (build) und ist zugleich die Byte-Spec fuer die
-%   Simulink-Serial-Send-Seite: die GCS muss genau dieses Layout erzeugen.
 %
 %   cmd: struct mit F_des, q_des(4), q_ref(4), Omega_ref(3), tau_ref(3),
 %        q_ext(4), estop(0/1/2), ack(0/1). id: Ziel-Drohne (uint8, 0..15).
@@ -12,7 +10,7 @@ function frame = pack_gcs_frame(cmd, id)
                     reshape(double(cmd.q_ref),4,1); ...
                     reshape(double(cmd.Omega_ref),3,1); ...
                     reshape(double(cmd.tau_ref),3,1); ...
-                    reshape(double(cmd.q_ext),4,1) ]).';   % 1x19 single
+                    reshape(double(cmd.q_ext),4,1) ]).'; % 1x19 single
 
     frame = zeros(1,82,'uint8');
     frame(1) = uint8(170); % 0xAA
@@ -25,7 +23,7 @@ function frame = pack_gcs_frame(cmd, id)
 end
 
 function c = crc8(bytes)
-% CRC-8/SMBus: Poly 0x07, Init 0x00 (bitgleich zu gcs::detail::crc8).
+% CRC-8/SMBus: Poly 0x07, Init 0x00.
     c = uint8(0);
     for k = 1:numel(bytes)
         c = bitxor(c, uint8(bytes(k)));

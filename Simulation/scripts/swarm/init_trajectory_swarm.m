@@ -1,15 +1,14 @@
 function traj = init_trajectory_swarm(id, matfile, T_arm)
 %init_trajectory_swarm  Schwarmtabelle fuer Drohne id in den Base-Workspace
-%   Nach swarm_precompute ausfuehren, dann bench.slx normal fliegen:
-%       init_trajectory_swarm(3);   % Drohne id=3 folgt ihrem Agenten
+%   Nach swarm_precompute ausfuehren:
+%       init_trajectory_swarm(3);
 %   Schreibt traj_id<id>; die Scheibe in swarm_ref folgt aus der Position von
-%   id in mocap.streaming_ids. Die Tabellenfelder aktivieren in traj_gen den
-%   Lookup-Zweig; die Wegpunktfelder bleiben konsistent belegt.
+%   id in mocap.streaming_ids.
 arguments
     id (1,1) double = 1
     matfile char = ['C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\' ...
                     'Simulation\data\swarm_ref.mat']
-    T_arm (1,1) double = 4  % anfägliche Wartezeit am Boden vor Tabellenstart
+    T_arm (1,1) double = 4 % Wartezeit am Boden vor Tabellenstart
 end
 ids = evalin('base', 'mocap.streaming_ids');
 d = find(ids == id, 1);
@@ -22,8 +21,7 @@ tab_Ts = median(diff(S.ref.t));
 nA  = round(T_arm / tab_Ts);
 tp  = [repmat(S.ref.p(1,:,d), nA, 1); S.ref.p(:,:,d)];
 
-% Feldreihenfolge wie init_trajectory (einheitliche Struktur fuer gcu-Instanzen);
-% Wegpunktfelder konsistent, werden im Tabellenmodus nicht abgefahren.
+% Feldreihenfolge wie init_trajectory
 traj.P      = [tp(1,:).', tp(end,:).'];
 traj.yaw    = 0;
 traj.Tseg   = S.ref.t(end);

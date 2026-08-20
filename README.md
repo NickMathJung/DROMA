@@ -1,26 +1,27 @@
 # DROMA — quadcopter testbench (Drohnenversuchsstand)
 
-DROMA is a testbench for small quadcopters flying indoors under an OptiTrack
-infrared motion-capture system. This repository contains everything that makes
-one drone fly: the Simulink models of the plant and of **two** flight
-controllers, the code-generation and verification pipeline, the Teensy firmware
-for drone and ground station, the motion-capture toolchain, and the flight-test
-documentation.
+DROMA is a testbench for small quadcopters flying indoors with the use of an 
+**OptiTrack infrared motion-capture system**. This repository contains everything 
+that makes one drone and the swarm fly. This includes the Simulink models of 
+the plant and of **two** flight controllers, the code-generation and verification 
+pipeline, the Teensy firmware for drone and ground station, the motion-capture 
+toolchain, and the flight-test documentation.
 
-The core principle is model-based design taken all the way: the flight
+The core principle is model-based design taken all the way. This means the flight
 controller is built and simulated in Simulink, code-generated to C++, proven
-bit-equal against the model by golden tests, and flashed onto a **Teensy 4.1**
-on the drone. The controller you simulate is literally the controller that
-flies.
+to be correct using a SiL pipeline where the response of the generated C++ 
+code is compared against the response of the model to the same input  
+(called golden tests), and flashed onto a **Teensy 4.1** on the drone. 
 
-Three conventions before you touch anything:
+Three **conventions**:
 
 - The model frame is **z-up**, not NED.
-- Every parameter lives in `Simulation/scripts/params.m` (via the
-  `scripts/init/init_*.m` builders). A number typed into a block is a bug.
-- The MATLAB Function blocks are thin `_sl` wrappers; the real algorithms are
-  `.m` files in `scripts/functions/` and `scripts/flatness/`. Edit those, never
-  the blocks — `.slx` is binary and inline code never shows up in a diff.
+- Every parameter is located in `Simulation/scripts/params.m` (using the
+  `scripts/init/init_*.m` functions). A number typed into a block is a bug.
+  Everything should be referenced from the MATLAB Base-Workspace.
+- The MATLAB Function blocks are `_sl` wrappers. The actual algorithms are
+  `.m` files in `scripts/functions/` and `scripts/flatness/`. Edit those. 
+  `.slx` is binary and thus cannot be properly version controlled with Git.
 
 ---
 

@@ -4,33 +4,33 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, estop, mode] = ...
 %#codegen
 % gcs_supervisor  Zustandsautomat der Bodenstation.
 %
-% Mux vor pos_ctrl: waehlt die Sollwertquelle (Trajektorie oder geregelter
-% Soft-Land) und setzt das estop-Feld des Bus_Cmd.
+% Waehlt die Sollwertquelle (Trajektorie oder geregelter Soft-Land) und setzt
+% das estop-Feld.
 %
 % Zustaende (mode):
 %   0 NORMAL     : Sollwerte aus der Trajektorie, estop=0.
 %   1 SOFT_LAND  : x/y einfrieren, z-Ref rampt mit v_sink runter, v_ref=+v_sink,
-%                  yaw halten. estop=1 (onboard sieht das Soft-Land-Flag).
-%   2 DISARMED   : Grund erreicht, estop=2, onboard-Cutoff (rotors_cmd=0).
+%                  yaw halten, estop=1.
+%   2 DISARMED   : Grund erreicht, estop=2.
 %   3 KILL       : Hard-Kill (estop_cmd==2 aus jedem Zustand), estop=2.
 %
 % Eingaenge:
 %   estop_cmd       : uint8  Bediener-Wunsch  0 normal / 1 soft-land / 2 hard-kill
-%   p_est           : 3x1    Positionsschaetzung [x;y;z] aus Luenberger
-%   x_ref_traj      : 3x1    Trajektorien-Sollposition (Durchleitung in NORMAL)
+%   p_est           : 3x1    Positionsschaetzung [x;y;z]
+%   x_ref_traj      : 3x1    Trajektorien-Sollposition
 %   v_ref_traj      : 3x1    Trajektorien-Sollgeschwindigkeit
 %   a_ref_traj      : 3x1    Trajektorien-Sollbeschleunigung
 %   yaw_ref_traj    : 3x1    Trajektorien-Soll-Yaw [yaw; dyaw; ddyaw]
-%   Omega_ref_traj  : 3x1    Trajektorien-Solldrehrate2
-%   tau_ref_traj    : 3x1    Trajektorien-Sollmomente 
+%   Omega_ref_traj  : 3x1    Trajektorien-Solldrehrate
+%   tau_ref_traj    : 3x1    Trajektorien-Sollmomente
 %   sup             : struct .v_sink .z_ground .disarm_margin .Ts
 %
-% Ausgaenge (-> pos_ctrl bzw. Bus_Cmd):
-%   x_ref, v_ref, a_ref : 3x1    selektierte Sollwerte fuer pos_ctrl
+% Ausgaenge:
+%   x_ref, v_ref, a_ref : 3x1    selektierte Sollwerte
 %   yaw_ref             : 3x1    selektierter Soll-Yaw [yaw; dyaw; ddyaw]
-%   Omega_ref, tau_ref  : 3x1    Lage-Vorsteuerung 
-%   estop               : uint8  0/1/2 -> Bus_Cmd.estop (Uplink)
-%   mode                : uint8  Zustands-ID (Logging/Debug)
+%   Omega_ref, tau_ref  : 3x1    Lage-Vorsteuerung
+%   estop               : uint8  0/1/2
+%   mode                : uint8  Zustands-ID
 
 % --- Zustands-IDs ---
 NORMAL = uint8(0);
@@ -43,7 +43,7 @@ if isempty(inited)
     state = NORMAL;
     x0 = 0.0;
     y0 = 0.0;
-    yaw0 = [0.0; 0.0; 0.0];   % 3x1, passend zu yaw_ref_traj [yaw; dyaw; ddyaw]
+    yaw0 = [0.0; 0.0; 0.0]; % 3x1 [yaw; dyaw; ddyaw]
     zref = 0.0;
     inited = true;
 end
@@ -69,13 +69,13 @@ switch state
         if zref < supervisor.z_ground 
             zref = supervisor.z_ground;
         end
-        % Disarm, sobald knapp ueber Grund (Mocap/Luenberger kennt Hoehe)
+        % Disarm, sobald knapp ueber Grund
         if p_est(3) <= supervisor.z_ground + supervisor.disarm_margin
             state = DISARMED;
         end
 
     case DISARMED
-        % terminal: estop=2 nullt onboard die Motoren
+        % terminal
 
     otherwise % KILL
         % terminal
@@ -101,7 +101,7 @@ switch state
         tau_ref   = [0.0; 0.0; 0.0];
         estop   = uint8(1);
 
-    case DISARMED % on-board-kill übernimmt
+    case DISARMED
         x_ref   = [x0; y0; zref];
         v_ref   = [0.0; 0.0; supervisor.v_sink];
         a_ref   = [0.0; 0.0; 0.0];

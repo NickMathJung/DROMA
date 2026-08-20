@@ -1,6 +1,6 @@
 function q = dcm2quat_local(R)
 %#codegen
-% Shepperd-Methode: numerisch robust, auch bei grossen Drehwinkeln. 
+% Wandelt eine Drehmatrix nach der Shepperd-Methode in ein Quaternion um.
 % Rueckgabe q = [q0;q1;q2;q3] (Spalte), normiert.
 tr = R(1,1) + R(2,2) + R(3,3);
 if tr > 0

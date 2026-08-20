@@ -1,9 +1,7 @@
 function test_flatness_blocks()
 %test_flatness_blocks  Selbsttest der Codegen-Bloecke flatness_ctrl + flatness_khat
-%   gegen die Strecke (Motor-PT1, Gamma-Mixer) mit dem gemessenen Schubdefizit
-%   aus quadcop.k_thrust. Muss die validierte Standalone-Sim reproduzieren:
-%   Fehler ~3 mm, k_hat -> k_thrust.
-%   Testet zusaetzlich den Quaternion-Round-Trip (Plant-R -> q -> Block-R).
+%   gegen die Strecke (Motor-PT1, Gamma-Mixer). Testet zusaetzlich den
+%   Quaternion-Round-Trip (Plant-R -> q -> Block-R).
 clear flatness_ctrl flatness_khat
 here = fileparts(mfilename('fullpath'));
 sim_root = fileparts(fileparts(here));
@@ -13,20 +11,13 @@ addpath(here);
 
 rng(42);
 g = 9.81;
-% NICHT evalc('quadcop = ...') benutzen: der Parser bindet den Namen quadcop
-% lexikalisch an das gleichnamige Simulink-Modell (quadcop.slx), die per eval
-% erzeugte Variable kommt nie zum Zug -- man erhaelt lautlos ein Modell-Handle
-% (double) statt der Parameterstruktur. Mit expliziter Zuweisung ist der Name
-% eine echte Variable; evalc dient nur noch dazu, die Init-Ausgaben zu schlucken.
-[~, quadcop] = evalc('init_quadcop()');
+[~, quadcop] = evalc('init_quadcop()'); % evalc schluckt die Init-Ausgaben
 fctrl = init_flatness(quadcop);
 m=quadcop.m; J=quadcop.J; Gam=quadcop.Gamma; Gaminv=quadcop.Gamma_inv;
 wmin=quadcop.rotors_min; wmax=quadcop.rotors_max; tau_m=0.030;
-% Der Schubmangel steckt seit dem 05.08.2026 in quadcop.Gamma selbst (Zeile 1,
-% Faktor quadcop.k_thrust) -- frueher stand hier 0.85 fest. Ein zusaetzlicher
-% Faktor wuerde ihn doppelt zaehlen, deshalb 1.0.
+% Der Schubmangel steckt bereits in quadcop.Gamma (Faktor quadcop.k_thrust).
 thrust_scale=1.0;
-k_soll = thrust_scale * quadcop.k_thrust;   % Wert, auf den k_hat laufen muss
+k_soll = thrust_scale * quadcop.k_thrust; % Wert, auf den k_hat laufen muss
 % Die Testtrajektorie liegt durchgehend ueber 0.8 m -> Hoehenrampe voll offen.
 w_adapt = 1.0;
 
@@ -51,11 +42,11 @@ khist=zeros(1,Nt);
 for i=1:Nt-1
   p=states(1:3,i); v=states(4:6,i);
   R=[states(7:9,i) states(10:12,i) states(13:15,i)]; w=states(16:18,i);
-  q = dcm2quat_local(R.');                        % Plant-R -> Quaternion (Kaskaden-Konvention)
+  q = dcm2quat_local(R.'); % Plant-R -> Quaternion
 
-  % --- Schub-Skalenschaetzer @100 Hz (Mocap/GCS-Rate) ---
+  % --- Schub-Skalenschaetzer @100 Hz ---
   if tdisc(i)-t_moc_prev >= Tm-1e-9
-    v_obs = v + sigma_v*randn(3,1);               % Luenberger-Ausgang emuliert
+    v_obs = v + sigma_v*randn(3,1); % Luenberger-Ausgang emuliert
     k_hat = flatness_khat(v_obs, q, F_prev, m, g, fctrl.gamma_khat, fctrl.tau_lp, Tm, ...
                           fctrl.k_hat0, w_adapt);
     t_moc_prev=tdisc(i);

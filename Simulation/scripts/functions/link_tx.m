@@ -4,15 +4,12 @@ function [pkt_i16, pkt_q, flags] = link_tx(cmd_in, link_params)
 %   Skalare/Vektoren: [F_des; Omega_ref(3); tau_ref(3)] -> int16 (7x1), saturiert.
 %   Quaternionen: q_des, q_ref, q_ext -> smallest-three (uint32 3x1).
 %   flags: [estop(0/1/2); ack].
-%   Bernoulli-Paketverlust (xorshift32): bei Verlust das ganze Paket halten (ZOH);
-%   int16-Teil, Quat-Teil und flags gehen gemeinsam raus.
-%
-%   Braucht pack_quat_sm3.m auf dem MATLAB-Pfad.
+%   Bernoulli-Paketverlust: bei Verlust wird das ganze Paket gehalten.
 
     persistent last_i16 last_q last_flags rs init_done
     if isempty(init_done)
         last_i16   = reshape(int16(link_params.pkt_init(1:7)), 7, 1);
-        id_code    = pack_quat_sm3([1;0;0;0]);          % Identitaets-Quat als Startwert
+        id_code    = pack_quat_sm3([1;0;0;0]); % Identitaets-Quat als Startwert
         last_q     = [id_code; id_code; id_code];
         last_flags = double(link_params.flags_init);
         rs         = uint32(link_params.seed);
@@ -37,10 +34,10 @@ function [pkt_i16, pkt_q, flags] = link_tx(cmd_in, link_params)
     q_now(2) = pack_quat_sm3(reshape(double(cmd_in.q_ref), 4, 1));
     q_now(3) = pack_quat_sm3(reshape(double(cmd_in.q_ext), 4, 1));
 
-    % --- flags (verlustfrei) ---
+    % --- flags ---
     flags_now = [double(cmd_in.estop); double(cmd_in.ack)];
 
-    % --- Bernoulli-Verlust: ein Zufallswert entscheidet ueber das ganze Paket ---
+    % --- Bernoulli-Verlust ---
     [u, rs] = xorshift01(rs);
     if u >= link_params.pdrop
         last_i16   = i16_now;

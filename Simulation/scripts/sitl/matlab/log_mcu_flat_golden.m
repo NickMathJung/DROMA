@@ -1,8 +1,6 @@
-%% log_mcu_flat_golden.m — Golden-I/O an der mcu_flat-Blockgrenze aufzeichnen.
-%  Pendant zu log_mcu_golden.m (Kaskade), gleiche Mechanik: geschlossenen Kreis
-%  (quadcop_flat) einmal simulieren, Signale an der mcu_flat-Grenze als breite
-%  CSV auf dem Basisraster (Ts_inner) schreiben; der Host-Harness
-%  (test_mcu_flat_model) difft den generierten MCU_FLAT::step() tickweise.
+%% log_mcu_flat_golden.m  --  Golden-I/O an der mcu_flat-Blockgrenze aufzeichnen
+%  Simuliert den geschlossenen Kreis (quadcop_flat) einmal und schreibt die Signale
+%  an der mcu_flat-Grenze als breite CSV auf dem Basisraster Ts_inner.
 %
 %  Spaltennamen = ExtU/ExtY-Feldpfade:
 %     in:  Bus_IMU, Bus_Cmd_flat, batt_count, btn_ack
@@ -13,9 +11,7 @@ TOP_MODEL = 'quadcop_flat';
 MCU_BLOCK = 'quadcop_flat/mcu_flat_ref';
 T_STOP    = 5.0;                  % [s] Simulationsdauer
 IN_NAMES  = {'Bus_IMU','Bus_Cmd_flat','batt_count','btn_ack'};
-% dbg = [k_hat; F; aint(3); u_fb_raw(3)] -- reine Telemetrie, wird trotzdem
-% mitgegolden: dann faellt jede ungewollte Aenderung an Schaetzer oder Integrator
-% im Golden-Vergleich auf, nicht erst im Flug.
+% dbg = [k_hat; F; aint(3); u_fb_raw(3)]
 OUT_NAMES = {'rotor_cmd','led','throttle','dbg'};
 OUT_CSV   = fullfile(fileparts(mfilename('fullpath')),'..','data','golden_mcu_flat_io.csv');
 
@@ -24,7 +20,7 @@ assert(evalin('base','exist(''Ts_inner'',''var'')'), ...
        'Ts_inner fehlt im Base-Workspace (params.m via PreLoadFcn?).');
 Ts_inner = evalin('base','Ts_inner');
 
-%% --- Serial-Bloecke (falls vorhanden) fuer die headless Golden-Sim auskommentieren
+%% --- Serial-Bloecke fuer die headless Sim auskommentieren -------------------
 serialBlks = find_system(TOP_MODEL,'LookUnderMasks','on','FollowLinks','on', ...
                          'RegExp','on','Name','[Ss]erial');
 serialPrev = get_param(serialBlks,'Commented');
@@ -64,7 +60,7 @@ for i = 1:size(tags,1)
     cols = flatten_and_zoh(sig.Values, tags{i,2}, t, cols);
 end
 
-%% --- 4) CSV schreiben (Kopf = Namen, dann k,t,<cols>) -----------------------
+%% --- 4) CSV schreiben: Kopf = Namen, dann k,t,<cols> ------------------------
 if ~isfolder(fileparts(OUT_CSV)); mkdir(fileparts(OUT_CSV)); end
 fid = fopen(OUT_CSV,'w');  assert(fid>0, 'CSV nicht schreibbar: %s', OUT_CSV);
 fprintf(fid, 'k,t%s\n', sprintf(',%s', cols.name));
@@ -108,10 +104,7 @@ function cols = flatten_and_zoh(vals, prefix, t, cols)
     end
     tt = vals.Time(:);
     n  = numel(tt);
-    % Orientierung NICHT annehmen: Simulink legt Data je nach Signal als N x W,
-    % W x N oder W x 1 x N ab. Ein blindes reshape(...,n,[]) liest spaltenweise und
-    % verschiebt die Komponenten dann um eine Position pro Zeitschritt gegeneinander
-    % — im Golden sah man das als wandernde Werte, nicht als offensichtlichen Fehler.
+    % Simulink legt Data je nach Signal als N x W, W x N oder W x 1 x N ab.
     D = squeeze(vals.Data);
     if isvector(D)
         D = D(:);
@@ -129,7 +122,7 @@ function cols = flatten_and_zoh(vals, prefix, t, cols)
 end
 
 function y = zoh_resample(tt, x, tq)
-% Index-basiertes ZOH (round(t/Ts)), robust gegen FP-Drift — wie log_mcu_golden.
+% Index-basiertes ZOH ueber round(t/Ts).
     tt = double(tt(:)); x = double(x(:));
     N  = numel(tq);
     Ts = tq(2) - tq(1);

@@ -1,21 +1,19 @@
 function run_mcu_recert(proj_root)
-% run_mcu_recert — mcu.slx (throttle-Outport) neu generieren, throttle-Polynom
-% fuer die Host-Invariante dumpen, Golden neu aufzeichnen. Laeuft headless.
+% run_mcu_recert  --  mcu.slx neu generieren, throttle-Polynom dumpen, Golden neu
+% aufzeichnen. Laeuft headless.
 %   proj_root = Simulation-Wurzel (enthaelt DROMA.prj, scripts\, models\).
 sitl = fullfile(proj_root,'scripts','sitl');
 
 fprintf('== openProject ==\n');
 openProject(fullfile(proj_root,'DROMA.prj'));
-load_system('quadcop');              % PreLoadFcn -> params.m -> Ts_inner/quadcop in base
+load_system('quadcop');              % legt Ts_inner/quadcop im Base-Workspace an
 assert(evalin('base','exist(''Ts_inner'',''var'')'), 'Ts_inner fehlt (PreLoadFcn?).');
 quadcop = evalin('base','quadcop');
 
 oldcd = cd(sitl);                    % slbuild-Ausgabe -> scripts\sitl\mcu_ert_rtw
 cleanup = onCleanup(@() cd(oldcd));
 
-% Ausgabeordner EXPLIZIT setzen (gleicher Fix wie run_mcu_flat_recert: das
-% Projekt pinnt CodeGenFolder auf die Wurzel, sonst bricht slbuild ab, sobald
-% in derselben Sitzung vorher ein anderer Codegen-Lauf lief).
+% CodeGen-/Cache-Ordner auf scripts\sitl umlenken, danach auf proj_root
 Simulink.fileGenControl('set','CodeGenFolder',sitl,'CacheFolder',sitl,'createDir',true);
 restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
     'CodeGenFolder',proj_root,'CacheFolder',proj_root,'createDir',true)); %#ok<NASGU>
@@ -25,7 +23,7 @@ clear configure_mcu_codegen
 configure_mcu_codegen('mcu');
 slbuild('mcu');
 
-% --- ExtY-Kontrolle: throttle jetzt vorhanden? --------------------------------
+% --- ExtY-Kontrolle: throttle vorhanden ---------------------------------------
 hdr = fileread(fullfile(sitl,'mcu_ert_rtw','mcu.h'));
 assert(contains(hdr,'throttle'), 'mcu.h enthaelt kein throttle — Regen fehlgeschlagen?');
 fprintf('OK: mcu.h enthaelt throttle.\n');
@@ -53,7 +51,7 @@ fclose(fid);
 fprintf('throttle_poly.hpp geschrieben: p = [%.17g %.17g %.17g], U_ds=%.4g, Vclamp=[%.4g %.4g]\n', ...
         p(1),p(2),p(3), quadcop.U_ds, quadcop.V_thr_min, quadcop.V_thr_max);
 
-% --- Golden neu (mit throttle-Spalten) ----------------------------------------
+% --- Golden neu aufzeichnen ---------------------------------------------------
 fprintf('== log_mcu_golden ==\n');
 clear log_mcu_golden
 run(fullfile(sitl,'matlab','log_mcu_golden.m'));

@@ -1,12 +1,9 @@
 classdef MotiveMocapMulti < matlab.System
-%MOTIVEMOCAPMULTI  Wie MotiveMocap, aber n Rigid Bodies aus EINEM NatNet-Frame.
+%MOTIVEMOCAPMULTI  Simulink-Quelle fuer n Rigid Bodies aus einem NatNet-Frame.
 %
 %   Ausgaenge: pos (3xn), quat (4xn, scalar-first), valid (nx1 logical).
-%   Spalte k gehoert zu StreamingIDs(k). EIN Client, EIN getFrame pro Tick ->
-%   beide Posen stammen aus demselben Mocap-Frame (keine Zeitversetzung, wie
-%   sie zwei getrennte MotiveMocap-Bloecke haetten).
-%   Konventionen (Z-Up, scalar-first, Meter) identisch MotiveMocap.m -- dort
-%   steht die ausfuehrliche Begruendung.
+%   Spalte k gehoert zu StreamingIDs(k). Ein Client, ein getFrame pro Tick.
+%   Konventionen: Z-Up, Quaternion scalar-first [w x y z], Meter.
 
     properties (Nontunable)
         HostIP        = '127.0.0.1'
@@ -33,7 +30,7 @@ classdef MotiveMocapMulti < matlab.System
 
     methods (Access = private)
         function s = resolveIP(~, v)
-            % IP-Literal oder base-Workspace-Variable (siehe MotiveMocap.m)
+            % IP-Literal oder base-Workspace-Variable aufloesen
             s = char(v);
             if isempty(regexp(s, '^[A-Za-z_]\w*(\.\w+)*$', 'once')), return; end
             if ~isempty(regexp(s, '^\d', 'once')), return; end
@@ -85,13 +82,13 @@ classdef MotiveMocapMulti < matlab.System
                 end
                 for i = 1:data.nRigidBodies
                     rb = data.RigidBodies(i);
-                    k = find(obj.StreamingIDs == rb.ID);   % alle Spalten dieser id
-                    if isempty(k), continue; end           % (doppelt = Solobetrieb)
+                    k = find(obj.StreamingIDs == rb.ID); % alle Spalten dieser id
+                    if isempty(k), continue; end
                     p = [double(rb.x); double(rb.y); double(rb.z)];
                     q = [double(rb.qw); double(rb.qx); double(rb.qy); double(rb.qz)];
                     nq = norm(q);
                     if nq < 0.5 || any(~isfinite(p)) || any(~isfinite(q))
-                        continue;   % untracked -> ZOH fuer diesen Body
+                        continue; % untracked -> ZOH fuer diesen Body
                     end
                     q = q / nq;
                     obj.lastPos(:,k)  = repmat(p, 1, numel(k));
@@ -144,7 +141,7 @@ classdef MotiveMocapMulti < matlab.System
 
     methods (Static, Access = protected)
         function simMode = getSimulateUsingImpl()
-            simMode = 'Interpreted execution';   % NatNet = .NET, kein Codegen
+            simMode = 'Interpreted execution'; % NatNet = .NET, kein Codegen
         end
         function isVisible = showSimulateUsingImpl()
             isVisible = false;

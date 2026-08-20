@@ -2,12 +2,11 @@ function [p_ref, v_ref, a_ref, j_ref, s_ref, yaw_ref, estop, mode] = ...
         gcs_supervisor_flat(estop_cmd, p_est, x_ref_traj, v_ref_traj, a_ref_traj, ...
                             j_ref_traj, s_ref_traj, yaw_ref_traj, supervisor)
 %#codegen
-% gcs_supervisor_flat  Zustandsautomat der Bodenstation — FLATNESS-Variante.
+% gcs_supervisor_flat  Zustandsautomat der Bodenstation, FLATNESS-Variante.
 %
-% Gleiche FSM wie gcs_supervisor (Kaskade), aber statt {x/v/a_ref + Lage-
-% Vorsteuerung} werden die FLACHEN Referenzen bis Snap selektiert. Im
-% Soft-Land/Kill werden j_ref/s_ref genullt (Rampe = konstante Geschwindigkeit).
-% p_est = mocap_pos (der Beobachter laeuft in der Flatness-Variante onboard).
+% Selektiert die flachen Referenzen bis Snap. Im Soft-Land/Kill werden j_ref und
+% s_ref genullt, die z-Rampe laeuft mit konstanter Geschwindigkeit.
+% p_est = mocap_pos.
 %
 % Zustaende (mode):
 %   0 NORMAL     : Referenzen aus der Trajektorie, estop=0.
@@ -18,7 +17,7 @@ function [p_ref, v_ref, a_ref, j_ref, s_ref, yaw_ref, estop, mode] = ...
 % Eingaenge:
 %   estop_cmd    : uint8  Bediener-Wunsch 0 normal / 1 soft-land / 2 hard-kill
 %   p_est        : 3x1    Positionsmessung (mocap_pos)
-%   x_ref_traj..s_ref_traj : 3x1  flache Referenzen aus traj_gen
+%   x_ref_traj..s_ref_traj : 3x1  flache Referenzen
 %   yaw_ref_traj : 3x1    [yaw; dyaw; ddyaw]
 %   supervisor   : struct .v_sink .z_ground .disarm_margin .Ts
 % Ausgaenge -> Bus_Cmd_flat.
@@ -46,12 +45,12 @@ end
 % --- Transitionen + zustandslokale Aktualisierung ---
 switch state
     case NORMAL
-        if estop_cmd == uint8(1)          % Soft-Land ausloesen
+        if estop_cmd == uint8(1) % Soft-Land ausloesen
             state = SOFT_LAND;
-            x0 = p_est(1);                % Horizontalposition einfrieren
+            x0 = p_est(1); % Horizontalposition einfrieren
             y0 = p_est(2);
-            yaw0 = yaw_ref_traj;          % aktuellen Soll-Yaw halten
-            zref = x_ref_traj(3);         % z-Rampe startet auf aktueller Hoehe
+            yaw0 = yaw_ref_traj; % aktuellen Soll-Yaw halten
+            zref = x_ref_traj(3); % z-Rampe startet auf aktueller Hoehe
         end
 
     case SOFT_LAND

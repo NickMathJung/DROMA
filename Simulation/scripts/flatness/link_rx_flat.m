@@ -2,7 +2,7 @@ function cmd_out = link_rx_flat(pkt_i16, pkt_q, flags, link_flat_params)
 %#codegen
 % link_rx_flat  RX-Seite des Funkkanals (Drohne), FLATNESS-Variante @ Ts_inner.
 %   int16 (21x1) -> dequantisieren; uint32 -> smallest-three -> q_ext.
-%   Feldreihenfolge von cmd_out == Bus_Cmd_flat (setup_buses.m):
+%   Feldreihenfolge von cmd_out == Bus_Cmd_flat:
 %     mocap_pos, q_ext, p_ref, v_ref, a_ref, j_ref, s_ref, yaw_ref, estop, ack.
 %
 %   Braucht unpack_quat_sm3.m auf dem MATLAB-Pfad.

@@ -1,9 +1,9 @@
 function supervisor = init_supervisor(quadcop,Ts_gcs)
-%init_supervisor gets triggered, when user in SIMULINK sets estop=1/=2 ->
-%   safety landing is performed. 
+%init_supervisor initializes the parameters of the safety landing that runs
+%   when estop is set to 1 or 2
 arguments (Input)
     quadcop struct % holding quadrocopter related parameters
-    Ts_gcs (1,1) double % sample time of the ground station for the integration used in the safety landing trajectory
+    Ts_gcs (1,1) double % sample time of the ground station
 end
 
 arguments (Output)
@@ -13,8 +13,7 @@ end
 % geregeltes Soft-Land
 supervisor.v_sink = 0.15; % [m/s] Soll-Sinkrate
 
-% Falls Mocap-z-Null nicht am Boden liegt, hier den realen Bodenwert setzen.
-supervisor.z_ground = 0.0; % [m]  z-Koordinate des Bodens 
+supervisor.z_ground = 0.0; % [m] z-Koordinate des Bodens
 
 % Disarm-Marge ueber Grund: Cutoff (estop=2) bei z_est <= z_ground + margin.
 supervisor.disarm_margin = 0.1; % [m]

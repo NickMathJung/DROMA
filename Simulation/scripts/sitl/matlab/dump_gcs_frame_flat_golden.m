@@ -1,8 +1,5 @@
-%% dump_gcs_frame_flat_golden.m — Golden fuer den GS-Frame-Cross-Check (FLATNESS).
-%  Pro Zeile ein Bus_Cmd_flat samt Ziel-id, durch pack_gcs_frame_flat zum 106-B-
-%  Frame. Der Host-Test test_gcs_frame_flat parst die Bytes via gcsf::parse
-%  (gcs_frame_flat.hpp) und vergleicht gegen die float32-gerundeten Werte; das
-%  zeigt, dass Simulink-Schreiber und Sende-Teensy-Leser identisch sind.
+%% dump_gcs_frame_flat_golden.m  --  Golden fuer den GS-Frame-Cross-Check der Flatness-Variante
+%  Pro Zeile ein Bus_Cmd_flat samt Ziel-id, durch pack_gcs_frame_flat zum 106-B-Frame.
 %
 %  Spalten (nach id-Label): in_id, in_moc1..3, in_qe1..4, in_p1..3, in_v1..3,
 %    in_a1..3, in_j1..3, in_s1..3, in_yaw1..3, in_estop, in_ack, frame0..frame105.

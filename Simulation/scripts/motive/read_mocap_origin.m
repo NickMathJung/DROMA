@@ -1,18 +1,14 @@
 function [pos, yaw, ok] = read_mocap_origin(mocap, timeout_s)
 %read_mocap_origin  EINE gueltige Pose des Drohnen-Rigid-Body aus Motive lesen.
-%   Fuer die automatische Anfangsbedingung der Trajektorie (statt x0/yaw0 von
-%   Hand aus den Mocap-Daten ablesen und in init_trajectory eintragen). Gedacht
-%   fuer die InitFcn von bench.slx: beim Run einmal kurz verbinden, den aktuellen
-%   Drohnen-Ursprung greifen, wieder trennen.
+%   Liefert die Anfangsbedingung der Trajektorie: einmal verbinden, den
+%   aktuellen Drohnen-Ursprung greifen, wieder trennen.
 %
-%   Nutzt denselben natnet()-Client wie MotiveMocap (Konventionen dort: Z-Up,
-%   Meter, Quaternion scalar-first [w x y z]). Der NatNet-Assembly-Pfad muss
-%   eingerichtet sein (Matlab\assemblypath.txt neben natnet.m) — ist er, weil
-%   MotiveMocap im Flug laeuft.
+%   Nutzt den natnet()-Client (Z-Up, Meter, Quaternion scalar-first [w x y z]);
+%   der NatNet-Assembly-Pfad muss eingerichtet sein.
 %
 %   Rueckgabe:
-%     pos [3x1] Position [m] im Mocap-Frame (z-up)
-%     yaw [1x1] Gierwinkel [rad] (ZYX, aus scalar-first Quaternion)
+%     pos [3x1] Position im Mocap-Frame (z-up)
+%     yaw [1x1] Gierwinkel (ZYX, aus scalar-first Quaternion)
 %     ok        true, wenn ein gueltiger Frame mit mocap.streaming_id kam
 arguments (Input)
     mocap     struct
@@ -26,7 +22,7 @@ end
     pos = [0;0;0]; yaw = 0; ok = false;
 
     c = natnet();
-    clean = onCleanup(@() safe_disc(c));                 %#ok<NASGU> trennt immer
+    clean = onCleanup(@() safe_disc(c)); %#ok<NASGU> trennt immer
     if c.ConnectToNatNet(mocap.client_ip, mocap.host_ip, 'Multicast') < 1
         warning('read_mocap_origin:connect', ...
                 'keine NatNet-Verbindung (Motive laeuft? Streaming an? IPs?).');
@@ -40,9 +36,9 @@ end
             for i = 1:data.nRigidBodies
                 rb = data.RigidBodies(i);
                 if rb.ID ~= mocap.streaming_id, continue; end
-                % NatNet scalar-last -> scalar-first [w x y z] (wie MotiveMocap).
+                % NatNet scalar-last -> scalar-first [w x y z]
                 q = [double(rb.qw); double(rb.qx); double(rb.qy); double(rb.qz)];
-                if norm(q) < 0.5, continue; end          % untracked -> weiter warten
+                if norm(q) < 0.5, continue; end % untracked -> weiter warten
                 q = q / norm(q);
                 pos = [double(rb.x); double(rb.y); double(rb.z)];
                 yaw = atan2(2*(q(1)*q(4) + q(2)*q(3)), 1 - 2*(q(3)^2 + q(4)^2));

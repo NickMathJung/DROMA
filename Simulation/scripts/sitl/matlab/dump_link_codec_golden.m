@@ -1,18 +1,11 @@
-%% dump_link_codec_golden.m — Golden fuer den Codec-Cross-Check (Sim == HW).
-%  Erzeugt eine breite CSV: pro Zeile ein Bus_Cmd, durch die massgebliche
-%  MATLAB-Kette link_tx -> link_rx gejagt (= chart_40/chart_50 in link.slx).
-%  Der Host-Test test_link_codec vergleicht dagegen den C++-Codec pkt::pack/
-%  pkt::unpack (mcu_packet.hpp).
+%% dump_link_codec_golden.m  --  Golden fuer den Codec-Cross-Check
+%  Pro CSV-Zeile ein Bus_Cmd, durch die MATLAB-Kette link_tx -> link_rx gejagt.
 %
-%  Zwei Vergleichsebenen (siehe test_link_codec.cpp):
-%    L1 (Wire):   tx_i16[7], tx_q[3], flags  bit-exakt gegen pkt::pack.
-%    L2 (decode): rx_* : F/Om/tau bit-exakt, Quats tol 1e-12 gegen pkt::unpack.
+%  Zwei Vergleichsebenen:
+%    L1 (Wire):   tx_i16[7], tx_q[3], flags  bit-exakt.
+%    L2 (decode): rx_* : F/Om/tau bit-exakt, Quats tol 1e-12.
 %
-%  pdrop = 0 isoliert den Codec (kein Bernoulli-Drop / ZOH). Der xorshift/ZOH-
-%  Pfad ist Kanalverhalten, nicht Codec, und hat kein C++-Pendant.
-%
-%  int16-Reihenfolge im tx_i16 (aus link_tx: v=[F; Omega_ref(3); tau_ref(3)]):
-%    tx_i16 = [F | Om1 Om2 Om3 | tau1 tau2 tau3].
+%  int16-Reihenfolge im tx_i16: [F | Om1 Om2 Om3 | tau1 tau2 tau3].
 %  Quat-Reihenfolge tx_q = [q_des ; q_ref ; q_ext], scalar-first [w x y z].
 
 here        = fileparts(mfilename('fullpath'));
@@ -21,7 +14,7 @@ addpath(scriptsRoot, ...
         fullfile(scriptsRoot,'functions'), ...
         fullfile(scriptsRoot,'init'));
 
-Ts_inner    = 1e-3;                                   % = params.m: 1/(10*100)
+Ts_inner    = 1e-3;                                   % Basisrate [s]
 quadcop     = init_quadcop();
 link_params = init_link(quadcop, Ts_inner);
 link_params.pdrop = 0;                               % Codec isolieren
@@ -31,31 +24,31 @@ qI = [1 0 0 0];                                      % Identitaet
 Z3 = [0 0 0];
 Fh = quadcop.m*quadcop.g;                            % Hover-Schub [N]
 
-%% --- Testfaelle sammeln (Struct-Array) --------------------------------------
+%% --- Testfaelle sammeln ------------------------------------------------------
 C = struct('id',{},'F',{},'qd',{},'qr',{},'Om',{},'tr',{},'qe',{},'estop',{},'ack',{});
 
 % -- 1) Hover / Nominal --
 C(end+1) = mk('hover',     Fh, qI,qI,Z3,Z3, qI, 0, false);
 C(end+1) = mk('hover_ack', Fh, qI,qI,Z3,Z3, qI, 0, true);
 
-% -- 2) sm3 imax-Branches (groesste Komponente je Slot) -- qd=qr=qe=SQ --
+% -- 2) sm3 imax-Branches, groesste Komponente je Slot --
 ex = 1e-3;
 C(end+1) = mk('imax_w', Fh, [1 ex ex ex], [1 ex ex ex], Z3, Z3, [1 ex ex ex], 0, false);
 C(end+1) = mk('imax_x', Fh, [ex 1 ex ex], [ex 1 ex ex], Z3, Z3, [ex 1 ex ex], 0, false);
 C(end+1) = mk('imax_y', Fh, [ex ex 1 ex], [ex ex 1 ex], Z3, Z3, [ex ex 1 ex], 0, false);
 C(end+1) = mk('imax_z', Fh, [ex ex ex 1], [ex ex ex 1], Z3, Z3, [ex ex ex 1], 0, false);
 
-% -- 3) Sign-Flip an imax (groesste Komponente negativ; q == -q) --
+% -- 3) Sign-Flip an imax, groesste Komponente negativ --
 C(end+1) = mk('signflip_w', Fh, [-1 ex -ex ex], [-1 ex -ex ex], Z3, Z3, [-1 ex -ex ex], 0, false);
 C(end+1) = mk('signflip_z', Fh, [ex -ex ex -1], [ex -ex ex -1], Z3, Z3, [ex -ex ex -1], 0, false);
 
-% -- 4) Komponenten nahe +-1/sqrt(2) (Clamp/Round-Grenze bei +-511) --
+% -- 4) Komponenten nahe +-1/sqrt(2), Clamp/Round-Grenze bei +-511 --
 r2 = 1/sqrt(2);
 C(end+1) = mk('near_half_ww', Fh, [r2 r2 0 0], [r2 r2 0 0], Z3, Z3, [r2 r2 0 0], 0, false);
 C(end+1) = mk('near_half_pp', Fh, [0.7072 0.7070 1e-4 1e-4], [0.7072 0.7070 1e-4 1e-4], Z3, Z3, [0.7072 0.7070 1e-4 1e-4], 0, false);
 C(end+1) = mk('near_half_neg',Fh, [r2 -r2 0 0], [r2 -r2 0 0], Z3, Z3, [r2 -r2 0 0], 0, false);
 
-% -- 5) int16-Saettigung F/Omega/tau (jenseits fs=[40,10,2]) --
+% -- 5) int16-Saettigung F/Omega/tau jenseits fs=[40,10,2] --
 C(end+1) = mk('sat_F_hi',  50,   qI,qI,Z3,Z3, qI, 0, false);
 C(end+1) = mk('sat_F_lo', -50,   qI,qI,Z3,Z3, qI, 0, false);
 C(end+1) = mk('sat_Om',    Fh,   qI,qI,[20 -20 15],Z3, qI, 0, false);
@@ -63,7 +56,6 @@ C(end+1) = mk('sat_tau',   Fh,   qI,qI,Z3,[5 -5 3], qI, 0, false);
 C(end+1) = mk('sat_all',   99,   qI,qI,[99 -99 99],[9 -9 9], qI, 0, false);
 
 % -- 5b) Mocap-Dropout: q_ext = 0 -> reserviertes Codewort 0, zurueck als Null-Quat --
-% Deckt den Pfad ab, der die Ungueltigkeit ueber die Funkstrecke traegt.
 C(end+1) = mk('mocap_invalid',     Fh, qI, qI, Z3, Z3, [0 0 0 0], 0, false);
 C(end+1) = mk('mocap_invalid_tilt',Fh, [0.9239 0 0.3827 0], qI, Z3, Z3, [0 0 0 0], 0, false);
 
@@ -79,9 +71,9 @@ for i = 1:Nrand
     qd = randn(1,4); qd = qd/norm(qd);
     qr = randn(1,4); qr = qr/norm(qr);
     qe = randn(1,4); qe = qe/norm(qe);
-    F  = 45*rand;                       % 0..45 N (bis knapp ueber fs=40)
-    Om = 12*(2*rand(1,3)-1);            % +-12 rad/s (bis ueber fs=10)
-    tr = 2.4*(2*rand(1,3)-1);           % +-2.4 N*m (bis ueber fs=2)
+    F  = 45*rand;                       % 0..45 N
+    Om = 12*(2*rand(1,3)-1);            % +-12 rad/s
+    tr = 2.4*(2*rand(1,3)-1);           % +-2.4 N*m
     C(end+1) = mk(sprintf('rand%03d',i), F, qd,qr,Om,tr,qe, mod(i,3), logical(mod(i,2))); %#ok<SAGROW>
 end
 
@@ -94,7 +86,7 @@ for i = 1:numel(C)
                     'Omega_ref',c.Om(:), 'tau_ref',c.tr(:), ...
                     'estop',uint8(c.estop), 'ack',logical(c.ack));
 
-    [pkt_i16, pkt_q, flags] = link_tx(cmd_in, link_params);   % pdrop=0 -> = aktuelles Paket
+    [pkt_i16, pkt_q, flags] = link_tx(cmd_in, link_params);
     rx = link_rx(pkt_i16, pkt_q, flags, link_params);
 
     nums = [ c.F, c.qd, c.qr, c.Om, c.tr, c.qe, double(c.estop), double(c.ack), ...
@@ -127,7 +119,7 @@ fprintf('link_codec_golden geschrieben: %s  (%d Zeilen, %d Datenspalten)\n', ...
 
 %% --- lokale Helfer -----------------------------------------------------------
 function s = mk(id,F,qd,qr,Om,tr,qe,estop,ack)
-% Feldreihenfolge muss zur C-Praeallokation passen (Zuweisung per Position).
+% Testfall-Struct, Feldreihenfolge passend zur C-Praeallokation.
     s = struct('id',id,'F',F, ...
                'qd',qd(:).','qr',qr(:).', ...
                'Om',Om(:).','tr',tr(:).','qe',qe(:).', ...

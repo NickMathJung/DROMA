@@ -1,10 +1,6 @@
-%% configure_mcu_flat_codegen.m — Embedded-Coder-Config fuer mcu_flat.slx.
-%  Pendant zu configure_mcu_codegen (Kaskaden-mcu), gleiche Entscheidungen:
-%  ert.tlc / C++ class / SingleTasking / DISCRETE Ts_inner / GenCodeOnly /
-%  column-major / embedded-clean. Einzige Unterschiede:
-%   - Klassenname 'MCU_FLAT' (statt 'MCU') -> Host-Harness mcu_flat_io.hpp.
-%   - ConfigSet-Namen 'ert_cpp_sitl_flat' / 'ert_cpp_arm_flat'.
-%  Begruendungen im Original configure_mcu_codegen.m.
+%% configure_mcu_flat_codegen.m  --  Embedded-Coder-Config fuer mcu_flat.slx
+%  ert.tlc / C++ class MCU_FLAT / SingleTasking / DISCRETE Ts_inner /
+%  GenCodeOnly / column-major, ConfigSets 'ert_cpp_sitl_flat' und 'ert_cpp_arm_flat'.
 
 function configure_mcu_flat_codegen(mdl, target)
 % target = 'host' (Default, SITL/x86) | 'arm' (Teensy 4.1 / Cortex-M7)
@@ -29,7 +25,7 @@ set_param(cs,'CodeInterfacePackaging','C++ class');
 set_param(cs,'GenCodeOnly','on');
 set_param(cs,'PackageGeneratedCodeAndArtifacts','on');   % packNGo-ZIP
 
-% --- Solver (an params.m ausrichten) ---
+% --- Solver ---
 set_param(cs,'SolverType','Fixed-step');
 set_param(cs,'Solver','FixedStepDiscrete');
 set_param(cs,'FixedStep','Ts_inner');                    % 1/1000 s
@@ -54,7 +50,7 @@ attachConfigSet(mdl, cs, true);
 setActiveConfigSet(mdl, cs.Name);
 fprintf('ConfigSet "%s" (target=%s) an %s gehaengt und aktiv.\n', cs.Name, target, mdl);
 
-% --- Klassennamen deterministisch auf 'MCU_FLAT' pinnen --------------------
+% --- Klassenname auf 'MCU_FLAT' pinnen ------------------------------------
 try
     cm = coder.mapping.api.get(mdl);
 catch

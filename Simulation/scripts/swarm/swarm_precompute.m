@@ -3,11 +3,9 @@ function ref = swarm_precompute(kappa, p0_drones, cfg_extra)
 %   ref = swarm_precompute() - Standardlauf ohne Mocap (p0 = [])
 %   ref = swarm_precompute(1.3, read_swarm_origins([1 2])) - mit Startposen
 %
-%   Ruft main_DROMA (Containment-Repo), streckt die Zeit um kappa
-%   (v/kappa, a/kappa^2, j/kappa^3 -- macht den Einschwing-Transienten
-%   fliegbar, ohne die MAS-Dynamik anzufassen), tastet auf das Ts_gcs Zeitraster
-%   ab, prüft Käfiggrenzen und schreibt data\swarm_ref.mat für bench.slx/gcu.slx.
-%   Die Bench-InitFcn lädt nur die .mat.
+%   Ruft main_DROMA, streckt die Zeit um kappa (v/kappa, a/kappa^2, j/kappa^3),
+%   tastet auf das Ts_gcs Zeitraster ab, prüft Käfiggrenzen und schreibt
+%   data\swarm_ref.mat.
 arguments
     kappa     (1,1) double = 1.45
     p0_drones double = []
@@ -17,25 +15,16 @@ end
 CONTAINMENT = ['C:\Users\Rakete\Documents\Drohnenversuchsstand\' ...
     'hyperbolic-2d-containment-control-with-bezier-surfaces\heterogeneous'];
 DROMA_DATA = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
-% Kaefig-Nutzvolumen (Nick, 13.08.2026; Sicherheitsrand schon enthalten).
-% z-Untergrenze 0: der Bodenstart der Agenten ist gewollt.
+% Käfig-Nutzvolumen
 CAGE = struct('x', [-1.9 1.9], 'y', [-1 1], 'z', [0 2.8]);
-% Envelope der geflogenen Box (3.1-cm-Flug): max|v| 2.46, max|a| 6.24
+% Zulässige Envelope
 VMAX = 2.4; AMAX = 6.2;
 Ts = 0.01; % Ts_gcs
 
 addpath(CONTAINMENT);
 cfg = cfg_extra;
 cfg.p0_drones = p0_drones;
-% Standard-Auslegung "Kuppel" (13.08.2026): Leader-Quader z 0.8..3.0 (zentriert,
-% z_offset = Mitte), um y gekippt + 180-deg-Flip -> Sattelbauch woelbt sich NACH
-% OBEN, Ecken unten auf EINER Hoehe (deshalb ist die Rotation downwash-frei).
-% Start senkrecht unter der eigenen Flaechenposition; omega=0.25 kreist die
-% Kuppel um die eigene Hochachse. Alles per cfg_extra uebersteuerbar.
-% Zieldynamik (s+2.5)^2: steif genug, dass die Formation der Rotation bis
-% omega=1 folgt (|G(j1)|=0.86; weich (s+1.5)^2 schrumpfte auf 69 % ->
-% Abstands-Assert). Randpole nahe der Zieldynamik halten: schnellere Pole
-% (-3.3..-2.5) liessen Rand i=1 schneller steigen als i=20 -> Downwash 4er-Paar.
+% Standard-Auslegung "Kuppel", per cfg_extra übersteuerbar
 SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 -1 0; 1 0 0], ...
               'z_offset', 1.9, 'center_leaders', true, ...
               'ground_under_agent', true, 'omega', 1.0, ...
@@ -44,7 +33,7 @@ fn = fieldnames(SAIL);
 for k = 1:numel(fn)
     if ~isfield(cfg, fn{k}), cfg.(fn{k}) = SAIL.(fn{k}); end
 end
-% Agenten-Defaults der Segel-Geometrie (alle Paare downwashfrei)
+% Agenten-Defaults der Segel-Geometrie
 if ~isfield(cfg, 'agents') || isempty(cfg.agents)
     AG = {[], [1 1; 20 9], [1 1; 20 1; 1 9], [1 1; 20 1; 1 9; 20 9]};
     nD = max(2, size(p0_drones, 2));
@@ -60,7 +49,7 @@ n = size(res.refs.p, 3);
 ref = struct('t', t, 'kappa', kappa, 'agents', res.refs.agents, ...
              'cfg', res.cfg, 'tf', res.tf);
 for d = 1:n
-    ts = res.t_sim * kappa;   % gestreckte Zeitachse
+    ts = res.t_sim * kappa; % gestreckte Zeitachse
     ref.p(:,:,d) = interp1(ts, res.refs.p(:,:,d), t, 'pchip');
     ref.v(:,:,d) = interp1(ts, res.refs.v(:,:,d), t, 'pchip') / kappa;
     ref.a(:,:,d) = interp1(ts, res.refs.a(:,:,d), t, 'pchip') / kappa^2;
@@ -83,7 +72,7 @@ for d = 1:n
         ref.agents(d,1), ref.agents(d,2), lim.', vmax, amax, tag);
     ok = ok && good;
 end
-% Abstands-/Downwash-Check ueber alle Paare (kappa streckt nur die Zeit)
+% Abstands-/Downwash-Check über alle Paare
 dmin_all = inf;
 for a = 1:n
     for b = a+1:n
@@ -99,7 +88,7 @@ end
 assert(dmin_all > 0.6, 'Agentenabstand < 0.6 m -- Paarwahl/Radius pruefen.');
 if ~ok, warning('swarm_precompute:limits', 'Grenzverletzung -- siehe Report oben.'); end
 
-% --- Schlanke Animationsdaten (Agenten + Leader, ohne Beobachterzustaende) ----
+% --- Animationsdaten: Agenten + Leader ---------------------------------------
 nKeep = 2*res.dim_X + res.params.n_L + 1;
 anim = struct('t_sim', res.t_sim * kappa, 'y_sim', res.y_sim(:, 1:nKeep), ...
               'params', res.params, 'Pi', res.Pi, 'P_L', res.P_L, ...

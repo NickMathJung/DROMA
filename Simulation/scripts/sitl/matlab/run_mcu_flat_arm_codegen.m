@@ -1,9 +1,7 @@
 function run_mcu_flat_arm_codegen(proj_root)
-% run_mcu_flat_arm_codegen — mcu_flat.slx fuer Teensy 4.1 / Cortex-M7 generieren.
-%   Pendant zu run_mcu_arm_codegen (Kaskade). Nur GenCodeOnly — kompiliert wird
-%   spaeter ueber die Teensy-Toolchain. Output nach hardware\mcu_flat_arm\
-%   (eigener CodeGen-/Cache-Ordner), damit das SITL-zertifizierte
-%   scripts\sitl\mcu_flat_ert_rtw\ unberuehrt bleibt.
+% run_mcu_flat_arm_codegen  --  mcu_flat.slx fuer Teensy 4.1 / Cortex-M7 generieren.
+%   Nur GenCodeOnly, kompiliert wird ueber die Teensy-Toolchain.
+%   Output nach hardware\mcu_flat_arm\ mit eigenem CodeGen-/Cache-Ordner.
 armdir = fullfile(proj_root,'hardware','mcu_flat_arm');
 
 openProject(fullfile(proj_root,'DROMA.prj'));
@@ -14,12 +12,7 @@ if ~isfolder(armdir)
     mkdir(armdir);
 end
 
-% --- CodeGen-/Cache-Ordner auf hardware\mcu_flat_arm umlenken (und zuruecksetzen)
-% Zurueck geht es auf proj_root, NICHT auf den vorgefundenen Wert: das Projekt pinnt
-% beides auf die Wurzel, und ein "merken und zurueckschreiben" verewigt den
-% temporaeren Wert, sobald ein Lauf ihn einmal hinterlassen hat. Symptom danach:
-% jede Simulation bricht ab mit "Current working folder contains simulation
-% artifacts that can shadow artifacts in the folder ... CacheFolder".
+% --- CodeGen-/Cache-Ordner auf hardware\mcu_flat_arm umlenken, danach auf proj_root
 Simulink.fileGenControl('set','CodeGenFolder',armdir,'CacheFolder',armdir,'createDir',true);
 restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
     'CodeGenFolder',proj_root,'CacheFolder',proj_root,'createDir',true));

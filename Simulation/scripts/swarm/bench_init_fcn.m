@@ -1,11 +1,9 @@
 function bench_init_fcn(mocap)
 %bench_init_fcn  InitFcn des Schwarm-bench: Urspruenge lesen, traj/xi0 je Drohne.
 %   Alles id-adressiert: Drohne mit ids(d) = mocap.streaming_ids(d) nutzt
-%   traj_id<id> (Schwarmtabelle aus init_trajectory_swarm(id) ODER Wegpunkt-
-%   Fallback aus init_trajectory). GCS-Pfad d bedient ids(d); gestapelt landet
-%   alles im geteilten traj (3. Dim) und xi0_all (Spalte je Pfad).
-%   Vorsicht Wegpunkt-Fallback: gilt er fuer mehrere EINGESCHALTETE Drohnen,
-%   koennen sich die Bahnen schneiden -- dann nur eine Drohne einschalten.
+%   traj_id<id>, entweder die Schwarmtabelle aus init_trajectory_swarm(id) oder
+%   den Wegpunkt-Fallback aus init_trajectory. Gestapelt landet alles im
+%   geteilten traj (3. Dim) und in xi0_all (Spalte je Pfad).
 ids = mocap.streaming_ids;
 n = numel(ids);
 [p0, q0] = read_swarm_origins(ids, mocap.host_ip, mocap.client_ip);
@@ -23,7 +21,7 @@ for d = 1:n
         assert(e0 < 0.2, ['bench InitFcn: Drohne id=%d ist %.2f m vom ' ...
             'Tabellenstart entfernt - Schwarmreferenz neu erzeugen ' ...
             '(swarm_precompute).'], ids(d), e0);
-        tp.yaw(:) = yaw0;   % gemessenes Start-Yaw halten (kein Zudrehen auf 0)
+        tp.yaw(:) = yaw0; % gemessenes Start-Yaw halten
         assignin('base', tn, tp);
     else
         assignin('base', tn, init_trajectory(x0, yaw0));
@@ -32,7 +30,7 @@ for d = 1:n
 end
 assignin('base', 'xi0_all', xi0_all);
 
-% Abflugmasse je Pfad fuer die Vorsteuerung (quadcop.m_id, Fallback Nominal)
+% Abflugmasse je Pfad
 qc = evalin('base', 'quadcop');
 if isfield(qc, 'm_id')
     m_all = qc.m_id(ids);
@@ -41,7 +39,7 @@ else
 end
 assignin('base', 'm_all', m_all);
 
-% traj_id* zum geteilten Multi-traj stapeln (gcu-Instanz d nimmt Scheibe d)
+% traj_id* zum geteilten Multi-traj stapeln
 T = evalin('base', sprintf('traj_id%d', ids(1)));
 szP = size(T.P); szT = size(T.tab_p);
 for d = 2:n

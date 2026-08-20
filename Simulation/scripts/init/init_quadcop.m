@@ -7,42 +7,29 @@ end
 
 quadcop.g   = 9.81; % m/s^2
 quadcop.m   = 0.985; % kg
-% Abflugmasse je Drohnen-id (Index = id); geht GCS-seitig in die Vorsteuerung
-% (gcu-Instanzparameter m_drone). Wiegung 20.08.2026; id=4 vom 17.08.
+% Abflugmasse je Drohnen-id (Index = id)
 quadcop.m_id = [0.984, 0.988, 0.928, 0.977]; % kg
 quadcop.J   = diag([6.583 * 10^-3, 5.125 * 10^-3, 1.104 * 10^-2]); % kg*m^2 
-% quadcop.J   = diag([7 * 10^-3, 5.5 * 10^-3, 1.4 * 10^-2]); % kg*m^2 
 quadcop.J_inv = inv(quadcop.J);
 l = 0.124;  % Armlaenge 
 
 % c_T = 1.134e-3; % (MA-Finn)  
 % c_T = 7.433e-5; % N/(s)^2 (selbst aus Datenblatt ohne Faktor 2pi und mit anderem Fit (polyfit)
 % --- Schubkonstante aus Datenblatt GEMFAN 51499 ---
-% Aus dem Datenblatt (inklusive 0-Punkt)
 rpm = [0, 4957, 9256, 12419, 15418, 18497, 20977, 23272, 25355, 27260, 28597];
 thrust_g = [0, 48.2, 168.1, 314.5, 496.0, 722.2, 932.4, 1141.5, 1357.9, 1590.0, 1690.8];
-% Umrechnung in SI-Einheiten (Winkelgeschwindigkeit in rad/s, Schub in Newton)
+% Umrechnung in SI-Einheiten
 omega = rpm .* (2*pi/60);
 T = thrust_g .* (9.81/1000);
 % Least-Squares-Schätzung für das Modell T = c_T * omega^2
-omega_sq = (omega.^2)'; 
+omega_sq = (omega.^2)';
 T_col = T';
-% Berechnung der Schubkonstante
 c_T = omega_sq \ T_col;
-% Zur Kontrolle: Die berechnete Konstante anzeigen
 disp(['Schubkonstante c_T (Datenblatt): ', num2str(c_T), ' Ns^2/rad^2']);
 
 % --- Korrektur aus Liftoff-Messung unter Last (gefesselt) --------------------
-% Das Datenblatt ueberschaetzt den realen Schub pro omega^2. Am Pruefstand hob die
-% Drohne erst bei F_des_liftoff = 12.22 N ab (= 1.265*m*g). Der Wert ist
-% batterie-UNABHAENGIG (11.87 N am sackenden 13.4-V-Akku, 12.22 N am vollen 16.8-V-
-% Akku) -> die Spannungskorrektur der Kennlinie liefert bei beiden denselben Schub,
-% also ist das Defizit reine Aerodynamik, kein Batterie-Artefakt.
-% Herleitung: bei Liftoff ist realer Schub = m*g. Der Mixer kommandiert omega mit
-% c_T_datenblatt (sum(omega^2)=F_des/c_T), der Throttle-Map erzeugt daraus die echte
-% Drehzahl. Realer Schub = c_T_real*sum(omega^2) = c_T_real*F_des/c_T_datenblatt.
-% Gleichsetzen: c_T_real = c_T_datenblatt * m*g / F_des_liftoff  (~21 % kleiner).
-F_des_liftoff = 12.22; % [N] gemessen, voller Akku
+% c_T_real = c_T_datenblatt * m*g / F_des_liftoff
+F_des_liftoff = 12.22; % [N]
 c_T = c_T * (quadcop.m*quadcop.g) / F_des_liftoff;
 disp(['Schubkonstante c_T (Liftoff-korrigiert): ', num2str(c_T), ' Ns^2/rad^2']);
 
@@ -52,7 +39,7 @@ U = 22.2;
 I = [0.44, 1.68, 3.55, 6.36, 10.50, 14.95, 20.01, 27.35, 35.50, 42.20];
 rpm_Q = [4957, 9256, 12419, 15418, 18497, 20977, 23272, 25355, 27260, 28597];
 omega_Q = rpm_Q .* (2*pi/60);
-eta = 0.75; % angenommener Motorwirkungsgrad aus Literatur
+eta = 0.75; % Motorwirkungsgrad
 % P_mech = c_Q * omega^3  =>  c_Q = (omega^3) \ P_mech
 P_mech = (eta .* U .* I)';
 omega_cube = (omega_Q.^3)';
@@ -60,58 +47,31 @@ c_tau = omega_cube \ P_mech;
 disp(['Gierkonstante c_tau: ', num2str(c_tau), ' Nms^2/rad^2']);
 
 % --- Umrechnung von Omega zu Throttle (spannungsnormiert auf 22.2 V) ----------
-%
-% AUS EIGENER MESSUNG, nicht aus dem Datenblatt. Das Datenblatt taugt fuer c_T
-% (reine Aerodynamik, Schub/rpm^2 ist dort ueber den ganzen Bereich auf +-4 %
-% konstant), aber NICHT fuer die Abbildung Throttle -> Drehzahl:
-%   Es nennt bei 22.2 V/10 % schon 4957 rpm, waehrend kv*U*duty = 1900*22.2*0.1
-%   = 4218 rpm die LEERLAUFdrehzahl waere. Ein belasteter Motor kann die nie
-%   erreichen. Auf das Datenblatt gestuetzt lag das Modell durchweg 22 % zu hoch
-%   in der Drehzahl, also Faktor 0.67 im Schub -- beim rechnerischen Hover-
-%   Throttle waeren real nur 69 % des Gewichts herausgekommen.
-%
-% Messung: Einzelmotor am Pruefstand, Propeller montiert, Blattdurchgangs-
-% frequenz aus dem Audiospektrum (Handyaufnahme, Welch-PSD, Peak ueber lokalem
-% Median). Dreiblattschraube -> rpm = f_Blatt/3*60. Zwei Reihen bei leicht
-% verschiedener Akkuspannung, deshalb U je Punkt mitgefuehrt.
+% Stuetzpunkte: Blattdurchgangsfrequenz je Throttle-Kommando
 thr_meas = [ 10,    15,    20,    25,    30,    35,    40,    45   ];  % [%] Kommando
 f_blade  = [147.4, 213.3, 276.6, 339.1, 399.0, 457.6, 504.0, 559.9];  % [Hz]
 U_meas   = [ 15.90, 15.90, 15.90, 15.90, 15.90, 15.66, 15.66, 15.66]; % [V]
 n_blades = 3;
 
 omega_meas = (f_blade/n_blades) * 2*pi;              % [rad/s]
-% Spannungsnormierung: omega haengt vom Produkt duty*U ab, fuer dieselbe Drehzahl
-% gilt throttle(U) = throttle(22.2 V)*22.2/U. Das Polynom liefert also den
-% AEQUIVALENTEN 22.2-V-Throttle; die Division durch die gemessene Spannung macht
-% das Modell zur Laufzeit (V_filt aus safety_battery, geklemmt).
+% Spannungsnormierung: throttle(U) = throttle(22.2 V)*22.2/U
 throttle_eq = thr_meas .* U_meas / 22.2;
 
-% Fit ohne Konstante: throttle = p1*omega^2 + p2*omega. Durch den Ursprung, weil
-% omega = 0 exakt throttle = 0 bedeutet. Normiert gerechnet (omega/1e3), sonst
-% ist die Normalengleichung schlecht konditioniert.
+% Fit durch den Ursprung: throttle = p1*omega^2 + p2*omega, normiert mit omega/1e3
 Mfit = [(omega_meas(:)/1e3).^2, omega_meas(:)/1e3];
 cfit = Mfit \ throttle_eq(:);
 quadcop.p_from_omega = [cfit(1)/1e6, cfit(2)/1e3, 0];      % polyval-Reihenfolge
 disp('Koeffizienten fuer die Abbildung (omega -> aequiv. 22.2-V-Throttle):');
 disp(quadcop.p_from_omega);
-% Guete: max. Residuum 0.37 Prozentpunkte (die meisten unter 0.1). Der Hover
-% liegt bei 1133 rad/s und damit INNERHALB des Messbereichs (45 % -> 1173 rad/s),
-% es wird also interpoliert, nicht extrapoliert.
-% Offen: alle Punkte stammen von ~15.8 V. Das Spannungsgesetz 22.2/U ist damit
-% nicht ueber verschiedene Spannungen geprueft.
-
-% Spannungsnormierung: thr = polyval(p_from_omega, omega) * U_ds / clamp(V_filt).
-% Die Klemmung ist NICHT optional — V_filt steht im Nenner, und ein ausgefallener
-% Batteriesensor (V_filt = 0) wuerde sonst alle vier Motoren auf 100 % treiben.
-quadcop.U_ds = 22.2; % [V] Spannung, bei der das Datenblatt aufgenommen wurde
-quadcop.V_thr_min = 11.0; % [V] untere Klemme (4S leer ~12.0, etwas Luft darunter)
-quadcop.V_thr_max = 17.5; % [V] obere Klemme (4S voll 16.8, etwas Luft darueber)
-quadcop.V_thr_init = 16.8;  % [V] 4S voll geladen
+% Laufzeit-Kennlinie: thr = polyval(p_from_omega, omega) * U_ds / clamp(V_filt)
+quadcop.U_ds = 22.2; % [V] Referenzspannung der Kennlinie
+quadcop.V_thr_min = 11.0; % [V] untere Klemme
+quadcop.V_thr_max = 17.5; % [V] obere Klemme
+quadcop.V_thr_init = 16.8; % [V] 4S voll geladen
 
 % Motorwinkelgeschwindigkeiten -> Schubkraft und Drehmomente:  [F; tau_x; tau_y; tau_z] = Gamma * [w1^2; w2^2; w3^2; w4^2] 
 % momentan fliegt Quadrkopter in X-Konfiguration
-% konfiguriere Gamma:
-alpha = 38.4; % degrees (Winkel aus Lunze/Schwung Paper)
+alpha = 38.4; % degrees
 % Quadrcopterkonfiguration ist ein Mix aus H- und X-Konfiguration 
 a = l * sin(alpha / 180 * pi);
 b = l * cos(alpha / 180 * pi);
@@ -128,31 +88,10 @@ tau = [skew(r1)*f_i-tau_i  skew(r2)*f_i+tau_i  skew(r3)*f_i-tau_i  skew(r4)*f_i+
 quadcop.Gamma = [F; tau];
 
 % --- Schub-Mismatch Strecke <-> Reglermodell ---------------------------------
-% Gamma_inv geht in den Mixer (Regler), Gamma in die Strecke (plant.slx). Solange
-% beide dasselbe Gamma benutzen, kuerzt sich JEDE c_T-Korrektur im geschlossenen
-% Kreis exakt heraus: der Mixer kommandiert genau so viel mehr omega, wie die
-% Strecke weniger Schub pro omega^2 macht. Die Liftoff-Korrektur oben ist damit
-% im Regelkreis wirkungslos -- die Simulation liefert per Konstruktion exakt den
-% kommandierten Schub (k = 1.0) und kann den Schubmangel der echten Drohne
-% ueberhaupt nicht zeigen. Genau daran sind alle bisherigen Sim-Regressionen
-% vorbeigelaufen.
-% Deshalb: Gamma_inv VOR der Skalierung bilden, dann nur die Strecke skalieren.
-%
-% k_thrust gemessen im Flug 05.08.2026 (FLAT001), Impulsbilanz im Halteflug bei
-% 1.585 m ueber 6.5 s:  k = m*(zdd + g) / (F_cmd * cos(Neigung)) = 0.838 +- 0.035.
-% Der Schub-Schaetzer an Bord fand im selben Fenster unabhaengig 0.847. Der
-% gefesselte Liftoff-Test (oben, 9.66/12.22 = 0.79) liegt in derselben
-% Groessenordnung, wurde aber am Boden gemessen.
-% k_thrust = 1.0 stellt den frueheren, idealen Zustand wieder her.
-%
-% Skaliert wird NUR Zeile 1 (die Schubkraft) -- gleiche Konvention wie
-% thrust_scale in droma_flatness_sim/test_flatness_blocks, und der Momentenpfad
-% bleibt unangetastet. Steckt das Defizit dagegen in der Throttle-Kennlinie
-% (reale Drehzahl niedriger als kommandiert), muessten ALLE vier Zeilen
-% skaliert werden. Welches von beidem zutrifft, klaert erst der S-1-Waagentest.
+% Gamma_inv wird VOR der Skalierung gebildet, skaliert wird nur Zeile 1 (Schub)
 quadcop.k_thrust = 0.84;
-quadcop.Gamma_inv = inv(quadcop.Gamma);                          % Regler: MODELL
-quadcop.Gamma(1,:) = quadcop.k_thrust * quadcop.Gamma(1,:);      % Strecke: REAL
+quadcop.Gamma_inv = inv(quadcop.Gamma); % Regler: MODELL
+quadcop.Gamma(1,:) = quadcop.k_thrust * quadcop.Gamma(1,:); % Strecke: REAL
 
 % uncomment to test robustness
 % test_c_tau = 2; % factor

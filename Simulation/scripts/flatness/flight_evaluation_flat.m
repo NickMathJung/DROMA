@@ -1,11 +1,5 @@
-% flight_evaluation_flat  Tracking-Auswertung eines bench_flat.slx-Laufs.
-%
-% Rueckschiebung noetig: der Bias in gcu_flat verschiebt die AUSWERTUNG der
-% Trajektorie (geloggt wird x_s(t+T_lead)), nicht deren Versandzeitpunkt.
-% Beleg Yaw-Flug 06.08.2026, dieselben Daten in beiden Rahmen: gegen die
-% geloggte Referenz -7.3 cm/(m/s) scheinbarer Nachlauf, zurueckgeschoben
-% +1.2 -> die Drohne fliegt den Zeitplan, der Log ist die vorgeschobene
-% Trajektorie.
+%% flight_evaluation_flat.m  --  Tracking-Auswertung eines bench_flat-Laufs
+%  Geloggt wird x_s(t+T_lead), die Referenz wird hier um T_lead zurueckgeschoben
 
 t_flight   = out.tout;
 x          = squeeze(out.mocap_pos.Data);
@@ -61,7 +55,7 @@ save(fullfile(zielOrdner, dateiname_mocap_quat), 'mocap_quat');
 save(fullfile(zielOrdner,'t_flight.mat'),'t_flight');
 
 function A = shift_time_dim(A, n, nt)
-% Signal um n Abtastungen nach verschieben 
+% Signal um n Abtastungen verschieben
 if size(A,1) == nt
     A = [repmat(A(1,:), n, 1); A(1:end-n, :)];
 elseif size(A,2) == nt

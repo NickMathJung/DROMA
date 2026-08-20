@@ -1,22 +1,17 @@
 function setup_motive_path()
 %setup_motive_path  Pfade fuer die Motive/NatNet-Anbindung setzen.
-%   Einmal pro MATLAB-Session vor dem Start von bench.slx aufrufen (oder ins
-%   Projekt-StartupFcn von DROMA.prj eintragen).
+%   Einmal pro MATLAB-Session aufrufen.
 %
 %   Legt auf den Pfad:
-%     scripts\motive\                       -> MotiveMocap (System object)
-%     ...\Motive\OptiTrack_MATLAB_Plugin_1.1.0\Matlab\  -> natnet, quaternion
+%     scripts\motive\ -> MotiveMocap
+%     ...\Motive\OptiTrack_MATLAB_Plugin_1.1.0\Matlab\ -> natnet, quaternion
 %
-%   Das Plugin liegt bewusst ausserhalb des Repos (Third-Party plus DLLs) unter
-%   DROMA\Motive\ und ist nicht versioniert.
-%
-%   Zum DLL-Pfad: natnet.getLastAssemblyPath liest <plugin>\Matlab\assemblypath.txt.
-%   Fehlt die Datei, oeffnet natnet.setAssemblyPath ein uigetfile-Fenster und
-%   blockiert die Simulation. Diese Funktion legt sie bei Bedarf automatisch an.
+%   Das Plugin liegt ausserhalb des Repos unter DROMA\Motive\.
+%   Legt ausserdem <plugin>\Matlab\assemblypath.txt mit dem DLL-Pfad an.
 
-    here   = fileparts(mfilename('fullpath'));            % ...\scripts\motive
-    sim    = fileparts(fileparts(here));                  % ...\Simulation
-    droma  = fileparts(sim);                              % ...\DROMA
+    here   = fileparts(mfilename('fullpath')); % ...\scripts\motive
+    sim    = fileparts(fileparts(here)); % ...\Simulation
+    droma  = fileparts(sim); % ...\DROMA
     plugin = fullfile(droma,'Motive','OptiTrack_MATLAB_Plugin_1.1.0');
     pmat   = fullfile(plugin,'Matlab');
     dll    = fullfile(plugin,'NatNetML.dll');

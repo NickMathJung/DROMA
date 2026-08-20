@@ -1,10 +1,7 @@
 function run_mcu_arm_codegen(proj_root)
-% run_mcu_arm_codegen — mcu.slx fuer Teensy 4.1 / Cortex-M7 generieren.
-%   Nur GenCodeOnly - kompiliert wird spaeter ueber die Teensy/PlatformIO-Toolchain,
-%   nicht aus MATLAB. Output nach hardware\mcu_arm\ (eigener CodeGen-/Cache-Ordner),
-%   damit das SITL-zertifizierte scripts\sitl\mcu_ert_rtw\ unberuehrt bleibt. 
-%   Als Funktion geschrieben, damit die lokalen Vars den 'clear' in params.m
-%   (quadcop-PreLoadFcn) ueberleben.
+% run_mcu_arm_codegen  --  mcu.slx fuer Teensy 4.1 / Cortex-M7 generieren.
+%   Nur GenCodeOnly, kompiliert wird ueber die Teensy/PlatformIO-Toolchain.
+%   Output nach hardware\mcu_arm\ mit eigenem CodeGen-/Cache-Ordner.
 armdir = fullfile(proj_root,'hardware','mcu_arm');
 
 openProject(fullfile(proj_root,'DROMA.prj'));
@@ -15,7 +12,7 @@ if ~isfolder(armdir)
     mkdir(armdir); 
 end
 
-% --- CodeGen-/Cache-Ordner auf hardware\mcu_arm umlenken (und wiederherstellen) --
+% --- CodeGen-/Cache-Ordner auf hardware\mcu_arm umlenken ---
 cfg = Simulink.fileGenControl('getConfig');
 oldCGF = cfg.CodeGenFolder; oldCF = cfg.CacheFolder;
 Simulink.fileGenControl('set','CodeGenFolder',armdir,'CacheFolder',armdir,'createDir',true);

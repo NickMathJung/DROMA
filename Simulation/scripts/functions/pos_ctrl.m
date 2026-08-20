@@ -1,33 +1,31 @@
 function [F_des, F_des_vec, q_des] = pos_ctrl(x, v, x_ref, v_ref, a_ref, yaw_ref, Kp, Kd, m, g)
 %#codegen
 % pos_ctrl  PD-Positionsregler.
-%   Erzeugt Sollschub F, Solllage q_ref und (fuer den Beobachter) die
-%   kommandierte Inertialbeschleunigung a_cmd.
+%   Erzeugt Sollschub F, Solllage q_ref und die kommandierte
+%   Inertialbeschleunigung a_cmd.
 %
 %   Ein-/Ausgaenge:
 %     x, v            : Position/Geschwindigkeit
 %     x_d, v_d, a_d   : Solltrajektorie (Pos/Geschw/Beschl, inertial)
-%     yaw_ref         : Soll-Heading 3x1 [yaw; dyaw; ddyaw] (nur yaw_ref(1) genutzt)
+%     yaw_ref         : Soll-Heading 3x1 [yaw; dyaw; ddyaw]
 %     Kp, Kd          : 3x3-Gain-Matrizen
 %     F               : Sollschubbetrag
 %     q_ref           : Solllage-Quaternion
-%     a_cmd           : kommandierte Inertialbeschleunigung (Beobachter-Eingang)
+%     a_cmd           : kommandierte Inertialbeschleunigung
 
 g_grav = [0; 0; g];
 
-% ---- Anti-Windup-Integrator (behebt den stationaeren z-Offset) ----------
-% Ohne I-Anteil bleibt ein Defizit im Flug ~10 cm zu tief. 
-% Ki = omega_i*Kp, omega_i ist der Tuning-Knopf. Anti-Windup: die 
-% Integral-Beschleunigung wird auf +-A_INT_MAX geklemmt und e_int passend 
-% zurueckgerechnet, damit Steigflug-Transienten nicht aufintegriert werden. 
+% ---- Anti-Windup-Integrator ----------
+% Ki = omega_i*Kp. Die Integral-Beschleunigung wird auf +-A_INT_MAX geklemmt
+% und e_int passend zurueckgerechnet.
 persistent e_int
 
 if isempty(e_int)
     e_int = [0; 0; 0]; 
 end
-omega_i   = 0.5;    % [rad/s] TUNING (hoch=schnellerer Offset-Abbau)
-Ts        = 0.01;   % [s] == Ts_gcs
-A_INT_MAX = 3.0;    % [m/s^2] Anti-Windup-Grenze
+omega_i   = 0.5; % [rad/s]
+Ts        = 0.01; % [s]
+A_INT_MAX = 3.0; % [m/s^2] Anti-Windup-Grenze
 Ki = omega_i * Kp;
 
 e    = x - x_ref;
@@ -44,14 +42,14 @@ for k = 1:3
 end
 
 % --- Soll-Schubkraft (inertial): k_thrust*m*(a_des + g_grav), a_des = a_ref + Feedback ---
-k_thrust  = 1.15; % static gain to improve feedforward
+k_thrust  = 1.15; % statischer Vorsteuer-Gain
 F_des_vec = m*(k_thrust*(a_ref + g_grav) - Kp*e - Kd*edot - a_int);
 
 F_des = norm(F_des_vec);
 
 % --- Kraft -> Lage: Koerper-z entlang F_des, Heading aus yaw_ref ---
 zb = F_des_vec / max(F_des, 1e-6); % gewuenschte Koerper-z in Inertial
-yaw = yaw_ref(1);                  % yaw_ref ist 3x1 [yaw; dyaw; ddyaw]; Kaskade nutzt nur yaw
+yaw = yaw_ref(1); % yaw_ref ist 3x1 [yaw; dyaw; ddyaw]
 xc = [cos(yaw); sin(yaw); 0];
 yb = cross(zb, xc);  
 yb = yb / max(norm(yb), 1e-6);

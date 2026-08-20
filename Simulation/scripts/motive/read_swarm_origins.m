@@ -1,11 +1,10 @@
 function [p0, q0] = read_swarm_origins(ids, host_ip, client_ip, timeout_s)
 %read_swarm_origins  Startposen mehrerer Rigid Bodies aus einem NatNet-Frame.
-%   [p0, q0] = read_swarm_origins([1 2]) liefert p0 (3xn, [m]) und q0 (4xn,
-%   scalar-first) der Bodies mit den Streaming-IDs ids. Pollt bis ALLE Bodies
-%   in einem Frame gueltig sind (fuer die Agenten-Startpositionen in
-%   swarm_precompute muessen beide Drohnen gleichzeitig getrackt sein).
-%   Voraussetzungen wie MotiveMocap.m: Motive streamt mit Up Axis = Z,
-%   setup_motive_path() ist gelaufen (assemblypath.txt).
+%   [p0, q0] = read_swarm_origins([1 2]) liefert p0 (3xn) und q0 (4xn,
+%   scalar-first) der Bodies mit den Streaming-IDs ids. Pollt, bis alle Bodies
+%   in einem Frame gueltig sind.
+%   Voraussetzung: Motive streamt mit Up Axis = Z, setup_motive_path() ist
+%   gelaufen.
 arguments
     ids (1,:) double = [1 2]
     host_ip   char = '127.0.0.1'
@@ -29,7 +28,7 @@ while toc(t0) < timeout_s
     got = false(1, n);
     for i = 1:data.nRigidBodies
         rb = data.RigidBodies(i);
-        k = find(ids == rb.ID);   % alle Spalten dieser id (doppelt = Solobetrieb)
+        k = find(ids == rb.ID); % alle Spalten dieser id
         if isempty(k), continue; end
         p = [double(rb.x); double(rb.y); double(rb.z)];
         q = [double(rb.qw); double(rb.qx); double(rb.qy); double(rb.qz)];

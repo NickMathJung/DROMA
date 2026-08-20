@@ -1,12 +1,8 @@
 function verify_battery()
 %verify_battery  Standalone-Scaffold fuer safety_battery.m (kein Modell noetig).
 % Vor jedem Szenario 'clear safety_battery' (persistenter EMA-/Latch-Zustand).
-% Deckt ab: Kaltstart ohne Fehltrip, LED-Eskalation 0->1->2 an den Schwellen,
-% Hysterese (kein Flattern), Floor-Latch bleibt sticky (kein Auto-Release, sonst
-% Sink<->Hover-Grenzzyklus), EMA filtert kurzen Last-Sag, count-Bereich.
-%
-% Hinweis EMA-Einschwingen: tau~0.7 s @100 Hz -> ~3*tau ≈ 2 s (200 Samples) bis
-% V_filt eine Stufenaenderung trackt. Tests legen entsprechend lange Plateaus an.
+% Deckt ab: Kaltstart, LED-Eskalation 0->1->2 an den Schwellen, Hysterese,
+% Floor-Latch sticky, EMA-Filterung eines kurzen Last-Sags, count-Bereich.
 
 m = 0.93; g = 9.81;
 safety = make_safety(m, g);
@@ -35,7 +31,7 @@ ok = check(ok, w>c && c>f,       'B2 Reihenfolge WARN>CRIT>LAND');
 
 % B3 ------------------------------- Hysterese: V pendelt knapp unter V_warn
 clear safety_battery
-safety_battery(v2c(13.95), safety);            % in WARN bringen
+safety_battery(v2c(13.95), safety); % in WARN bringen
 rng(0); leds = zeros(500,1);
 for i=1:500
     v = 13.90 + (rand-0.5)*0.12;
@@ -43,22 +39,20 @@ for i=1:500
 end
 ok = check(ok, all(leds==1), 'B3 Hysterese: led bleibt WARN, kein Flattern');
 
-% B4 ---------- Floor-Latch sticky: haelt trotz V-Erholung (kein Grenzzyklus)
-% Modelliert genau den Descent-Fall: V faellt unter Floor (Latch), dann erholt
-% sich V (weniger Last im Sinkflug); der Latch muss halten, sonst Sink<->Hover.
+% B4 ---------- Floor-Latch sticky: haelt trotz V-Erholung
 clear safety_battery
 for i=1:50,  safety_battery(v2c(12.5), safety); end
 land=false;
-for i=1:400, [~,land,~] = safety_battery(v2c(11.5), safety); end   % einschwingen < floor
+for i=1:400, [~,land,~] = safety_battery(v2c(11.5), safety); end % einschwingen < floor
 ok = check(ok, land, 'B4a Floor unterschritten -> land latched');
-for i=1:300, [~,land,~] = safety_battery(v2c(12.6), safety); end   % Erholung im Descent
+for i=1:300, [~,land,~] = safety_battery(v2c(12.6), safety); end % Erholung im Descent
 ok = check(ok, land, 'B4b sticky: land haelt trotz V-Erholung (kein Grenzzyklus)');
 
 % B5 ---------------------------- EMA filtert kurzen Last-Sag unter Floor weg
 clear safety_battery
-for i=1:200, safety_battery(v2c(13.0), safety); end   % stabil ueber floor
+for i=1:200, safety_battery(v2c(13.0), safety); end % stabil ueber floor
 land=false;
-for i=1:5,  [~,land,V] = safety_battery(v2c(11.0), safety); end  % 50 ms Sag
+for i=1:5,  [~,land,V] = safety_battery(v2c(11.0), safety); end % 50 ms Sag
 ok = check(ok, ~land, sprintf('B5 50ms-Sag auf 11V: V_filt=%.2f bleibt > floor', V));
 
 % B6 ------------------------------------------- count-Bereich vs. Handover
@@ -73,7 +67,7 @@ function safety = make_safety(m, g)
 Ts_batt = 1/100;  tau = 0.7;
 safety = struct();
 safety.m = m;  safety.g = g;
-safety.batt_k = 3.3*18.182/4095;     % V/count (ideal, b=0). HW-Kalibrierung noch offen.
+safety.batt_k = 3.3*18.182/4095; % V/count
 safety.batt_b = 0.0;
 safety.batt_alpha = 1 - exp(-Ts_batt/tau);
 safety.V_warn  = 14.0;

@@ -1,14 +1,12 @@
 function log = read_flight_log_flat(fname)
 %read_flight_log_flat  Blackbox-Datei FLATnnn.BIN von der Drohnen-SD einlesen.
-%   Gegenstueck zu scripts\sitl\include\flight_log_flat.hpp — die Offsets unten
-%   sind dort per Gate-B-Test (test_flight_log_flat) eingefroren.
 %
 %   log = read_flight_log_flat('F:\FLAT000.BIN')
 %
 %   Rueckgabe (t jeweils in s, Nullpunkt = erster Fast-Record):
 %     .hdr        Kopfdaten (id, Betriebsart, Skalen, Tickbereich)
 %     .t_fast     Nx1   1-kHz-Zeitachse
-%     .gyro       Nx3   rad/s, biasfrei, Body-Frame  (fuer Spektren/Notch)
+%     .gyro       Nx3   rad/s, biasfrei, Body-Frame
 %     .acc        Nx3   m/s^2, Body-Frame
 %     .t_slow     Mx1   100-Hz-Zeitachse
 %     .mocap_pos  Mx3 | .p_ref Mx3 | .q_ext Mx4 | .thr Mx4 [%] | .batt_count Mx1
@@ -17,10 +15,10 @@ function log = read_flight_log_flat(fname)
 %                        Bit2 Aufzeichnung beendet (estop/Landung/voll)
 %     .k_hat      Mx1   Schub-Skalenschaetzung
 %     .F          Mx1   kommandierter Schub [N]
-%     .aint       Mx3   Integratorbeitrag (Klemme AINT_MAX = 400)
-%     .ufb        Mx3   Rueckfuehrung VOR der Klemme [m/s^4]; |ufb| > 700 = Saettigung
-%     .sat        Mx3   logical, ufb ueber UFB_MAX (bequemer Kurzschluss auf ufb)
-%     .w          Mx1   Adaptions-/Integrations-Freigabe in [0,1] (Hoehenrampe)
+%     .aint       Mx3   Integratorbeitrag
+%     .ufb        Mx3   Rueckfuehrung vor der Klemme [m/s^4]
+%     .sat        Mx3   logical, ufb ueber UFB_MAX
+%     .w          Mx1   Adaptions-/Integrations-Freigabe in [0,1]
 arguments (Input)
     fname (1,:) char
 end
@@ -69,9 +67,8 @@ log.t_fast = (0:h.n_fast-1).' * dt;
 
 % ---- Slow-Block: M x 58 B, gemischte Typen -> spaltenweise herausschneiden ---
 o = o + h.n_fast*12;
-S = reshape(raw(o+1 : o+h.n_slow*76), 76, []).';   % M x 76 uint8
-% Spaltenbereiche je Feld (1-basiert, aus RecSlow). Transponieren + (:) bringt die
-% Bytes eines Records zusammenhaengend, erst dann darf typecast greifen.
+S = reshape(raw(o+1 : o+h.n_slow*76), 76, []).'; % M x 76 uint8
+% Spaltenbereiche je Feld, 1-basiert
 t = S(:, 1: 4).'; tick          = double(typecast(t(:),'uint32'));
 t = S(:, 5:16).'; log.mocap_pos = reshape(double(typecast(t(:),'single')), 3, []).';
 t = S(:,17:28).'; log.p_ref     = reshape(double(typecast(t(:),'single')), 3, []).';
@@ -82,8 +79,7 @@ log.estop       = S(:,55);
 log.led         = S(:,56);
 log.ack         = S(:,57);
 log.flags       = S(:,58);
-% v2: Reglerzustaende. Skalen stehen NICHT im Header (nur Gyro/Acc) — sie sind in
-% flight_log_flat.hpp festgeschrieben und per Gate-B-Test eingefroren.
+% Reglerzustaende, Skalen stehen nicht im Header
 KHAT_SCALE = 20000; F_SCALE = 800; AINT_SCALE = 80; UFB_SCALE = 8; W_SCALE = 20000; UFB_MAX = 700;
 t = S(:,59:60).'; log.k_hat = double(typecast(t(:),'int16')) / KHAT_SCALE;
 t = S(:,61:62).'; log.F     = double(typecast(t(:),'int16')) / F_SCALE;

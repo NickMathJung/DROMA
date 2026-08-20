@@ -1,58 +1,42 @@
 function [F, tau, dbg] = flatness_ctrl(p, v, q, omega, p_ref, v_ref, a_ref, j_ref, s_ref, yawref, k_hat, m, g, J, coefPos, coefPhi, Ts, kill, w_adapt)
 %#codegen
 % flatness_ctrl Flachheitsbasierter Folgeregler (exakte Zustandslinearisierung).
-%   Als Alternative zur Kaskade pos_ctrl (GCS) + geo_attitude_ctrl (MCU). 
-%   Liefert Schub + Moment [F;tau] in einem Zug aus dem vollen Zustand (p,v,R,w) 
+%   Liefert Schub + Moment [F;tau] in einem Zug aus dem vollen Zustand (p,v,R,w)
 %   und der Solltrajektorie.
 %
-%   Konvention z-up, Schub entlang + Body-z (identisch pos_ctrl/geo_attitude_ctrl).
-%   Ausgabeschnittstelle [F(N), tau(Nm)] = wie geo_attitude_ctrl -> der bestehende
-%   Mixer (Gamma_inv + Throttle-Map) im mcu wird unverändert weiterverwendet.
+%   Konvention z-up, Schub entlang + Body-z.
 %
 %   Eingaenge
-%     p,v      3x1  Position (Mocap) / Geschwindigkeit (Luenberger)
+%     p,v      3x1  Position / Geschwindigkeit
 %     q        4x1  Lage-Quaternion, Skalar zuerst
-%     omega    3x1  Koerperdrehrate 
+%     omega    3x1  Koerperdrehrate
 %     p_ref..s_ref 3x1  flache Ausgaenge Position + Ableitungen (v,a,j,s)
-%     yawref   3x1  [yaw; dyaw; ddyaw]  (aus traj_gen; dyaw=ddyaw=0 bei Segment-Yaw)
-%     k_hat    1x1  Schub-Skalenschaetzung (aus flatness_khat, 1.0 wenn aus)
+%     yawref   3x1  [yaw; dyaw; ddyaw]
+%     k_hat    1x1  Schub-Skalenschaetzung
 %     m,g      1x1  Masse, Erdbeschleunigung
 %     J        3x3  Traegheitstensor
-%     coefPos  3x6  Brunovsky-Koeffizienten je Achse (aus init_flatness)
-%     coefPhi  1x4  Brunovsky-Koeffizienten Yaw (inkl. Integrator, letzter
-%                   Koeffizient = Integralgain wie bei coefPos)
-%     Ts       1x1  Abtastzeit des Reglers [s]
-%     kill     1x1  logical, gelatchter Not-Aus (safety_overspeed)
+%     coefPos  3x6  Brunovsky-Koeffizienten je Achse
+%     coefPhi  1x4  Brunovsky-Koeffizienten Yaw, letzter Koeffizient = Integralgain
+%     Ts       1x1  Abtastzeit des Reglers
+%     kill     1x1  logical, gelatchter Not-Aus
 %     w_adapt  1x1  Multipliziert nur den Zuwachs von k_hat
 %   Ausgaenge
-%     F        1x1  Sollschub [N]
-%     tau      3x1  Stellmoment [Nm]
-%     dbg      6x1  [aint(3); u_fb_raw(3)] — nur zur Aufzeichnung, greift nicht in
-%                   die Regelung ein. aint ist der Integratorbeitrag, u_fb_raw die
-%                   Rueckfuehrung VOR der UFB_MAX-Begrenzung: |u_fb_raw| > UFB_MAX
-%                   heisst, der Regler steht in der Saettigung. Beides ist von
-%                   aussen sonst nicht beobachtbar (Zustaende sind persistent).
+%     F        1x1  Sollschub
+%     tau      3x1  Stellmoment
+%     dbg      6x1  [aint(3); u_fb_raw(3)]: Integratorbeitrag und Rueckfuehrung
+%                   vor der UFB_MAX-Begrenzung
 %
-%   Interne Zustaende: zeta1 (spez. Schub), zeta2 (dessen Ableitung) -> die
-%   dynamische Erweiterung, die den Schub zum Brunovsky-Integratorzustand macht.
+%   Interne Zustaende: zeta1 (spez. Schub), zeta2 (dessen Ableitung)
 
 % --- Reglerzustaende + Arming-Reset -------------------------------------------
-% Der Regler rechnet auch bei aktivem Not-Aus weiter (der Kill nullt nur die
-% Stellgroessen hinter dem Mixer). Ohne Reset laufen die Integratorzustaende
-% dabei mit: solange die Drohne am Boden liegt und die Trajektorie weiterfaehrt,
-% laedt eint den Positionsfehler auf, und zeta1/zeta2 wandern vom Hover weg. Weil
-% ein Integrator bei ep=0 nicht selbst abbaut, bleibt dieser Zustand stehen, bis
-% die Firmware neu bootet — beim Freigeben schlaegt er dann voll durch
-% (gemessen: 1.91x Hover-Schub statt 1.00x).
-% Deshalb: solange kill anliegt, werden die Zustaende auf den Hover-Arbeitspunkt
-% geklemmt. Der Regler startet damit IMMER aus zeta1=g, zeta2=0, eint=0 —
-% bumpless transfer, auch beim Re-Armen nach einem Overspeed-Trip im Flug.
+% Solange kill anliegt, werden die Zustaende auf den Hover-Arbeitspunkt geklemmt:
+% Start immer aus zeta1 = g, zeta2 = 0, eint = 0.
 persistent zeta1 zeta2 eint eintPhi
 if isempty(zeta1) || kill
     zeta1 = g; % Hover: spez. Schub = g
     zeta2 = 0;
-    eint  = [0;0;0]; % Positions-Integrierer (nullt konstante Stoerungen)
-    eintPhi = 0;     % Yaw-Integrierer
+    eint  = [0;0;0]; % Positions-Integrierer
+    eintPhi = 0; % Yaw-Integrierer
 end
 
 eZ = [0;0;1];
@@ -65,17 +49,11 @@ a  = -g*eZ + zeta1*R(:,3);
 jj = zeta2*R(:,3) + zeta1*R*tw*eZ;
 projC = R(:,2).'*eZ;
 yc = R(:,2) - projC*eZ;  yC = yc/norm(yc);
-% Gierwinkel VORZEICHENRICHTIG aus den Komponenten von yC. Das fruehere
-% acos(eY.'*yC) lieferte nur |phi| und hat drei Fehler erzeugt (Flug 03.08.2026):
-%   (a) yawref<0 war unerreichbar -> bleibender Fehler -> konstantes Giermoment,
-%   (b) fuer phi<0 wuchs |phi| MIT dem Fehler -> Mitkopplung, Weglauf,
-%   (c) xC wurde falsch aufgebaut -> der Nenner unten wurde zu cos(2*phi) und
-%       ging bei -45 deg durch null -> Ratensprung -203 deg/s.
+% Gierwinkel vorzeichenrichtig aus den Komponenten von yC
 phi = atan2(-yC(1), yC(2));
 xC  = [cos(phi); sin(phi); 0];
 txB = cross(yC, R(:,3));
-% In Horizontallage ist der Nenner exakt 1; er faellt erst bei starker
-% Schraeglage ab. Vorzeichentreu abfangen, damit dphi nie explodiert.
+% Nenner vorzeichentreu auf |den| >= 0.3 klemmen
 den  = xC.'*R(:,1);
 den  = sign(den + (den == 0)) * max(abs(den), 0.3);
 dphi = (norm(txB)*w(3) - w(2)*yC.'*R(:,3)) / den;
@@ -84,10 +62,6 @@ dphi = (norm(txB)*w(3) - w(2)*yC.'*R(:,3)) / den;
 ep   = p - p_ref;
 ki   = coefPos(:,6);           
 AINT_MAX = 400; % TUNING-Knopf
-% Nahe am Boden verfaelscht der Bodeneffekt den Positionsfehler und der
-% Integrierer laedt sich auf, ohne dass etwas auszuregeln waere (gemessen nach
-% einer Landung: +322 von 400 in gut 5 s). w_adapt nimmt den Zuwachs graduell
-% zurueck statt ihn abzuschneiden.
 eint = eint + w_adapt * ep * Ts;
 aint = ki .* eint;
 for kk = 1:3
@@ -104,22 +78,15 @@ u_123 = s_ref ...
         - diag(coefPos(:,5))*ep ...
         - aint;
 
-% --- Begrenzung (vergroessert die Einzugsregion) ---------------------
+% --- Begrenzung ---------------------------------------------------------------
 UFB_MAX = 700; % TUNING-Knopf [m/s^4]
-u_fb_raw = u_123 - s_ref;                              % vor der Klemme -> dbg
+u_fb_raw = u_123 - s_ref; % vor der Klemme
 u_fb  = max(min(u_fb_raw, UFB_MAX), -UFB_MAX);
 u_123 = s_ref + u_fb;
 
-% Yaw-Fehler auf (-pi,pi] wickeln, sonst wuerde ein Sollwert jenseits von
-% +-180 deg als fast volle Umdrehung statt auf dem kurzen Weg ausgeregelt.
+% Yaw-Fehler auf (-pi,pi] wickeln
 ephi = atan2(sin(phi - yawref(1)), cos(phi - yawref(1)));
-% --- Yaw-Integrierer mit Anti-Windup (05.08.2026) -----------------------------
-% Das Giermoment-Gleichgewicht ist nicht null und wandert (Box-Flug: Yaw
-% -13..+8 deg, impliziertes Stoermoment bis ~0.05 Nm = 28 % der Autoritaet).
-% Klemme bei 6 rad/s^2 (= J_zz*6 ~ 0.066 Nm, 40 % der Gierautoritaet, ueber dem
-% beobachteten Bedarf) — P/D behalten damit immer >= 60 % der Autoritaet.
-% Zuwachs wie beim Positions-Integrierer ueber w_adapt geblendet: am Boden
-% haelt die Reibung die Drohne fest, dort ist der Fehler nicht ausregelbar.
+% --- Yaw-Integrierer mit Anti-Windup ------------------------------------------
 AINT_PHI_MAX = 6; % TUNING-Knopf [rad/s^2]
 eintPhi = eintPhi + w_adapt * ephi * Ts;
 aintPhi = coefPhi(4) * eintPhi;
@@ -137,23 +104,13 @@ dwz = ( zeta1*(u_4*xC.'*R(:,1) + 2*dphi*w(3)*xC.'*R(:,2) - 2*dphi*w(2)*xC.'*R(:,
 dw = [dwx; dwy; dwz];
 
 % --- Stellgroessen ---
-% Schub-Skalenkorrektur ueber die Hoehenrampe geblendet (05.08.2026): k_hat
-% misst das FREIFLUG-Defizit (~0.85). Am Boden hebt der Bodeneffekt genau
-% dieses Defizit auf (gemessen: k_true bis 1.20 unter 0.15 m) -- die volle
-% Korrektur kommandiert dort 1/0.85 = 1.18*m*g, geliefert wird mehr als das
-% Gewicht, und die Drohne huepft (Grenzzyklus im Bodeneffekt, Box-Flug
-% t=21.8..23.6 s: z pendelt 0.13..0.27 m bei F = 0.84..1.25 m*g). Die Kaskade
-% huepft nur deshalb nicht, weil sich ihr c_T-Fehler und der Bodeneffekt am
-% Boden zufaellig aufheben. w_adapt ist genau das Mass "wie weit aus dem
-% Bodeneffekt heraus": w=0 -> Korrektur aus (kommandiert wie die Kaskade),
-% w=1 -> volle Korrektur, dazwischen stetig. Nach der ehrlichen
-% c_T-Buchhaltung (k_hat -> 1) wird der Ausdruck von selbst zur Identitaet.
+% Schub-Skalenkorrektur ueber w_adapt geblendet
 k_eff = 1 + w_adapt * (k_hat - 1);
 F   = m * zeta1 / max(k_eff, 1e-3); % [N]
 tau = J*dw + cross(w, J*w); % [Nm]
-dbg = [aint; u_fb_raw];     % nur Telemetrie, kein Rueckwirkungspfad
+dbg = [aint; u_fb_raw]; % nur Telemetrie
 
-% --- Reglerzustaende integrieren (expliziter Euler) ---
+% --- Reglerzustaende integrieren ---
 z2o = zeta2;
 dz2 = R(:,3).'*u_123 - 2*zeta2*R(:,3).'*R*tw*eZ + zeta1*R(:,3).'*R*(tw^2 + dw*ones(1,3))*eZ;
 zeta2 = zeta2 + dz2*Ts;

@@ -1,6 +1,6 @@
 function flight_evaluation(id)
 %flight_evaluation  Auswertung eines Flugversuchs von Drohne id, Plot der
-%   Trackingfehler. Der GCS-Pfad (Log-Suffix) folgt aus mocap.streaming_ids.
+%   Trackingfehler.
 arguments
     id (1,1) double = 1
 end
@@ -21,8 +21,7 @@ q_des      = g('q_des');
 F_des      = g('F_des').';
 mocap_quat = g('mocap_quat');
 
-% ------- Referenz um T_lead zurueckschieben, da Totzeit im System durch zu
-%         frühes senden der Solltrajektorie (50ms) ausgeglichen wird ------
+% ------- Referenz um T_lead zurueckschieben ------
 dt_ref = median(diff(t_flight));
 n_lead = round(controller.T_lead / dt_ref);
 if n_lead > 0
@@ -49,7 +48,7 @@ xlabel("t in [s]");
 ylabel("$\|p_i - p_{s,i}\|_2$", 'Interpreter','latex');
 legend("$\|p_x - p_{s,x}\|_2$", "$\|p_y - p_{s,y}\|_2$", "$\|p_z - p_{s,z}\|_2$", 'Interpreter','latex');
 
-% ------- Speichern: Dateiname mit Drohnen-Suffix, Variablennamen kanonisch ---
+% ------- Speichern ---
 zielOrdner = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
 sfx = sprintf('_id%d', id);
 save(fullfile(zielOrdner, ['norm_e_p'   sfx '.mat']), 'norm_e_p');
@@ -64,7 +63,7 @@ save(fullfile(zielOrdner, ['t_flight'   sfx '.mat']), 't_flight');
 end
 
 function A = orient_ts(A, nt)
-% Timeseries-Daten robust auf [nt x k] orientieren (Mux- vs. Matrix-Signale).
+% Timeseries-Daten auf [nt x k] orientieren.
 A = squeeze(A);
 if size(A,1) ~= nt && size(A,2) == nt
     A = A.';

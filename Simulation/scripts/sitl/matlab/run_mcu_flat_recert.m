@@ -1,29 +1,19 @@
 function run_mcu_flat_recert(proj_root)
-% run_mcu_flat_recert — mcu_flat.slx neu generieren + Golden neu aufzeichnen.
-%   Pendant zu run_mcu_recert (Kaskade). Laeuft headless.
+% run_mcu_flat_recert  --  mcu_flat.slx neu generieren + Golden neu aufzeichnen.
+%   Laeuft headless.
 %   proj_root = Simulation-Wurzel (enthaelt DROMA.prj, scripts\, models\).
-%   throttle_poly.hpp wird NICHT neu gedumpt (gehoert der Kaskaden-Recert;
-%   Kennlinie ist zwischen beiden Varianten geteilt).
+%   throttle_poly.hpp wird nicht neu gedumpt.
 sitl = fullfile(proj_root,'scripts','sitl');
 
 fprintf('== openProject ==\n');
 openProject(fullfile(proj_root,'DROMA.prj'));
-load_system('quadcop');              % PreLoadFcn -> params.m -> Ts_inner/quadcop in base
+load_system('quadcop');              % legt Ts_inner/quadcop im Base-Workspace an
 assert(evalin('base','exist(''Ts_inner'',''var'')'), 'Ts_inner fehlt (PreLoadFcn?).');
 
 oldcd = cd(sitl);
 cleanup = onCleanup(@() cd(oldcd));
 
-% Ausgabeordner EXPLIZIT setzen. cd allein reicht nicht: das Projekt pinnt
-% CodeGenFolder auf die Simulation-Wurzel, und dann bricht slbuild mit
-% "CodeGenFolder is set to ... and the current directory ... contains a code
-% generation folder" ab (tritt auf, sobald das Projekt neu geoeffnet wurde oder
-% run_mcu_flat_arm_codegen vorher in derselben Sitzung lief).
-% Wiederhergestellt wird auf proj_root, NICHT auf den vorgefundenen Wert: das
-% Projekt pinnt beides ohnehin auf die Wurzel, und ein "merken und zurueckschreiben"
-% verewigt den temporaeren Wert, sobald ein Lauf ihn einmal hinterlassen hat.
-% Symptom danach: jede Simulation bricht ab mit "Current working folder contains
-% simulation artifacts that can shadow artifacts in the folder ... CacheFolder".
+% CodeGen-/Cache-Ordner auf scripts\sitl umlenken, danach auf proj_root
 Simulink.fileGenControl('set','CodeGenFolder',sitl,'CacheFolder',sitl,'createDir',true);
 restoreFolders = onCleanup(@() Simulink.fileGenControl('set', ...
     'CodeGenFolder',proj_root,'CacheFolder',proj_root,'createDir',true));

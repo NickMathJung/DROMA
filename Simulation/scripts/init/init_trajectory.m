@@ -1,9 +1,8 @@
 function traj = init_trajectory(x0_in, yaw0_in)
 %init_trajectory initializes the trajectory the quadcopter shall follow
 %   with the according dwell times between adjacent trajectories
-%   Optional x0_in/yaw0_in: Anfangs-Ursprung (aus Mocap). Ohne Argumente gelten
-%   die fest eingetragenen Fallback-Werte (Laden ohne Motive). Die bench.slx-
-%   InitFcn ruft init_trajectory(x0,yaw0) mit dem frisch gelesenen Mocap-Ursprung.
+%   Optional x0_in/yaw0_in: Anfangs-Ursprung aus Mocap, sonst gelten die fest
+%   eingetragenen Fallback-Werte
 arguments (Input)
     x0_in   (:,1) double = []   % [] => Fallback-Werte benutzen
     yaw0_in (1,1) double = 0
@@ -13,7 +12,7 @@ arguments (Output)
 end
 auto_origin = ~isempty(x0_in);
 
-if auto_origin % aus Mocap (bench.slx InitFcn beim Run)
+if auto_origin % aus Mocap
     x0   = x0_in;
     yaw0 = yaw0_in;
     fprintf('Auto-Ursprung (Mocap): [%.3f %.3f %.3f] m, yaw %.1f deg\n', ...
@@ -33,7 +32,6 @@ wayp7 = x0 + [0;0;0];
 traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 
 % Yaw konstant je Segment (N-1 Werte) [rad]
-% Kein deg2rad: yaw0 kommt bereits in Radiant (siehe rad2deg in der Ausgabe oben).
 traj.yaw    = [ yaw0   yaw0   yaw0   yaw0   yaw0   yaw0];
 
 % Bewegungsdauer je Segment (N-1 Werte) [s]
@@ -42,7 +40,7 @@ traj.Tseg   = [ 2.0  1.7  1.7  1.7  1.7  2.0 ];
 % Rastdauer je Wegpunkt (N Werte)  -- erster Wert = Anfangs-Hover
 traj.Tdwell = [ 4.0  0.0  0.0  0.0  0.0  0.0  1.0 ];
 
-% ===== S-4 Erste Start- und Landetrajektorie (Versuchsstand, Motoren AN) ==========
+% ===== S-4 Start- und Landetrajektorie ===========================================
 TEST_S4 = false;
 if TEST_S4
     z_hov = 0.5; % max Höhe [m]
@@ -53,10 +51,7 @@ if TEST_S4
 end
 % ==============================================================================
 
-% Dummy-Tabellenfelder: einheitliche traj-Struktur fuer die gcu-Instanzen
-% (Tabellenmodus: init_trajectory_swarm; nur 1 Zeile => Wegpunktmodus in
-% traj_gen. Nicht leer lassen -- leere Struct-Felder kann Simulink nicht
-% als Parameter abbilden.)
+% Dummy-Tabellenfelder: einheitliche traj-Struktur für die gcu-Instanzen
 traj.tab_Ts = 0.01;
 traj.tab_p  = zeros(1,3);
 traj.tab_v  = zeros(1,3);

@@ -1,6 +1,4 @@
 %% verify_quat_codegen.m  -- SITL-Codegen der Quaternion-Helfer
-%  SITL-Vorstufe: sicherstellen, dass die aus mcu.slx generierten C++-Helfer
-%  äquivalent zu MATLAB rechnen, bevor mcu.slx als Firmware geflasht wird.
 %  Prueft die Helfer (und optional die codegen-erzeugte MEX/C++-Version)
 %  gegen die eingefrorenen Test-Vektoren aus verify_quat_codegen.py.
 %
@@ -8,15 +6,14 @@
 %   1) golden_quat.csv laden (id, R(9), q(4), branch).
 %   2) MATLAB gegen Testdatensatz:  dcm2quat_local(R) ~ +-q  und  quat2dcm_local(q) ~ R.
 %   3) Property-Round-Trips ueber Zufalls-Rotationen mit den echten Helfern.
-%   4) (optional) Codegen: MEX bauen und die Schritte 2-3 gegen die MEX wiederholen,
-%      um zu zeigen, dass der generierte Code == Referenz (== MATLAB) ist.
+%   4) (optional) Codegen: MEX bauen und die Schritte 2-3 gegen die MEX wiederholen.
 %
 %  Muss auf dem Pfad liegen:
 %   - dcm2quat_local.m
 %   - quat2dcm_local.m
 clear; clc;
-tol_m = 1e-15;   % MATLAB vs. Testdatensatz
-tol_c = 1e-15;   % Codegen (C++) vs. Testdatensatz
+tol_m = 1e-15; % MATLAB vs. Testdatensatz
+tol_c = 1e-15; % Codegen vs. Testdatensatz
 pass = true;
 
 % --- Testdatensatz laden ---
@@ -53,17 +50,15 @@ codegen quat2dcm_local -args {zeros(4,1)} -o quat2dcm_local_mex -d 'C:\Users\Nic
 codegen quatMul -args {zeros(4,1), zeros(4,1)} -o quatMul_mex -d 'C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\codegen'
 codegen quatConj -args {zeros(4,1)} -o quatConj_mex -d 'C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\codegen'
 codegen quatRotate -args {zeros(4,1),zeros(3,1)} -o quatRotate_mex -d 'C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\codegen'
-% 1. Add the directory to the path so MATLAB can find the newly generated MEX files
+% Codegen-Ordner auf den Pfad
 codegen_dir = 'C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\codegen';
 addpath(codegen_dir);
 
 fprintf('==== CODEGEN-MEX gegen Testdatensatz ====\n');
 
-% 2. Ensure you check for the correct MEX file ('dcm2quat_local_mex')
 pass = pass & run_test(@dcm2quat_local_mex, ...
          exist('dcm2quat_local_mex','file')==3, ids, Rrows, Qref, tol_c, 'MEX');
 
-% 3. Check for the MEX file again, rather than the .m file (which would return 2)
 pass = pass & run_roundtrips(@dcm2quat_local_mex, ...
          exist('dcm2quat_local_mex','file')==3, 20000, tol_c);
 
@@ -127,26 +122,26 @@ end
 
 function pass = run_quatops(qmul, qconj, qrot, tol, tag)
     pass = true;
-    % quatMul gegen Golden (Quaternion-Ausgabe -> bis auf Vorzeichen)
+    % quatMul gegen Testdaten, bis auf Vorzeichen
     T=readtable('C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\test\test_data_quatmul.csv','TextType','string'); w=0;
     for k=1:size(T,1)
         a=T{k,2:5}.'; c=T{k,6:9}.'; ref=T{k,10:13}.'; r=qmul(a,c);
         w=max(w,min(norm(r-ref),norm(r+ref)));
     end
     pass = pass & report(sprintf('%s: quatMul == Testdaten (max %.2e)',tag,w), w<tol);
-    % quatConj gegen Golden (exakt, Vorzeichen fixiert)
+    % quatConj gegen Testdaten
     T=readtable('C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\test\test_data_quatconj.csv','TextType','string'); w=0;
     for k=1:size(T,1)
         a=T{k,2:5}.'; ref=T{k,6:9}.'; w=max(w,max(abs(qconj(a)-ref)));
     end
     pass = pass & report(sprintf('%s: quatConj == Testdaten (max %.2e)',tag,w), w<tol);
-    % quatRotate gegen Golden (Vektor-Ausgabe, exakt)
+    % quatRotate gegen Testdaten
     T=readtable('C:\Users\Nick\thesis_doctoral\MAS Versuchsaufbau\Drohnen\DROMA\Simulation\scripts\test\test_data_quatrotate.csv','TextType','string'); w=0;
     for k=1:size(T,1)
         q=T{k,2:5}.'; vn=T{k,6:8}.'; ref=T{k,9:11}.'; w=max(w,max(abs(qrot(q,vn)-ref)));
     end
     pass = pass & report(sprintf('%s: quatRotate == Testdaten (max %.2e)',tag,w), w<tol);
-    % Eigenschaften (Zufall)
+    % Eigenschaften ueber Zufalls-Quaternionen
     rng(11); I=[1;0;0;0]; eId=0;eInv=0;eConj=0;eAssoc=0;eNorm=0;eRot=0;eLen=0;eDcm=0;
     for i=1:20000
         a=randn(4,1);a=a/norm(a); c=randn(4,1);c=c/norm(c); d=randn(4,1);d=d/norm(d); v=randn(3,1);
@@ -157,7 +152,7 @@ function pass = run_quatops(qmul, qconj, qrot, tol, tag)
         eNorm =max(eNorm, abs(norm(qmul(a,c))-norm(a)*norm(c)));
         eRot  =max(eRot,  norm(qrot(qconj(a),qrot(a,v))-v));
         eLen  =max(eLen,  abs(norm(qrot(a,v))-norm(v)));
-        eDcm  =max(eDcm,  norm(qrot(a,v)-quat2dcm_local(a)*v));   % Referenzbindung
+        eDcm  =max(eDcm,  norm(qrot(a,v)-quat2dcm_local(a)*v)); % Referenzbindung
     end
     pass = pass & report(sprintf('%s: quatMul id/assoc/norm (%.1e/%.1e/%.1e)',tag,eId,eAssoc,eNorm), max([eId eAssoc eNorm])<1e-12);
     pass = pass & report(sprintf('%s: quatConj involutiv & q(x)conj=id (%.1e/%.1e)',tag,eConj,eInv), max(eConj,eInv)<1e-12);

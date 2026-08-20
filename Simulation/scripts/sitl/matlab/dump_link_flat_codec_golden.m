@@ -1,17 +1,12 @@
-%% dump_link_flat_codec_golden.m — Golden fuer den FLATNESS-Codec-Cross-Check.
-%  Pendant zu dump_link_codec_golden.m. Erzeugt eine breite CSV: pro Zeile ein
-%  Bus_Cmd_flat, durch die massgebliche MATLAB-Kette link_tx_flat -> link_rx_flat
-%  gejagt (= die Bloecke in link_flat.slx). Der Host-Test test_link_flat_codec
-%  vergleicht dagegen den C++-Codec pktf::pack/unpack_a/unpack_b
-%  (mcu_flat_packet.hpp, 2-Frame-OTA).
+%% dump_link_flat_codec_golden.m  --  Golden fuer den Codec-Cross-Check der Flatness-Variante
+%  Pro CSV-Zeile ein Bus_Cmd_flat, durch die MATLAB-Kette
+%  link_tx_flat -> link_rx_flat gejagt.
 %
-%  Zwei Vergleichsebenen (siehe test_link_flat_codec.cpp):
-%    L1 (Wire):   tx_i16[21], tx_q, flags  bit-exakt gegen pktf::pack.
+%  Zwei Vergleichsebenen:
+%    L1 (Wire):   tx_i16[21], tx_q, flags  bit-exakt.
 %    L2 (decode): rx_* : Vektoren bit-exakt, q_ext tol 1e-12.
 %
-%  pdrop = 0 isoliert den Codec (kein Bernoulli-Drop / ZOH).
-%
-%  int16-Reihenfolge im tx_i16 (aus link_tx_flat):
+%  int16-Reihenfolge im tx_i16:
 %    [mocap_pos(3) | p_ref(3) | v_ref(3) | a_ref(3) | j_ref(3) | s_ref(3) | yaw_ref(3)]
 
 here        = fileparts(mfilename('fullpath'));
@@ -50,7 +45,7 @@ C(end+1) = mkf('near_half', [0 0 1], [r2 r2 0 0], [0 0 1], Z3,Z3,Z3,Z3, Z3, 0, f
 % -- 3) Mocap-Dropout: q_ext = 0 -> reserviertes Codewort 0 --
 C(end+1) = mkf('mocap_invalid', [0 0 1], [0 0 0 0], [0 0 1], Z3,Z3,Z3,Z3, Z3, 0, false);
 
-% -- 4) int16-Saettigung je Feld (jenseits fs=[20,20,20,50,200,2000,(4,20,200)]) --
+% -- 4) int16-Saettigung je Feld jenseits fs=[20,20,20,50,200,2000,(4,20,200)] --
 C(end+1) = mkf('sat_moc', [30 -30 25], qI, [0 0 1], Z3,Z3,Z3,Z3, Z3, 0, false);
 C(end+1) = mkf('sat_p',   [0 0 1], qI, [30 -30 25], Z3,Z3,Z3,Z3, Z3, 0, false);
 C(end+1) = mkf('sat_v',   [0 0 1], qI, [0 0 1], [30 -30 25], Z3,Z3,Z3, Z3, 0, false);
@@ -69,7 +64,7 @@ rng(24680,'twister');
 Nrand = 200;
 for i = 1:Nrand
     qe  = randn(1,4); qe = qe/norm(qe);
-    moc = 22*(2*rand(1,3)-1);        % bis knapp ueber fs=20
+    moc = 22*(2*rand(1,3)-1);
     p   = 22*(2*rand(1,3)-1);
     v   = 22*(2*rand(1,3)-1);
     a   = 55*(2*rand(1,3)-1);
@@ -88,7 +83,7 @@ for i = 1:numel(C)
                     'j_ref',c.j(:), 's_ref',c.s(:), 'yaw_ref',c.yaw(:), ...
                     'estop',uint8(c.estop), 'ack',logical(c.ack));
 
-    [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params);  % pdrop=0
+    [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params);
     rx = link_rx_flat(pkt_i16, pkt_q, flags, link_flat_params);
 
     nums = [ c.moc, c.qe, c.p, c.v, c.a, c.j, c.s, c.yaw, double(c.estop), double(c.ack), ...

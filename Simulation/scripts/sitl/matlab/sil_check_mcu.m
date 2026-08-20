@@ -1,34 +1,11 @@
-%% sil_check_mcu.m — Diagnosewerkzeug, kein Teil der Zertifizierung.
+%% sil_check_mcu.m  --  Aequivalenz-Check Normal-Mode gegen SIL-Mode
+%  Interaktiv in der MATLAB-IDE fahren, nicht headless.
 %
-%  "Gate A" ist als Zertifizierungsstufe abgeschafft. Zertifiziert wird allein
-%  ueber Gate B (ctest, scripts\sitl\test\): der MATLAB-freie Host-Golden,
-%  tick-exakt <=1e-9 ueber alle 9 Kanaele, samt Determinismus- und
-%  Safety-Integrationstests im generierten Code. Gruende:
-%    - Dieser Check ist (siehe unten) nur ein grober Aequivalenz-Check, kein
-%      Bit-Diff; Gate B ist also strikt schaerfer.
-%    - Der Golden stammt selbst aus dem geschlossenen Kreis (quadcop), also aus
-%      derselben Trajektorie, die SIL hier faehrt. Kein Erkenntnisgewinn.
-%    - Er deckt nur Simulinks Modellreferenz-Integration ab. Die gibt es auf der
-%      Drohne nicht: dort verdrahtet drone_hal.cpp ExtU/ExtY von Hand, und das
-%      faengt weder dieser Check noch Gate B, nur der HW-Test.
-%    - Headless (-batch) scheitert er an "rtwshared", auch mit MSVC 2022, also am
-%      SIL-Setup und nicht an der Toolchain. Nur interaktiv fahrbar.
-%  Der Runner run_gate_a.m ist geloescht (er trug zusaetzlich die openProject-
-%  Falle). Diese Datei bleibt nur als Werkzeug, falls einmal ein Verdacht auf
-%  ein Codegen-Integrationsproblem aufkommt. Interaktiv in der MATLAB-IDE fahren,
-%  nicht headless.
+%  Laesst den MCU-Model-Block einmal im Normal- und einmal im SIL-Mode laufen
+%  (im SIL den generierten C++-Code) und vergleicht rotor_cmd, led und throttle.
 %
-%  Laesst den MCU-(Model-)Block einmal im Normal- und einmal im SIL-Mode laufen
-%  (im SIL also den echten generierten C++-Code) und vergleicht die
-%  rotor_cmd-Antwort.
-%
-%  Im geschlossenen Kreis kann eine winzige Codegen-Abweichung ueber die
-%  Rueckkopplung anwachsen. Das hier ist deshalb ein Verhaltens-/Aequivalenz-
-%  Check, kein tickgenauer Bit-Diff; den fuehrt der Host-Test (B).
-%
-%  Voraussetzung: MCU ist als Model-Block (referenziert 'mcu') im Harness; das
-%  ert_cpp_sitl-ConfigSet ist aktiv (configure_mcu_codegen). SIL baut den Code
-%  bei Bedarf selbst.
+%  Voraussetzung: MCU ist als Model-Block (referenziert 'mcu') im Harness, das
+%  ert_cpp_sitl-ConfigSet ist aktiv. SIL baut den Code bei Bedarf selbst.
 function sil_check_mcu(harness, mcuBlock)
 if nargin < 1 
     harness  = 'quadcop';
@@ -40,9 +17,7 @@ load_system(harness);
 Ts_inner = evalin('base','Ts_inner');
 T_STOP   = 5.0;
 
-% GS-Serial-Bloecke (Design A) fuer die Sim auskommentieren (oeffnen sonst einen
-% COM-Port -> "No ports selected"). GS-Ausgang, MCU-Grenze unberuehrt. onCleanup
-% stellt sie wieder her (Modell wird nicht gespeichert).
+% GS-Serial-Bloecke fuer die Sim auskommentieren, onCleanup stellt sie wieder her.
 serialBlks = find_system(harness,'LookUnderMasks','on','FollowLinks','on', ...
                          'RegExp','on','Name','[Ss]erial');
 serialPrev = get_param(serialBlks,'Commented');
@@ -54,8 +29,6 @@ serialCleanup = onCleanup(@() cellfun(@(bl,st) set_param(bl,'Commented',st), ...
 ph = get_param(mcuBlock,'PortHandles');
 outNames = {'rotor_cmd','led','throttle'};   % Reihenfolge der MCU-Outports
 for oIdx = 1:numel(ph.Outport)
-    % DataLogging gehoert an das Output-Port-Handle, das das Signal erzeugt,
-    % nicht an die Linie. Der MCU-Outport ist die Quelle, also direkt hier setzen.
     if get_param(ph.Outport(oIdx),'Line') == -1
         warning('MCU-Ausgang "%s" unverdrahtet in quadcop — wird nicht geloggt.', ...
                 outNames{oIdx});
@@ -75,7 +48,7 @@ set_param(mcuBlock,'SimulationMode','Normal');
 N = sim(harness,'StopTime',num2str(T_STOP),'ReturnWorkspaceOutputs','on');
 rN = grab(N,'rotor_cmd',Ts_inner,T_STOP);  lN = grab(N,'led',Ts_inner,T_STOP);
 tN = grab(N,'throttle',Ts_inner,T_STOP);
-% --- SIL (baut generierten Code + laeuft ihn im Loop) ---
+% --- SIL: generierter Code im Loop ---
 set_param(mcuBlock,'SimulationMode','Software-in-the-loop (SIL)');
 S = sim(harness,'StopTime',num2str(T_STOP),'ReturnWorkspaceOutputs','on');
 rS = grab(S,'rotor_cmd',Ts_inner,T_STOP);  lS = grab(S,'led',Ts_inner,T_STOP);
@@ -109,7 +82,7 @@ end
 
 function Y = grab(simOut, name, Ts, T)
 % Signal <name> aus logsout ziehen und per ZOH aufs Basisraster bringen.
-% Fehlt das Element (z.B. unverdrahteter Ausgang) -> [] (kein Absturz).
+% Fehlt das Element, ist das Ergebnis [].
     logs = simOut.get('logsout');
     sig = [];
     try, sig = logs.getElement(name); catch, sig = []; end
@@ -117,7 +90,7 @@ function Y = grab(simOut, name, Ts, T)
         Y = []; return;
     end
     tt = sig.Values.Time(:);
-    D  = double(reshape(sig.Values.Data, numel(tt), []));  % cast: led uint8 -> interp1-faehig
+    D  = double(reshape(sig.Values.Data, numel(tt), []));
     t  = (0:Ts:T).';
     Y  = zeros(numel(t), size(D,2));
     for c = 1:size(D,2)

@@ -5,47 +5,37 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
 %   Liefert die Trajektorien für die flachen Ausgänge beim Arbeitspunktwechsel
 %   und daraus die Vorsteuerung.
 %
-%   2-DOF-Prinzip:
-%     x_ref, v_ref, a_ref, yaw_ref  -> Positionsfolgeregler (äußere Kaskade)
-%     q_ref, Omega_ref, tau_ff      -> Bus_Cmd   (Vorsteuerung)
-%     F_ref                         -> nur Debug/Verifikation 
-%
 %   Eingaenge:
-%     t    : Simulationszeit [s] 
+%     t    : Simulationszeit
 %     traj : struct, N >= 2
 %                  .P      3 x N      Wegpunkte
 %                  .yaw    1 x (N-1)  Yaw je Segment
 %                  .Tseg   1 x (N-1)  Bewegungsdauer je Segment
 %                  .Tdwell 1 x N      Rastdauer je Wegpunkt
 %     quadcop  : struct  .m  .g  .J
-%     d    : optional Drohnenindex (Schwarm: traj-Felder mit gestapelter
-%            3. Dim bzw. Zeile je Drohne; Einzelstrukturen laufen mit d=1)
+%     d    : Drohnenindex
 %
 %   Ausgänge:
-%     x_ref,v_ref,a_ref 3x1 Soll-Pos/Geschw/Beschl 
-%     yaw_ref     3x1 [yaw; dyaw; ddyaw]  
-%     Omega_ref   3x1 Vorsteuer-Drehrate (Body) 
-%     tau_ff      3x1 Vorsteuer-Moment (Body) 
+%     x_ref,v_ref,a_ref 3x1 Soll-Pos/Geschw/Beschl
+%     yaw_ref     3x1 [yaw; dyaw; ddyaw]
+%     Omega_ref   3x1 Vorsteuer-Drehrate
+%     tau_ff      3x1 Vorsteuer-Moment
 %     q_ref       4x1 nominelles Soll-Quaternion
-%     F_ref       1x1 nomineller Schubbetrag -- Debug
+%     F_ref       1x1 nomineller Schubbetrag
 %
 
     g_grav = [0; 0; quadcop.g];
     if nargin < 4
-        d = 1; % Einzeldrohnen-Aufrufe (Sim/SITL/Tests)
+        d = 1; % Einzeldrohne
     end
     trj = traj_slice(traj, d);
     N = size(trj.P, 2);
 
-    % ------ Tabelle für Schwarm: Referenz aus vorberechneter Tabelle -----
-    % traj.tab_* kommt aus init_trajectory_swarm (swarm_ref.mat).
-    % Ohne tab_p bzw. mit 1-Zeilen-Dummy fällt der Zweig zur Codegen-Zeit weg
+    % ------ Schwarm: Referenz aus vorberechneter Tabelle -----
     if isfield(trj, 'tab_p') && size(trj.tab_p, 1) > 1
         [x_ref, v_ref, a_ref, j_ref] = tab_lookup(t, trj);
-        s_ref = zeros(3,1);   % Snap nicht tabelliert; nur Vorsteuer-Feinheit
-        yaw_s = trj.yaw(1);   % Start-Yaw halten (bench_init_fcn traegt es ein);
-                              % hartes yaw=0 drehte verdreht stehende Drohnen
-                              % bis in den Overspeed-Kill (13.08., 3er-Flug)
+        s_ref = zeros(3,1); % Snap nicht tabelliert
+        yaw_s = trj.yaw(1); % Start-Yaw halten
         yaw_ref = [yaw_s; 0; 0];
         [Omega_ref, tau_ref, q_ref, F_ref] = ...
             flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop);
@@ -108,7 +98,7 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
         j_ref = zeros(3,1);
         s_ref = zeros(3,1);
         if sel_wp < N
-            yaw_s = trj.yaw(sel_wp);    % Yaw des kommenden Segments
+            yaw_s = trj.yaw(sel_wp); % Yaw des kommenden Segments
         else
             yaw_s = trj.yaw(N-1);
         end
@@ -122,14 +112,13 @@ function [x_ref, v_ref, a_ref, yaw_ref, Omega_ref, tau_ref, q_ref, F_ref, j_ref,
     end
 
     % Yaw-Ausgang als 3x1 [yaw; dyaw; ddyaw]; Segment-Yaw -> Ableitungen 0.
-    % (Fuer flatness_ctrl.yawref; die Kaskade nutzt in pos_ctrl nur yaw_ref(1).)
     yaw_ref = [yaw_s; 0; 0];
 
     [Omega_ref, tau_ref, q_ref, F_ref] = ...
         flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop);
 end
 
-% --- Vorsteuerung aus flachen Ausgängen (gemeinsam fuer beide Modi) ------
+% --- Vorsteuerung aus flachen Ausgängen ------
 function [Omega_ref, tau_ref, q_ref, F_ref] = flat_ff(a_ref, j_ref, s_ref, yaw_s, g_grav, quadcop)
     % --- Flache Ausgänge und ihre Ableitungen in die Sollzustände umrechnen ---
     % Schubachse:  F*z_B = m*alpha,  alpha = a_ref - g_grav
@@ -137,20 +126,20 @@ function [Omega_ref, tau_ref, q_ref, F_ref] = flat_ff(a_ref, j_ref, s_ref, yaw_s
     alphad = j_ref;
     alphadd = s_ref;
 
-    n   = norm(alpha); % > 0 (nahe Hover ~ g)
+    n   = norm(alpha);
     zB  = alpha / n;
     nd  = (alpha.'*alphad) / n;
     ndd = ((alphad.'*alphad) + (alpha.'*alphadd))/n - nd^2/n;
     zBd  = alphad/n - alpha*nd/n^2;
     zBdd = alphadd/n - 2*alphad*nd/n^2 - alpha*ndd/n^2 + 2*alpha*nd^2/n^3;
 
-    % Heading (konstanter Yaw je Segment -> xC konstant, Ableitungen 0)
+    % Heading
     xC = [cos(yaw_s); sin(yaw_s); 0];
 
     c   = cross(zB,   xC);
     cd  = cross(zBd,  xC);
     cdd = cross(zBdd, xC);
-    nc   = norm(c); % Schutz: |zB x xC| ~ 1 nahe Hover
+    nc   = norm(c);
     if nc < 1e-6
         nc = 1e-6;
     end
@@ -183,7 +172,6 @@ end
 % --- Lokale Helfer ---
 function trj = traj_slice(traj, d)
 % Scheibe der Drohne d: P/tab_* ueber die 3. Dim, yaw/Tseg/Tdwell zeilenweise.
-% Einzeldrohnen-Strukturen (2-D/einzeilig) laufen mit d=1 unveraendert durch.
     trj.P      = traj.P(:,:,d);
     trj.yaw    = traj.yaw(d,:);
     trj.Tseg   = traj.Tseg(d,:);
@@ -218,8 +206,7 @@ end
 function [s0,s1,s2,s3,s4] = restpoly(tau)
 % Minimum-Crackle Arbeitspunktwechsel 0->1 über tau in [0,1].
 % s und die ersten vier Ableitungen (v,a,j,s) sind an beiden Enden null,
-% also Grad 9. Der Snap ist an den Enden stetig (==0), damit tau_ref an den
-% Wegpunktuebergaengen nicht springt.
+% also Grad 9.
     if tau < 0
         tau = 0;
     elseif tau > 1

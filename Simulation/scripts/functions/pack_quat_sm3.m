@@ -2,28 +2,21 @@ function code = pack_quat_sm3(q)
 %#codegen
 % pack_quat_sm3  Smallest-three Quaternion-Kompression -> uint32 (32 bit)
 %
-%   Nutzt |q|=1 und q == -q: die betragsgroesste Komponente (>= 1/sqrt(2))
-%   wird weggelassen und aus den drei anderen rekonstruiert.
+%   Die betragsgroesste Komponente wird weggelassen und aus den drei
+%   anderen rekonstruiert.
 %
-%   Bit-Layout (muss zu unpack_quat_sm3.m und dem C++-Codec passen):
+%   Bit-Layout:
 %     [31:30] Index imax der weggelassenen (groessten) Komponente, 0..3
 %     [29:20] Komponente a   (Offset-Binary 10-bit)
 %     [19:10] Komponente b
 %     [ 9: 0] Komponente c
 %   je Komponente:  u = qi + 512 ,  qi = clamp(round(c * 511*sqrt(2)), -511, 511)
-%
-%   Die Komponentenreihenfolge von q (z.B. scalar-first [w x y z]) ist frei
-%   waehlbar, muss aber auf Encoder-, Decoder- und C++-Seite gleich indiziert sein.
 
 q = q(:);
 n = sqrt(q(1)*q(1) + q(2)*q(2) + q(3)*q(3) + q(4)*q(4));
 if n < 1e-12
-    % Reserviertes Codewort 0 = "kein gueltiger Lagebezug" (z.B. Mocap-Dropout).
-    % Ein regulaerer Encode kann 0 nie erzeugen: jedes 10-bit-Feld traegt
-    % u = qi + 512 mit qi in [-511,511], ist also immer >= 1.
-    % Frueher wurde hier auf Identitaet zurueckgefallen — das kam beim Empfaenger
-    % als gueltige, waagerechte Lage an und hat den Mahony-Guard
-    % (norm(q_ext) > 0.5) ueber die Funkstrecke unerreichbar gemacht.
+    % Reserviertes Codewort 0 = "kein gueltiger Lagebezug"; ein regulaerer
+    % Encode kann 0 nie erzeugen, da jedes 10-bit-Feld u >= 1 traegt.
     code = uint32(0);
     return;
 end
@@ -37,7 +30,7 @@ for i = 2:4
     end
 end
 
-% Vorzeichen fixieren: groesste Komponente positiv  (q == -q)
+% Vorzeichen fixieren: groesste Komponente positiv
 if q(imax) < 0
     q = -q;
 end
