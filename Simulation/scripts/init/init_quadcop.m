@@ -6,7 +6,10 @@ arguments (Output)
 end
 
 quadcop.g   = 9.81; % m/s^2
-quadcop.m   = 0.985; % kg            
+quadcop.m   = 0.985; % kg
+% Abflugmasse je Drohnen-id (Index = id); geht GCS-seitig in die Vorsteuerung
+% (gcu-Instanzparameter m_drone). Wiegung 20.08.2026; id=4 vom 17.08.
+quadcop.m_id = [0.984, 0.988, 0.928, 0.977]; % kg
 quadcop.J   = diag([6.583 * 10^-3, 5.125 * 10^-3, 1.104 * 10^-2]); % kg*m^2 
 % quadcop.J   = diag([7 * 10^-3, 5.5 * 10^-3, 1.4 * 10^-2]); % kg*m^2 
 quadcop.J_inv = inv(quadcop.J);

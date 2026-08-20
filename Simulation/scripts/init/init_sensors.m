@@ -74,7 +74,8 @@ mocap.client_ip    = '127.0.0.1';
 % Streaming-IDs der Drohnen-Rigid-Bodies in Motive (Assets-Pane).
 % Reihenfolge = Drohnenindex d: ids(d) gehoert zu trajd/xi0d und wird als Funk-Frame-id gesendet.
 % Doppelte id (z.B. [1 1]) = Solobetrieb: beide GCS-Pfade regeln dieselbe Drohne.
-mocap.streaming_ids = [1 2 3];
+% mocap.streaming_ids = [1 2 3 4];
+mocap.streaming_ids = [4 4 4 4];
 % Motive muss auf Z-Up streamen (Settings -> Streaming -> Up Axis = Z)t. 
 % MotiveMocap transformiert absichtlich nicht: eine zweite Korrekturstelle 
 % waere wieder eine doppelte Kompensation. NatNet liefert Meter und 

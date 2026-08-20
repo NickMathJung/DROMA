@@ -1,343 +1,55 @@
 %% params.m  --  Zentrale Parameterdatei
-%  Aufruf ueber die PreLoadFcn des Top-Modells:  run(fullfile(projRoot,'scripts','params.m'))
+%  wird über die PreLoadFcn von DROMA.prj aufgerufen
+
 clear;
 clc;
 close all;
+
 %% ------------------------------------------------------------------ Raten
-% BASE RATE = Ts_inner. Every other sample time in the model MUST be an
-% integer multiple of Ts_inner so the ode4 fixed-step scheduler is valid.
-% Only the GCU block (Luenberger + Positionsregler) runs at Ts_gcs;
-% everything else (plant, sensors, MCU, attitude) runs at Ts_inner.
-f_base = 100;                     % Hz, Mocap-Grundrate (Motive)
-rate_outer2inner = 10;              % factor by how muc the controller on the drones is sampled faster compared to the ground station
-Ts_inner = 1/(rate_outer2inner*f_base);            % BASE: 1/800 s  (800 Hz) - Plant/IMU/MCU/Lageregler
-Ts_sim = Ts_inner;                % Fixed-step Grundschrittweite (ode4)
+% Grundtaktrate = Ts_inner (f_base). Jede andere Sampletime muss ein ganzzahliges 
+% vielfaches von Ts_inner sein, sonst streikt der ode4 fixed-step scheduler
+f_base = 100; % Grundrate
+rate_outer2inner = 10; % Faktor um den mcu schneller sein soll als Takt in SIMULINK
+Ts_inner = 1/(rate_outer2inner*f_base);            
+Ts_sim = Ts_inner; % Fixed-step Grundschrittweite (ode4)
 
 % Multiples of Ts_inner (= rate_outer2inner*Ts_inner = 1/f_base each)
 Ts_mocap = rate_outer2inner*Ts_inner; % Optitrack
 Ts_gcs = rate_outer2inner*Ts_inner; % Beobachter + Positionsregler
 Ts_link = rate_outer2inner*Ts_inner; % Funkstrecke
 Ts_batt = 100*Ts_gcs; % Rate der Batterieüberwachungsfunktion
-% =================================================================================
 
 %% -------------------------------------------------------------- Modellparameter
-g   = 9.81; % m/s^2
-m   = 0.965; % kg            
-J   = diag([6.583 * 10^-3, 5.125 * 10^-3, 1.104 * 10^-2]); % kg*m^2 
-J_inv = inv(J);
-l   = 0.124;  % m, Armlaenge 
-c_T  = 1.134e-3; % N/(rad/s)^2   
-c_tau  = 7.398e-6; % Nm/(rad/s)^2 
-
-quadcop.m = m;
-quadcop.g = g;
-quadcop.J = J;
-
-% Motordrehzaheln -> Schubkraft und Drehmomente:  [F; tau_x; tau_y; tau_z] = Gamma * [w1^2; w2^2; w3^2; w4^2] 
-% momentan fliegt Quadrkopter in X-Konfiguration
-% konfiguriere Gamma:
-alpha = 38.4; % degrees (Winkel aus Lunze/Schwung Paper)
-beta = 90 - alpha;
-% Quadrcopterkonfiguration ist ein Mix aus H- und X-Konfiguration 
-a = l * sin(alpha / 180 * pi);
-b = l * cos(alpha / 180 * pi);
-% Position der Rotoren im Körperkoordinatensystem
-r1 = [ a; -b;  0];
-r2 = [ a;  b;  0];
-r3 = [-a;  b;  0];
-r4 = [-a; -b ; 0];
-
-% r1 = [l; 0; 0];
-% r2 = [0; l; 0];
-% r3 = [-l; 0; 0];
-% r4 = [0; -l; 0];
-% Gamma = [ c_T      c_T      c_T     c_T;
-%           0        l*c_T    0      -l*c_T;
-%          -l*c_T    0       l*c_T    0;
-%          -c_tau    c_tau  -c_tau    c_tau ];
-
-F = [c_T  c_T  c_T  c_T];
-f_i = [0; 0; c_T];
-tau_i = [0; 0; c_tau];
-tau = [skew(r1)*f_i-tau_i  skew(r2)*f_i+tau_i  skew(r3)*f_i-tau_i  skew(r4)*f_i+tau_i];
-Gamma = [F; tau];
-
-Gamma_inv = inv(Gamma);
-Gamma = 1.2*Gamma;
-
-
-% Motor (PT1) + Saettigung
-quadcop.tau_m   = 0.030;             % Motorzeitkonstante  TODO: measure 
-rotors_min   = 0;            % rad/s
-rotors_max   = 30000;        % rad/s  
-% =================================================================================
+quadcop = init_quadcop();
 
 %% ------------------------------------------ IMU: MPU-6050 (Datenblatt)
 % Vollausschlag (FSR) -> externe Saettigung; Auswahl konfigurierbar
-imu.gyro_FSR = deg2rad(500);            % rad/s  (FS_SEL=1: +-500 deg/s, 65.5 LSB/(deg/s))
-imu.acc_FSR  = 4*g;                     % m/s^2  (AFS_SEL=2: +-8 g, 4096 LSB/g)
-imu.Ts       = Ts_inner;                % Update-Periode des IMU-Blocks (Sekunden)
- 
-% --- Gyroskop ---
-% Messbias (ZERO-Initialtoleranz +-20 deg/s, vor Kalibrierung); repraesentativ:
-imu.gyro_bias  = deg2rad([10; -10; 10]);   % rad/s   (Spec-Grenze +-0.349 rad/s)
-% Rauschen: Rate Noise Spectral Density 0.005 deg/s/sqrt(Hz)
-imu.gyro_ASD   = deg2rad(0.005);           % rad/s/sqrt(Hz)  (Amplituden-Spektraldichte)
-imu.gyro_PSD   = imu.gyro_ASD^2;           % (rad/s)^2/Hz    -> Band-Limited White Noise "Noise power"
-% Skalenfaktor-Toleranz +-3 %, Kreuzachsen-Empfindlichkeit +-2 % -> 3x3-Matrix
-imu.gyro_M     = [ 1.03  0.02  0.02;
-                  -0.02  0.97  0.02;
-                   0.02 -0.02  1.03];
-% G-empfindlicher Bias (Linear Acceleration Sensitivity 0.1 deg/s/g)
-imu.gyro_gsens = deg2rad(0.1)*[1;1;1];     % rad/s pro g
-% Bandbreite (DLPF, hier 100 Hz) als 2nd-order dynamics
-imu.gyro_wn    = 2*pi*30;                 % rad/s
-imu.gyro_zeta  = 0.707;
- 
-% --- Accelerometer ---
-% Messbias (Zero-G: X/Y +-50 mg, Z +-80 mg); repraesentativ:
-imu.acc_bias   = 1.0*[0.05; -0.05; 0.08]*g;    % m/s^2
-% Rauschen: Power Spectral Density 400 ug/sqrt(Hz)
-imu.acc_ASD    = 400e-6*g;                 % (m/s^2)/sqrt(Hz)
-imu.acc_PSD    = imu.acc_ASD^2;            % (m/s^2)^2/Hz    -> Band-Limited White Noise "Noise power"
-% Skalenfaktor-Toleranz +-3 %, Kreuzachsen +-2 %, Nichtlinearitaet 0.5 %
-imu.acc_M      = [ 1.03  0.02  0.02;
-                  -0.02  0.97  0.02;
-                   0.02 -0.02  1.03];
-% Bandbreite (DLPF, hier 100 Hz)
-imu.acc_wn     = 2*pi*8;                 % rad/s
-imu.acc_zeta   = 0.707;
-
-% Motive @ Ts_mocap   (TODO: aus OptiTrack-Spezifikation/Messung)
-mocap.pos_noise = 1e-3;      % m RMS
-mocap.att_noise = 0.5*pi/180;% rad RMS
-mocap.Ts_mocap  = Ts_mocap;  % s, Sample-Periode (= 1/f_base) - used by sensors.slx
-mocap.t_delay   = 0.008;     % s, optional Transportverzoegerung (latency model)
-mocap.dropout_p = 0.01;      % Wahrscheinlichkeit Markerausfall pro Sample
-% =================================================================================
+[imu, mocap] = init_sensors(quadcop, Ts_inner, Ts_mocap);
 
 %% --------------------------------------------------------- Funkstrecke
-% --- Transportlatenz (ganzzahliger Delay @ Ts_inner) ---
-link_params.latency = 5e-3;                              % s
-link_params.N_delay = round(link_params.latency / Ts_inner);    
-assert(abs(link_params.N_delay*Ts_inner - link_params.latency) < 1e-12, ...
-    'link.latency ist kein ganzzahliges Vielfaches von Ts_inner!');
- 
-% --- Paketverlust ---
-link_params.pdrop = 0.02;                                % Verlustwahrscheinlichkeit
-link_params.seed  = uint32(12345);                       % xorshift32-Seed (!= 0)
- 
-% --- int16-Quantisierung ---
-link_params.qmax = int16(32767);
-link_params.qmin = int16(-32768);
-% Full-Scale je Feld, Reihenfolge:
-%   [F_des(1) | q_des(4) | q_ref(4) | Omega_ref(3) | tau_ref(3) | q_ext(4)]
-link_params.fs =  [ 40 ; ...           % F_des      [N]      Hover ~10
-                    1;1;1;1 ; ...      % q_des      [-]      Einheitsquaternion
-                    1;1;1;1 ; ...      % q_ref      [-]      Einheitsquaternion
-                    20;20;20 ; ...     % Omega_ref  [rad/s]  
-                    2;2;2 ; ...        % tau_ref    [N*m]
-                    1;1;1;1 ];         % q_ext      [-]
- 
-% --- Init-Paket = quantisiertes Hover-Kommando (Delay-IC + Latch-IC) ---
-cmd_hover = [ m*g ; ...        % F_des = m g
-              1;0;0;0 ; ...    % q_des = Identitaet
-              1;0;0;0 ; ...    % q_ref = Identitaet
-              0;0;0 ; ...      % Omega_ref = 0
-              0;0;0 ; ...      % tau_ref = 0
-              1;0;0;0 ];       % q_ext = Identitaet
-lsb_link      = link_params.fs / double(link_params.qmax);
-link_params.pkt_init = [int16( min(max(round(cmd_hover ./ lsb_link), ...
-                       double(link_params.qmin)), double(link_params.qmax)) )];
-link_params.flags_init = [uint8(0); boolean(0)];
-% Delay-Buffer-IC fuer Delay-Block mit InputProcessing='Elements as channels (sample based)':
-% Eingang ist 19x1 -> IC muss [21, 1, N_delay] (3-D) sein. Letzte Dim = Delay-Laenge.
-link_params.pkt_init_delay = repmat(link_params.pkt_init, [1, 1, link_params.N_delay]);
-link_params.flags_init_delay = repmat(link_params.flags_init, [1, 1, link_params.N_delay]);
-% =================================================================================
-
+link_params = init_link(quadcop, Ts_inner);
 
 %% ------------------------------------------------------------- Regler
-% omega_n and zeta are the natural frequency and the damping ratio of the
-% damped oscillator the closed loop-system is trying to achieve
-omega_n_pos = 0.42*[10; 10; 10];
-omega_n_Lage = 1.4*[10; 10; 10];
-zeta = 0.707;
-kR = diag(J * omega_n_Lage.^2);
-kOmega =  diag(2 * zeta * J * omega_n_Lage);
-Kp = diag(m * omega_n_pos.^2);
-% kp_diag = 6*[1; 1; 1.9];
-% Kp = diag(kp_diag);
-Kd =  diag(2 * zeta * m * omega_n_pos);
-% kd_diag = 2.75*[1; 1; 1.1];
-% Kd = diag(kd_diag);
-% =================================================================================
+controller = init_controller(quadcop);
 
 %% ------------------------------------------------------------ Safety
-% Schwelle: ueber max(|Omega_ref|) + Marge,
-% Start 10 rad/s (~573 deg/s) per Achse. Spaeter ggf. per-Achse differenzieren
-safety.omega_max  = 10.0;          % [rad/s]
-
-% Entprellung: N aufeinanderfolgende Samples gegen Gyro-Spikes.
-safety.debounce_N = uint16(4);
- 
-% Detektor-Modus: false = per-Achse |Omega_i| (empfohlen, achsselektiv),
-%                 true  = Euklidische Norm ||Omega||.
-safety.use_norm   = true;
- 
-% Quittung:
-%   ack_combined = ack_button_edge | Bus_Cmd.ack
-% In reiner Sim ist ack_button=false -> ack kommt nur ueber den Uplink.
-% Teensy-Taster-Pin: OFFEN.
-% =================================================================================
-
+safety = init_safety(quadcop);
 
 %% ------------------------------------------------------------ Schaetzer
-% Mahony-Komplementaerfilter
-mahony.ka = 1.0;
-mahony.kE = 25.0;
-mahony.q_init = angle2quat(deg2rad(0), 0, deg2rad(0))';   % ZYX, scalar-first
-
-% Luenberger für Translation, kontinuierlicher Entwurf, achsweise Doppelintegrator
-%
-% Continuous-time model used by the observer
-%   d/dt [p; v] = A*[p;v] + B*a_cmd
-%   y           = C*[p;v]                       (position measurement)
-% with a_cmd the commanded inertial acceleration.
-%
-% Observer:
-%   d/dt xi = A*xi + B*a_cmd + L*(y - C*xi)
-luen.poles = 4.5*[-10 -10 -10 -10 -10 -10];
-luen.A = [zeros(3) eye(3); zeros(3) zeros(3)];
-luen.B = [zeros(3); eye(3)];
-luen.C = [eye(3) zeros(3)];
-pa = luen.poles(1:2:end);                 
-pb = luen.poles(2:2:end);                 
-% Achsweise: Pol-Paar (pa,pb) -> l1 = -(pa+pb), l2 = pa·pb (s² + l1 s + l2 = (s-pa)(s-pb))
-luen.L = [diag(-(pa+pb)); diag(pa.*pb)];  % 6x3: [Lp; Lv]
-eigs_translational_obsv = eig(luen.A - luen.L * luen.C);
-fprintf('Observer continuous-time poles:\n'); disp(sort(real(eigs_translational_obsv)).');
-% ----- Exact (ZOH) discretization of the observer ---------------------------
-% xi_{k+1} = Ad * xi_k + Bd_u * a_cmd_k + Bd_y * y_k
-%
-% The closed-loop observer is LTI with input [a_cmd; y] and dynamics
-%   d/dt xi = (A - L*C) xi + [B  L] * [a_cmd; y]
-A_obs_c = luen.A - luen.L*luen.C;
-B_obs_c = [luen.B, luen.L];
-sys_c   = ss(A_obs_c, B_obs_c, eye(6), 0);
-sys_d   = c2d(sys_c, Ts_gcs, 'zoh');
-Ad      = sys_d.A;
-Bd      = sys_d.B;
-Cd      = sys_d.C;
-Dd      = sys_d.D;
-Bd_u    = Bd(:,1:3);    % column block for a_cmd
-Bd_y    = Bd(:,4:6);    % column block for position measurement
-
-% Discrete-time eigenvalues — useful sanity check
-fprintf('Discrete-time observer eigenvalues |z| (ZOH, dt=%.4g):\n', Ts_gcs);
-disp(sort(abs(eig(Ad))).');
-% =================================================================================
+[mahony,luen] = init_estimator(Ts_gcs);
 
 %% ------------------------------------------------------------ Trajektorie
-% Quadrat in 1m Hoehe:
-traj.P = [  0   1   1   0   0 ; % x [m]
-            0   0   1   1   0 ; % y [m]
-            0   1   1   1   1 ]; % z [m]  
-
-% Yaw konstant je Segment (N-1 Werte) [rad]
-traj.yaw    = deg2rad([ 0   0   0   0 ]);
-
-% Bewegungsdauer je Segment (N-1 Werte) [s]
-traj.Tseg   = [ 7.0  7.0  7.0  7.0 ];
-
-% Rastdauer je Wegpunkt (N Werte) [s]  -- erster Wert = Anfangs-Hover
-traj.Tdwell = [ 10.0  2.0  2.0  2.0  2.0 ];
-
-% Sanity-Checks (offline)
-assert(size(traj.P,2) >= 2,                 'traj.P braucht >= 2 Wegpunkte');
-assert(numel(traj.yaw)    == size(traj.P,2)-1, 'traj.yaw: N-1 Werte');
-assert(numel(traj.Tseg)   == size(traj.P,2)-1, 'traj.Tseg: N-1 Werte');
-assert(numel(traj.Tdwell) == size(traj.P,2),   'traj.Tdwell: N Werte');
-
-% prm-Struct fuer den Block (m, g, J)
-prm_traj.m = m;
-prm_traj.g = g;
-prm_traj.J = J;
-
-fprintf('Trajektorie: %d Wegpunkte, Gesamtdauer %.2f s\n', ...
-        size(traj.P,2), sum(traj.Tseg)+sum(traj.Tdwell));
-% =================================================================================
+traj = init_trajectory();
 
 %% ------------------------------------------------------------ Batterie management
- 
-% --- ADC / HW (PM06 V2, Teensy) ---
-safety.batt_pin = 40; % Pin 40 = A16 
-safety.adc_bits = 12; % analogReadResolution(12)
+safety = init_battery_manag(quadcop, safety, Ts_batt);
 
-% V_batt = k*count + b (Spannungsteiler 18.182 von PM06 V2, Vref 3.3, 12 bit):
-% k = 3.3*18.182/4095 ≈ 0.0146521 V/count,  b = 0.
-% k,b aus realer HW-Messung NOCH OFFEN -> hier Idealwerte als Platzhalter.
-safety.batt_k = 3.3*18.182/4095; % Steigung
-safety.batt_b = 0.0; % offset
- 
-% --- Tiefpass ---
-safety.batt_tau   = 0.7; % [s] gegen Last-Einbruch + Rauschen (0.5..1)
-safety.batt_alpha = 1 - exp(-Ts_batt/safety.batt_tau);  % Hysterese-Koeffizient
-% Hinweis: alpha hier EINMAL berechnet (kein exp im Loop). Bei Aenderung von
-% Ts_batt/tau neu auswerten.
- 
-% --- Schwellen (4S LiPo, unter Last). final auf HW bestaetigen ---
-safety.V_warn = 14.0; % 3.50 V/Zelle -> LED WARN, Bediener handeln
-safety.V_crit = 13.4; % 3.35 V/Zelle -> LED CRIT
-safety.V_floor = 12.0; % 3.00 V/Zelle -> onboard Hard-Floor-Descent
-safety.V_hyst = 0.2; % Hysterese/Recovery-Band gegen Chattering
- 
-% --- Harter Sinklflug ---
-safety.hardfloor_thrust_frac = 0.99; % F_des = 0.98*m*g (ueberlebbare Sinkrate).
-safety.m = m;
-safety.g = g;
- 
-% Quervalidierung Bereich: V_pin(4S) = 0.726..0.924 V -> count 901..1147
-% (~22..28 % des 12-bit-Bereichs). Keine Ueberspannung am Pin (<3.3 V).
-% =================================================================================
-
+%% ---------------------------------------------- Flatness-Variante (Baseline)
+% gcu_flat braucht fctrl.T_lead (Referenz-Vorhalt) schon beim Laden von
+% bench_flat -- dessen InitFcn baut fctrl NICHT (nur quadcop_flat/mcu_flat tun
+% das und ueberschreiben diese Baseline bei jedem Lauf ohnehin).
+fctrl = init_flatness(quadcop);
 
 %% ------------------------------------------------------------ Supervisor (Soft-Land)
-% geregeltes Soft-Land mit ~0.3..0.5 m/s 
-supervisor.v_sink = 0.15; % [m/s]  Soll-Sinkrate
+supervisor = init_supervisor(quadcop,Ts_gcs);
 
-% Falls Mocap-z-Null nicht am Boden liegt, hier den realen Bodenwert setzen.
-supervisor.z_ground = 0.0; % [m]  z-Koordinate des Bodens 
-
-% Disarm-Marge ueber Grund: Cutoff (estop=2) bei z_est <= z_ground + margin.
-% Aufschlaggeschwindigkeit:  v_imp = sqrt(v_sink^2 + 2*g*margin)
-%   margin=0.08, v_sink=0.35 -> v_imp ~ 1.29 m/s
-% Kleiner margin => sanfter, aber mehr Bodeneffekte. 
-supervisor.disarm_margin = 0.2;       % [m]
-
-supervisor.Ts = Ts_gcs; % [s]
-
-% --- Info-Ausgabe ---
-v_imp = sqrt(supervisor.v_sink^2 + 2*g*supervisor.disarm_margin);
-fprintf(['Supervisor: v_sink=%.2f m/s, margin=%.3f m, z_ground=%.2f m ' ...
-         '-> v_impact~%.2f m/s\n'], supervisor.v_sink, supervisor.disarm_margin, ...
-         supervisor.z_ground, v_imp);
-assert(supervisor.v_sink > 0, 'v_sink muss > 0 sein.');
-assert(supervisor.disarm_margin > 0, 'disarm_margin muss > 0 sein.');
-% =================================================================================
-
-function schiefsym = skew(r)
-%VEE gibt die schiefsymmetrische Matrix schiefsym zu r zurück
-
-arguments (Input)
-    r (3,1) double
-end
-
-arguments (Output)
-    schiefsym (3,3) double
-end
-
-schiefsym = [ 0    -r(3)  r(2);
-              r(3)  0    -r(1);
-             -r(2)  r(1)  0];
-end

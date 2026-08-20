@@ -32,13 +32,14 @@ cfg.p0_drones = p0_drones;
 % OBEN, Ecken unten auf EINER Hoehe (deshalb ist die Rotation downwash-frei).
 % Start senkrecht unter der eigenen Flaechenposition; omega=0.25 kreist die
 % Kuppel um die eigene Hochachse. Alles per cfg_extra uebersteuerbar.
-% Zieldynamik (s+2.5)^2 + Randpole -3.3..-2.5: steif genug, dass die Formation
-% der Rotation bis omega=1 folgt (|G(j1)|=0.86; weich (s+1.5)^2 schrumpfte auf
-% 69 % -> Abstands-Assert), weich genug fuer den Einschwing-Transienten (kappa 1.45).
+% Zieldynamik (s+2.5)^2: steif genug, dass die Formation der Rotation bis
+% omega=1 folgt (|G(j1)|=0.86; weich (s+1.5)^2 schrumpfte auf 69 % ->
+% Abstands-Assert). Randpole nahe der Zieldynamik halten: schnellere Pole
+% (-3.3..-2.5) liessen Rand i=1 schneller steigen als i=20 -> Downwash 4er-Paar.
 SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 -1 0; 1 0 0], ...
               'z_offset', 1.9, 'center_leaders', true, ...
               'ground_under_agent', true, 'omega', 1.0, ...
-              'a1', 5, 'b1', 6.25, 'poles_z', linspace(-3.3, -2.5, 18));
+              'a1', 5, 'b1', 6.25, 'poles_z', linspace(-2.65, -2.5, 18));
 fn = fieldnames(SAIL);
 for k = 1:numel(fn)
     if ~isfield(cfg, fn{k}), cfg.(fn{k}) = SAIL.(fn{k}); end

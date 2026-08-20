@@ -32,6 +32,15 @@ for d = 1:n
 end
 assignin('base', 'xi0_all', xi0_all);
 
+% Abflugmasse je Pfad fuer die Vorsteuerung (quadcop.m_id, Fallback Nominal)
+qc = evalin('base', 'quadcop');
+if isfield(qc, 'm_id')
+    m_all = qc.m_id(ids);
+else
+    m_all = repmat(qc.m, 1, n);
+end
+assignin('base', 'm_all', m_all);
+
 % traj_id* zum geteilten Multi-traj stapeln (gcu-Instanz d nimmt Scheibe d)
 T = evalin('base', sprintf('traj_id%d', ids(1)));
 szP = size(T.P); szT = size(T.tab_p);

@@ -1,27 +1,28 @@
 %% params.m  --  Zentrale Parameterdatei
 %  wird über die PreLoadFcn von DROMA.prj aufgerufen
+
 clear;
 clc;
 close all;
-%% ------------------------------------------------------------------ Raten
-% Grundrate = Ts_inner (f_base). Jede andere Sampletime muss ein ganzzahliges 
-% vielfaches von Ts_inner sein, sonst streikt der ode4 fixed-step scheduler
-f_base = 100; % Grundrate
-rate_outer2inner = 10; % Faktor um den mcu schneller sein soll als Takt in SIMULINK
-Ts_inner = 1/(rate_outer2inner*f_base);            
-Ts_sim = Ts_inner; % Fixed-step Grundschrittweite (ode4)
 
-% Multiples of Ts_inner (= rate_outer2inner*Ts_inner = 1/f_base each)
+%% ------------------------------------------------------------------ Raten
+% Grundtaktrate = Ts_inner: Jede andere Sampletime muss ein ganzzahliges 
+% vielfaches von Ts_inner sein, sonst streikt der fixed-step scheduler
+f_base = 100; % Grundtaktrate
+rate_outer2inner = 10; % Faktor um den MCU auf Drohne schneller sein soll als Takt in SIMULINK
+Ts_inner = 1/(rate_outer2inner*f_base);            
+Ts_sim = Ts_inner; % Fixed-step Grundschrittweite 
+
+% Vielfache von Ts_inner (= rate_outer2inner*Ts_inner = 1/f_base)
 Ts_mocap = rate_outer2inner*Ts_inner; % Optitrack
-Ts_gcs = rate_outer2inner*Ts_inner; % Beobachter + Positionsregler
+Ts_gcs = rate_outer2inner*Ts_inner; % SIMULINK
 Ts_link = rate_outer2inner*Ts_inner; % Funkstrecke
-Ts_batt = 100*Ts_gcs; % Rate der Batterieüberwachungsfunktion
+Ts_batt = 100 * Ts_gcs; % Rate der Batterieüberwachungsfunktion
 
 %% -------------------------------------------------------------- Modellparameter
 quadcop = init_quadcop();
 
-%% ------------------------------------------ IMU: MPU-6050 (Datenblatt)
-% Vollausschlag (FSR) -> externe Saettigung; Auswahl konfigurierbar
+%% ------------------------------------------ IMU: MPU-6050 
 [imu, mocap] = init_sensors(quadcop, Ts_inner, Ts_mocap);
 
 %% --------------------------------------------------------- Funkstrecke
@@ -33,21 +34,18 @@ controller = init_controller(quadcop);
 %% ------------------------------------------------------------ Safety
 safety = init_safety(quadcop);
 
-%% ------------------------------------------------------------ Schaetzer
+%% ------------------------------------------------------------ Schätzer
 [mahony,luen] = init_estimator(Ts_gcs);
 
 %% ------------------------------------------------------------ Trajektorie
 traj = init_trajectory();
 
-%% ------------------------------------------------------------ Batterie management
+%% ------------------------------------------------------------ Batterie-Management
 safety = init_battery_manag(quadcop, safety, Ts_batt);
 
-%% ---------------------------------------------- Flatness-Variante (Baseline)
-% gcu_flat braucht fctrl.T_lead (Referenz-Vorhalt) schon beim Laden von
-% bench_flat -- dessen InitFcn baut fctrl NICHT (nur quadcop_flat/mcu_flat tun
-% das und ueberschreiben diese Baseline bei jedem Lauf ohnehin).
+%% ---------------------------------------------- Flatness-Variante 
 fctrl = init_flatness(quadcop);
 
-%% ------------------------------------------------------------ Supervisor (Soft-Land)
+%% ------------------------------------------------------------ Supervisor 
 supervisor = init_supervisor(quadcop,Ts_gcs);
 

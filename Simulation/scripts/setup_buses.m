@@ -1,55 +1,54 @@
-%% setup_buses.m  --  erzeugt die drei Schnittstellen-Busse im Data Dictionary
-%  Einmalig ausführen bzw. als Projekt-Shortcut bei Änderung der Busdefinition.
-%  Passe ddName an deinen Dateinamen an.
+%% setup_buses.m  --  erzeugt die Schnittstellen-Busse im Data Dictionary project.sldd im Ordner data
+%  Einmalig ausführen und ddName an Dateinamen anpassen
 
 ddName = 'project.sldd';
 
 % --- Busdefinitionen:  {Elementname, Dimension}
-busState = buildBus({ ...      % Streckenzustände (nur für Simulation)
-    'x', 3; ...      % Position {A}
-    'v',3; ...       % Geschwindigkeit {A}
-    'q',4; ...       % Lage-Quaternion
-    'Omega',3 });    % Koerperdrehrate {B}
+busState = buildBus({ ... % Streckenzustände (nur für Simulation)
+    'x', 3; ... % Position
+    'v', 3; ... % Geschwindigkeit
+    'q', 4; ... % Lage-Quaternion
+    'Omega', 3}); % Koerperdrehrate 
 
-busCmd = buildBus({ ...        % Bodenstation -> Drohne -- KASKADE
-    'F_des',     1, 'double'; ...      % Schub
-    'q_des',     4, 'double'; ...      % vom Positionsregler korrigiertes Lage-Quaternion
-    'q_ref',     4, 'double'; ...      % Solllage-Quaternion (Sollwert)
-    'Omega_ref', 3, 'double'; ...      % Solldrehrate
-    'tau_ref',   3, 'double'; ...      % Sollmomente (Vorsteuerung) -- FLATNESS
-    'q_ext',     4, 'double'; ...      % gemessene Mocap-Lage: externe Filterreferenz (kE-Term)
-    'estop',     1, 'uint8';  ...      % emergency-stop flag für weiche Landung
-    'ack',       1, 'boolean'});       % Zum Freigeben nach Fehler (Wenn Drehratensensor ausschlug)
+busCmd = buildBus({ ... % Bodenstation
+    'F_des',     1, 'double'; ... % Schub
+    'q_des',     4, 'double'; ... % vom Positionsregler korrigiertes Lage-Quaternion
+    'q_ref',     4, 'double'; ... % Solllage-Quaternion 
+    'Omega_ref', 3, 'double'; ... % Solldrehrate
+    'tau_ref',   3, 'double'; ... % Sollmomente 
+    'q_ext',     4, 'double'; ... % gemessene Mocap-Lage für Mahony-Filter
+    'estop',     1, 'uint8';  ... % emergency-stop flag für weiche Landung
+    'ack',       1, 'boolean'}); % Zum Freigeben nach Fehler (wenn z.B. Drehratensensor ausschlug)
 
-busCmdFlat = buildBus({ ...    % Bodenstation -> Drohne 
-    'mocap_pos', 3, 'double'; ...      % Mocap-Position -> flatness_ctrl.p + Luenberger-Messung
-    'q_ext',     4, 'double'; ...      % Mocap-Lage -> Mahony (externe Referenz, kE-Term)
-    'p_ref',     3, 'double'; ...      % traj_gen x_ref (flacher Ausgang)
-    'v_ref',     3, 'double'; ...      % traj_gen v_ref
-    'a_ref',     3, 'double'; ...      % traj_gen a_ref
-    'j_ref',     3, 'double'; ...      % traj_gen j_ref (Ruck)
-    's_ref',     3, 'double'; ...      % traj_gen s_ref (Snap, Vorsteuerung)
-    'yaw_ref',   3, 'double'; ...      % [yaw; dyaw; ddyaw] (Segment-Yaw -> dyaw=ddyaw=0)
-    'estop',     1, 'uint8';  ...      % emergency-stop flag für weiche Landung
-    'ack',       1, 'boolean'});       % Zum Freigeben nach Fehler
+busCmdFlat = buildBus({ ... % Bodenstation (flatness-Variante)
+    'mocap_pos', 3, 'double'; ... % Mocap-Position
+    'q_ext',     4, 'double'; ... % Mocap-Lage
+    'p_ref',     3, 'double'; ... % traj_gen x_ref (Position)
+    'v_ref',     3, 'double'; ... % traj_gen v_ref (Geschwindigkeit)
+    'a_ref',     3, 'double'; ... % traj_gen a_ref (Beschleunigung)
+    'j_ref',     3, 'double'; ... % traj_gen j_ref (Ruck)
+    's_ref',     3, 'double'; ... % traj_gen s_ref (Snap)
+    'yaw_ref',   3, 'double'; ... % [yaw; dyaw; ddyaw] (Yaw)
+    'estop',     1, 'uint8';  ... % emergency-stop flag für weiche Landung
+    'ack',       1, 'boolean'}); % Zum Freigeben nach Fehler und zum Starten der Motoren
 
-busIMU = buildBus({ ...        % Onboard-Sensorik @ imu.Ts -> Mahony-Filter
-    'imu_gyro',   3; ...       % -> Onboard-Filter
-    'imu_acc',    3 });        % -> Onboard-Filter (Tilt)
+busIMU = buildBus({ ... % Onboard-Sensorik 
+    'imu_gyro',   3; ... % Gyroskop
+    'imu_acc',    3 }); % Accelerometer
 
-busMocap = buildBus({ ...      % Boden-/Mocap-Sensorik @ Ts_mocap
-    'mocap_pos',  3; ...       % -> Luenberger (Bodenstation)
-    'mocap_quat', 4 });        % -> Luenberger + wird als q_ext hochgesendet
+busMocap = buildBus({ ... % Mocap-Messungen
+    'mocap_pos',  3; ... % Drohnenposition
+    'mocap_quat', 4 }); % Lage
 
 % --- ins Dictionary (Design Data) schreiben
 dd  = Simulink.data.dictionary.open(ddName);
 sec = getSection(dd,'Design Data');
-upsertEntry(sec,'Bus_State',    busState);
-upsertEntry(sec,'Bus_Cmd',      busCmd);
+upsertEntry(sec,'Bus_State', busState);
+upsertEntry(sec,'Bus_Cmd', busCmd);
 upsertEntry(sec,'Bus_Cmd_flat', busCmdFlat);
-upsertEntry(sec,'Bus_IMU',      busIMU);
-upsertEntry(sec,'Bus_Mocap',    busMocap);
-removeEntry(sec,'Bus_Meas');           % obsoleten Sammelbus entfernen
+upsertEntry(sec,'Bus_IMU', busIMU);
+upsertEntry(sec,'Bus_Mocap', busMocap);
+removeEntry(sec,'Bus_Meas');           
 saveChanges(dd);
 fprintf('Busse Bus_State, Bus_Cmd, Bus_Cmd_flat, Bus_IMU, Bus_Mocap in %s angelegt.\n', ddName);
 
@@ -58,15 +57,15 @@ fprintf('Busse Bus_State, Bus_Cmd, Bus_Cmd_flat, Bus_IMU, Bus_Mocap in %s angele
 function bus = buildBus(specs)
     elems = Simulink.BusElement.empty;
     for k = 1:size(specs,1)
-        e            = Simulink.BusElement;
-        e.Name       = specs{k,1};
+        e = Simulink.BusElement;
+        e.Name = specs{k,1};
         e.Dimensions = specs{k,2};
         
         % Check if a 3rd column exists and is not empty
         if size(specs, 2) >= 3 && ~isempty(specs{k,3})
             e.DataType = specs{k,3};
         else
-            e.DataType = 'double'; % Default fallback
+            e.DataType = 'double'; % Default 
         end
         
         e.Complexity = 'real';
