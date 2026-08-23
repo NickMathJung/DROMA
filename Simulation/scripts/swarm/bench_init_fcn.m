@@ -30,12 +30,15 @@ for d = 1:n
 end
 assignin('base', 'xi0_all', xi0_all);
 
-% Abflugmasse je Pfad
+% Effektive Masse je Pfad fuer die Vorsteuerung
 qc = evalin('base', 'quadcop');
 if isfield(qc, 'm_id')
     m_all = qc.m_id(ids);
 else
     m_all = repmat(qc.m, 1, n);
+end
+if isfield(qc, 'm_adap_id')
+    m_all = m_all ./ qc.m_adap_id(ids);
 end
 assignin('base', 'm_all', m_all);
 

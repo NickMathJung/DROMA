@@ -42,7 +42,7 @@ for k = 1:3
 end
 
 % --- Soll-Schubkraft (inertial): k_thrust*m*(a_des + g_grav), a_des = a_ref + Feedback ---
-k_thrust  = 1.15; % statischer Vorsteuer-Gain
+k_thrust  = 1.0; % statischer Vorsteuer-Gain
 F_des_vec = m*(k_thrust*(a_ref + g_grav) - Kp*e - Kd*edot - a_int);
 
 F_des = norm(F_des_vec);
