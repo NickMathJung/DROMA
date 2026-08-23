@@ -141,39 +141,58 @@ only place where the mapping is set, and the model instance parameters follow
 it, so flying other drones does not touch the model. Which mode flies is
 decided purely by the workspace at Run:
 
-- *Swarm following*: generate the containment reference tables, then fly.
+- *Swarm following*: place the drones, generate the reference tables, fly.
+  The full procedure:
 
-  ```matlab
-  ref = swarm_precompute(1.45, read_swarm_origins(mocap.streaming_ids));
-  init_trajectory_swarm(1);      % argument = drone id, writes traj_id<id>
-  init_trajectory_swarm(2);
-  init_trajectory_swarm(3);
-  init_trajectory_swarm(4);
-  ```
+  1. **Place the drones.** The default reference is a rotating saddle surface
+     whose tracked agents sit at its four corners, all at the same height, so
+     the rotation never stacks one drone above another. On the ground that
+     means: a rectangle around the cage center, long side along y. Drones 1
+     and 2 (order of `mocap.streaming_ids`) stand on the positive-y side,
+     drones 3 and 4 on the negative-y side, and within each pair the first
+     one stands at positive x. Exact spots do not matter:
+     `swarm_precompute` fits the reference to the measured positions
+     (translation, yaw, scale). What does matter is the handedness: a
+     mirrored placement shows up as a large anchor residual in the report,
+     and the tables then start away from the drones, which the InitFcn
+     rejects. Yaw is free, each drone holds its measured start yaw.
+     Check in Motive that every drone is tracked and all cameras are up.
 
-  `swarm_precompute` runs the containment MAS (`main_DROMA.m` in the
-  hyperbolic-2d-containment repository), stretches time by `kappa`, resamples
-  to the 100 Hz grid and checks every agent against the cage and the flight
-  envelope, plus every pair against a minimum distance and downwash. It writes
-  `data/swarm_ref.mat`. Regenerate it before every flight, because test runs
-  leave stale tables behind.
+  2. **Generate the tables** (fresh workspace, so no stale data survives):
 
-  The model InitFcn (`bench_init_fcn`) reads all origins in one Motive frame,
-  verifies each drone against its table start (< 0.2 m, else the start
-  aborts), measures the start yaw and holds it, prepends a 4 s arm phase,
-  stacks the tables into the shared `traj` and builds `xi0_all` and `m_all`.
-  Do not move the drones between `swarm_precompute` and takeoff.
+     ```matlab
+     clear; params
+     ref = swarm_precompute(1.45, read_swarm_origins(mocap.streaming_ids));
+     init_trajectory_swarm(1);      % argument = drone id, writes traj_id<id>
+     init_trajectory_swarm(2);
+     init_trajectory_swarm(3);
+     init_trajectory_swarm(4);
+     ```
 
-  The default reference is a rotating saddle surface. All four tracked agents
-  sit at the corners, at the same height, so the rotation never stacks one
-  drone above another. Agent assignment follows the number of drones: two
-  drones get the grid agents (1,1) and (20,9), three get (1,1), (20,1) and
-  (1,9), four get all four corners. Override with
-  `swarm_precompute(kappa, p0, struct('agents', [i1 j1; i2 j2]))`. Ground
-  placement matters: each drone stands under its own corner, and the handedness
-  of the assignment is part of the cage fit. A mirrored placement shows up as a
-  large anchor residual in the `swarm_precompute` report, and the tables then
-  start away from the drones, which the InitFcn rejects.
+     `swarm_precompute` runs the containment MAS (`main_DROMA.m` in the
+     hyperbolic-2d-containment repository), stretches time by `kappa`,
+     resamples to the 100 Hz grid and checks every agent against the cage
+     and the flight envelope, plus every pair against a minimum distance and
+     downwash. It writes `data/swarm_ref.mat`. Regenerate it before every
+     flight, because test runs leave stale tables behind. Fly only when the
+     report shows every agent `OK` and every pair with 0 downwash samples.
+
+  3. **Run `bench.slx`.** The model InitFcn (`bench_init_fcn`) reads all
+     origins in one Motive frame, verifies each drone against its table
+     start (< 0.2 m, else the start aborts), measures the start yaw and
+     holds it, prepends a 4 s arm phase, stacks the tables into the shared
+     `traj` and builds `xi0_all` and `m_all`. Do not move the drones between
+     `swarm_precompute` and takeoff. Arm with the ack switch, the flight is
+     4 s arm plus about 29 s table. The landing spots travel with the
+     rotation, so the drones do not land where they started.
+
+  4. **Evaluate**: `flight_evaluation(id)` per drone,
+     `swarm_animation([1 2 3 4])` for the video.
+
+  Agent assignment follows the number of drones: two drones get the grid
+  agents (1,1) and (20,9), three get (1,1), (20,1) and (1,9), four get all
+  four corners. Override with
+  `swarm_precompute(kappa, p0, struct('agents', [i1 j1; i2 j2]))`.
 
 - *Single-drone waypoint flight (classic cascade)*: make sure no `traj_id*`
   tables are in the workspace (a fresh model open runs `params.m`, which
