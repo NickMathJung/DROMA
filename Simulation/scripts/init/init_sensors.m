@@ -71,8 +71,8 @@ mocap.client_ip    = '127.0.0.1';
 % Streaming-IDs der Drohnen-Rigid-Bodies in Motive (Assets-Pane).
 % Reihenfolge = Drohnenindex.
 % Doppelte id (z.B. [1 1]) = Solobetrieb: beide GCS-Pfade regeln dieselbe Drohne.
-% mocap.streaming_ids = [1 2 3 4];
-mocap.streaming_ids = [4 4 4 4];
+% mocap.streaming_ids = [4 4 4 4];
+mocap.streaming_ids = [1 2 3 4];
 % Motive muss auf Z-Up streamen (Settings -> Streaming -> Up Axis = Z).
 % NatNet liefert Meter und Quaternionen scalar-last; die Umsortierung auf
 % scalar-first [w x y z] passiert einmalig in MotiveMocap.
