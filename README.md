@@ -194,6 +194,29 @@ decided purely by the workspace at Run:
   four corners. Override with
   `swarm_precompute(kappa, p0, struct('agents', [i1 j1; i2 j2]))`.
 
+  **Event run (robustness scenario)**: the MAS can inject two scripted events
+  into the simulation, a disturbance step (the disturbance model state jumps
+  from 0 to `dist_amp` at `t_dist_on`) and a containment change (all leaders
+  on one box side rise by `jump_dz` at `t_leader_jump`). The observers and
+  the agents re-converge after each event. Defaults live in `main_DROMA.m`
+  (`t_dist_on = 10`, `dist_amp = 4.0`, `t_leader_jump = 18`,
+  `jump_leaders = [1 2 5 6]`, `jump_dz = 1.0`, `Inf` = off). Flight tables
+  are event-free by default: `swarm_precompute` pins both times to `Inf`.
+  To fly the scenario, enable the events via `cfg_extra` and narrow the box
+  in y, because the disturbance pushes mainly along y and the default sail
+  already sits at the cage limit there:
+
+  ```matlab
+  clear; params
+  ref = swarm_precompute(1.45, read_swarm_origins(mocap.streaming_ids), ...
+      struct('t_dist_on', 10, 't_leader_jump', 18, ...
+             'extent', [1.2 2.3 2.2], 'agents', [1 1; 20 1; 1 9; 20 9]));
+  ```
+
+  The release rule is unchanged: every agent `OK`, every pair 0 downwash.
+  The events land at `kappa * t` of flight time and step the feedforward
+  acceleration (up to about 4.6 m/s^2), the hardest transient flown so far.
+
 - *Single-drone waypoint flight (classic cascade)*: make sure no `traj_id*`
   tables are in the workspace (a fresh model open runs `params.m`, which
   clears them). The InitFcn then falls back to the waypoint trajectory
