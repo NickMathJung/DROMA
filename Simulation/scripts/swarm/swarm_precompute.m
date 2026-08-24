@@ -28,7 +28,8 @@ cfg.p0_drones = p0_drones;
 SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 -1 0; 1 0 0], ...
               'z_offset', 1.9, 'center_leaders', true, ...
               'ground_under_agent', true, 'omega', 1.0, ...
-              'a1', 5, 'b1', 6.25, 'poles_z', linspace(-2.65, -2.5, 18));
+              'a1', 5, 'b1', 6.25, 'poles_z', linspace(-2.65, -2.5, 18), ...
+              't_dist_on', Inf, 't_leader_jump', Inf);
 fn = fieldnames(SAIL);
 for k = 1:numel(fn)
     if ~isfield(cfg, fn{k}), cfg.(fn{k}) = SAIL.(fn{k}); end
@@ -43,17 +44,19 @@ end
 res = main_DROMA(cfg);
 
 % --- kappa-Zeitstreckung + Abtastung auf das GCS-Raster -----------------------
-T_end = res.t_sim(end) * kappa;
+% Ereignis-Laeufe liefern doppelte Zeitsamples (vor/nach Eingriff)
+[t_u, i_u] = unique(res.t_sim, 'last');
+T_end = t_u(end) * kappa;
 t = (0:Ts:T_end).';
 n = size(res.refs.p, 3);
 ref = struct('t', t, 'kappa', kappa, 'agents', res.refs.agents, ...
              'cfg', res.cfg, 'tf', res.tf);
 for d = 1:n
-    ts = res.t_sim * kappa; % gestreckte Zeitachse
-    ref.p(:,:,d) = interp1(ts, res.refs.p(:,:,d), t, 'pchip');
-    ref.v(:,:,d) = interp1(ts, res.refs.v(:,:,d), t, 'pchip') / kappa;
-    ref.a(:,:,d) = interp1(ts, res.refs.a(:,:,d), t, 'pchip') / kappa^2;
-    ref.j(:,:,d) = interp1(ts, res.refs.j(:,:,d), t, 'pchip') / kappa^3;
+    ts = t_u * kappa; % gestreckte Zeitachse
+    ref.p(:,:,d) = interp1(ts, res.refs.p(i_u,:,d), t, 'pchip');
+    ref.v(:,:,d) = interp1(ts, res.refs.v(i_u,:,d), t, 'pchip') / kappa;
+    ref.a(:,:,d) = interp1(ts, res.refs.a(i_u,:,d), t, 'pchip') / kappa^2;
+    ref.j(:,:,d) = interp1(ts, res.refs.j(i_u,:,d), t, 'pchip') / kappa^3;
 end
 
 % --- Checks: Kaefig je Agent + Envelope ---------------------------------------
@@ -90,7 +93,7 @@ if ~ok, warning('swarm_precompute:limits', 'Grenzverletzung -- siehe Report oben
 
 % --- Animationsdaten: Agenten + Leader ---------------------------------------
 nKeep = 2*res.dim_X + res.params.n_L + 1;
-anim = struct('t_sim', res.t_sim * kappa, 'y_sim', res.y_sim(:, 1:nKeep), ...
+anim = struct('t_sim', t_u * kappa, 'y_sim', res.y_sim(i_u, 1:nKeep), ...
               'params', res.params, 'Pi', res.Pi, 'P_L', res.P_L, ...
               'N', res.N, 'M', res.M, 'dim_X', res.dim_X);
 

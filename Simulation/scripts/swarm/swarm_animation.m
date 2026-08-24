@@ -16,7 +16,7 @@ if isempty(ids), ids = evalin('base', 'mocap.streaming_ids'); end
 if isempty(filename), filename = char("swarm_" + strjoin(string(ids), "_")); end
 T_arm = 4; % Arm-Phase der Tabellen
 
-S = load(fullfile(DATA, 'swarm_ref.mat'), 'anim');
+S = load(fullfile(DATA, 'swarm_ref.mat'), 'anim', 'ref');
 n = numel(ids);
 t_drones = cell(1, n); y_drones = cell(1, n);
 for k = 1:n
@@ -25,6 +25,14 @@ for k = 1:n
     tf = getfield(load(fullfile(DATA, sprintf('t_flight_id%d.mat', ids(k)))), 't_flight');
     t  = tf - T_arm; % Flugzeit -> Agenten-/Tabellenzeit
     m  = t >= 0;
+    % Tabellenstart vs. Logstart: erkennt ein swarm_ref.mat von einem anderen Lauf
+    if k <= size(S.ref.p, 3)
+        d0 = norm(squeeze(S.ref.p(1,:,k)) - x(find(m,1), :));
+        if d0 > 0.2
+            warning('swarm_animation:refMismatch', ...
+                'swarm_ref.mat passt nicht zu den Logs (id %d: Startversatz %.2f m).', ids(k), d0);
+        end
+    end
     % Zustandslayout von createDroneAnimation: Spalten 1:3 Pos, 7:10 Quaternion
     t_drones{k} = t(m);
     y_drones{k} = [x(m,:), zeros(nnz(m), 3), q(m,:)];
