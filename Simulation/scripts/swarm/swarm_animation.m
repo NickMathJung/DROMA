@@ -46,4 +46,36 @@ P_drone.rotor_pos = [a -b 0; a b 0; -a b 0; -a -b 0].';
 oldcd = cd(DATA); restoreCd = onCleanup(@() cd(oldcd)); %#ok<NASGU> Video -> data\videos\
 createDroneAnimation(S.anim.t_sim, S.anim.y_sim, S.anim.params, S.anim.Pi, ...
                      S.anim.P_L, t_drones, y_drones, P_drone, filename);
+
+% Ereignis-Einblendungen (je 5 s) als Nachbearbeitungs-Pass
+T_OVL = 5;
+c = S.ref.cfg;
+ev_t = []; ev_txt = {};
+if isfield(c, 't_dist_on') && isfinite(c.t_dist_on)
+    ev_t(end+1) = c.t_dist_on * S.ref.kappa;     ev_txt{end+1} = 'disturbance';
+end
+if isfield(c, 't_leader_jump') && isfinite(c.t_leader_jump)
+    ev_t(end+1) = c.t_leader_jump * S.ref.kappa; ev_txt{end+1} = 'change of leader positions';
+end
+if ~isempty(ev_t)
+    vfile = fullfile('videos', [filename '.mp4']);
+    vtmp  = fullfile('videos', [filename '_txt.mp4']);
+    vr = VideoReader(vfile);
+    vw = VideoWriter(vtmp, 'MPEG-4'); vw.FrameRate = vr.FrameRate; vw.Quality = 95;
+    open(vw);
+    while hasFrame(vr)
+        fr = readFrame(vr);
+        tt = vr.CurrentTime;
+        for e = 1:numel(ev_t)
+            if tt >= ev_t(e) && tt <= ev_t(e) + T_OVL
+                fr = insertText(fr, [size(fr, 2)/2, 60], ev_txt{e}, ...
+                    'FontSize', 42, 'AnchorPoint', 'Center', ...
+                    'BoxColor', 'yellow', 'BoxOpacity', 0.8);
+            end
+        end
+        writeVideo(vw, fr);
+    end
+    close(vw);
+    movefile(vtmp, vfile, 'f');
+end
 end
