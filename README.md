@@ -187,7 +187,18 @@ decided purely by the workspace at Run:
      rotation, so the drones do not land where they started.
 
   4. **Evaluate**: `flight_evaluation(id)` per drone,
-     `swarm_animation([1 2 3 4])` for the video.
+     `swarm_animation([1 2 3 4])` for the video (drone bodies over the
+     containment volume and the Bezier surface, written to `data/videos/`).
+     For a GIF, cut the wanted range out of the video:
+
+     ```matlab
+     mp4_to_gif('data\videos\swarm_1_2_3_4.mp4', 0, 35);
+     ```
+
+  Steps 2 and 4 need the `hyperbolic-2d-containment-control-with-bezier-`
+  `surfaces` repository checked out next to `DROMA/`: step 2 runs the MAS
+  (`main_DROMA.m`), step 4 renders with its `createDroneAnimation`. Both
+  scripts add the path themselves.
 
   Agent assignment follows the number of drones: two drones get the grid
   agents (1,1) and (20,9), three get (1,1), (20,1) and (1,9), four get all
@@ -216,6 +227,8 @@ decided purely by the workspace at Run:
   The release rule is unchanged: every agent `OK`, every pair 0 downwash.
   The events land at `kappa * t` of flight time and step the feedforward
   acceleration (up to about 4.6 m/s^2), the hardest transient flown so far.
+  `swarm_animation` reads the event times from `swarm_ref.mat` and overlays
+  `disturbance` and `change of leader positions` for 5 s each.
 
 - *Single-drone waypoint flight (classic cascade)*: make sure no `traj_id*`
   tables are in the workspace (a fresh model open runs `params.m`, which
@@ -291,7 +304,7 @@ video and writes a GIF of the same name next to it.
 
 ## Safety
 
-Condensed. Full list in [`Simulation/README.md`](Simulation/README.md).
+Condensed to the rules that have bitten us.
 
 - The drone **boots latched** (`estop = 2`, no link yet). Motors stay at zero
   until a rising `ack` edge arms it. Every link loss latches again.
