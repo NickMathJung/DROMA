@@ -19,10 +19,12 @@ T_arm = 4; % Arm-Phase der Tabellen
 ARROW_LEN = 0.4; % m
 VD_MIN    = 0.1; % Sichtbarkeitsschwelle
 ORANGE = [1, 0.5, 0];
+PURPLE = [0.55, 0, 0.8];
 if ~isfolder(out_dir), mkdir(out_dir); end
 
-S = load(fullfile(DATA, 'swarm_ref.mat'), 'anim');
+S = load(fullfile(DATA, 'swarm_ref.mat'), 'anim', 'ref');
 A = S.anim;
+agents = S.ref.agents;
 N = A.N;  M = A.M;  n_L = A.params.n_L;
 l = size(A.P_L, 1) / 3;
 dim_X = 3 * N * M;  num_pts = N * M;
@@ -73,6 +75,9 @@ for s = 1:n_snap
     ylabel(ax, '$x_2\,\mathrm{[m]}$', 'Interpreter', 'latex');
     zlabel(ax, '$x_3\,\mathrm{[m]}$', 'Interpreter', 'latex');
     xlim(ax, xl);  ylim(ax, yl);  zlim(ax, zl);
+    text(ax, 0.04, 0.96, sprintf('$t = %g\\,$s', t_snap(s)), ...
+         'Units', 'normalized', 'Interpreter', 'latex', 'FontSize', 16, ...
+         'VerticalAlignment', 'top');
 
     L_k = reshape(L_pos_snap(s, :).', [3, l]).';
     patch(ax, 'Faces', cube_faces, 'Vertices', L_k, 'FaceColor', 'none', ...
@@ -108,6 +113,11 @@ for s = 1:n_snap
                     'AutoScale', 'off', 'Color', ORANGE, 'LineWidth', 1.8, ...
                     'MaxHeadSize', 0.8);
         end
+        % Referenzposition = Flaechenecke des verfolgten Agenten
+        kk = (agents(ids(d), 2) - 1)*N + agents(ids(d), 1);
+        p_r = [X_ref(kk); X_ref(num_pts + kk); X_ref(2*num_pts + kk)];
+        plot3(ax, p_r(1), p_r(2), p_r(3), 'x', 'Color', PURPLE, ...
+              'LineWidth', 2, 'MarkerSize', 12);
     end
 
     t_tag = strrep(sprintf('%.2f', t_snap(s)), '.', 'p');
