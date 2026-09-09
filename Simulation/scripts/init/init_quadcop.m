@@ -8,9 +8,9 @@ end
 quadcop.g   = 9.81; % m/s^2
 quadcop.m   = 0.985; % kg
 % Abflugmasse je Drohnen-id (Index = id)
-quadcop.m_id = [0.984, 0.988, 0.928, 0.971]; % kg
+quadcop.m_id = [0.989, 0.995, 0.982, 0.984]; % kg
 % SchubF-aktor je Drohnen-id, die Vorsteuerung rechnet mit m_id/m_adap_id
-quadcop.m_adap_id = [1.0, 1.0, 1.0, 1.20];
+quadcop.m_adap_id = [1.20, 1.03, 1.24, 1.20];
 quadcop.J   = diag([6.583 * 10^-3, 5.125 * 10^-3, 1.104 * 10^-2]); % kg*m^2 
 quadcop.J_inv = inv(quadcop.J);
 l = 0.124;  % Armlaenge 
