@@ -139,7 +139,26 @@ saves `*_id<id>.mat`, the radio frame carries the id. Which GCS path serves
 which id follows from the order of `mocap.streaming_ids`. That list is the
 only place where the mapping is set, and the model instance parameters follow
 it, so flying other drones does not touch the model. Which mode flies is
-decided purely by the workspace at Run:
+decided purely by the workspace at Run.
+
+`bench_flat.slx` is the same four-drone ground station for the flatness
+variant: identical Motive/selector/switch front end and the same InitFcn
+(`bench_init_fcn`), but one `gcu_flat` instance per path (model argument
+`drone_idx` = slice of the shared `traj`), a 106 B flat frame per drone
+(424 B USB frame) and `gcs_sender_flat` forwarding per id. For swarm tables
+the flat path feeds forward position, velocity and acceleration only
+(`j_ref = s_ref = 0`, zeroed in the `traj_gen_flat` wrapper of `gcu_flat`):
+the drone-side controller then acts as the asymptotic model-matching law of
+the paper w.r.t. the reference model (p_r, v_r, a_r) of the tracked agent.
+Waypoint flights keep their full jerk/snap feedforward. The procedure below applies verbatim, with
+`flight_evaluation_flat(id)` in step 4 (logs `mocap_pos_d`, `x_ref_d`,
+`v_ref_d`, `a_ref_d`, `mocap_quat_d` per path, saved as `*_id<id>.mat`).
+Drone **and** sender Teensy must run the flat firmware. Note the airtime:
+the flat OTA protocol needs two radio packets per drone and tick, i.e. eight
+packets per 10 ms at 250 kbps for four drones, which is close to the link
+capacity; watch the freshness rate in the first four-drone flat flight.
+
+Which mode flies is decided purely by the workspace at Run:
 
 - *Swarm following*: place the drones, generate the reference tables, fly.
   The full procedure:
@@ -283,8 +302,8 @@ Firmware modes: `BENCH` (motors dead), `THRUST` (motors + telemetry report),
 (`--upload-scan/esccal/freq/batt/chanscan`).
 
 **Evaluate a flight**: run the bench model during the flight, then
-`flight_evaluation(id)` with the drone id (cascade, results land as
-`*_id<id>.mat`) or `scripts/flatness/flight_evaluation_flat.m`. Both shift the
+`flight_evaluation(id)` with the drone id (cascade) or
+`flight_evaluation_flat(id)` (flatness); results land as `*_id<id>.mat`. Both shift the
 logged reference back by `T_lead` before computing errors. The ground station
 evaluates the trajectory at `t + T_lead` to compensate the chain dead time, so
 the *logged* reference is the time-advanced one, and errors must be measured on
