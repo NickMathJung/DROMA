@@ -29,7 +29,7 @@ ARROW_LEN = 0.4; % m
 VD_MIN    = 0.1; % Sichtbarkeitsschwelle
 ORANGE = [1, 0.5, 0];
 PURPLE = [0.55, 0, 0.8];
-GRAY   = [0.6, 0.6, 0.6]; % fruehere Drohnenposen und geflogene Pfade
+GRAY   = [0.6, 0.6, 0.6]; % fruehere Drohnenposen (durchgezogen) und geflogene Pfade (gestrichelt)
 LABEL_FS = 22; % Achsenlabels, auf die Schriftgroesse von fig:snapshots skaliert
 if ~isfolder(out_dir), mkdir(out_dir); end
 
@@ -122,7 +122,7 @@ for s = 1:n_snap
             plot3(ax, ring(1,:), ring(2,:), ring(3,:), '-', 'Color', GRAY, 'LineWidth', 0.9);
             m = log_t{d} >= t_snap(s0) & log_t{d} <= t_snap(s);
             path = [drone_pos(:, s0, d).'; log_x{d}(m, :); drone_pos(:, s, d).'];
-            plot3(ax, path(:,1), path(:,2), path(:,3), '-', 'Color', GRAY, 'LineWidth', 1.2);
+            plot3(ax, path(:,1), path(:,2), path(:,3), '--', 'Color', GRAY, 'LineWidth', 1.4);
         end
     end
 
