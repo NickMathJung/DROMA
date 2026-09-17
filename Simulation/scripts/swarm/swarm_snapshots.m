@@ -1,6 +1,7 @@
-function files = swarm_snapshots(t_snap, out_dir, ids)
+function files = swarm_snapshots(t_snap, out_dir, ids, az)
 %swarm_snapshots  Paper-Snapshots des Schwarmflugs mit Stoerpfeilen.
 %   swarm_snapshots([0 6 8.9 11.5 12.3 20], 'D:\...\img\MATLAB_sim')
+%   swarm_snapshots(t_snap, out_dir, [], [-37.5 -37.5 52.5 -37.5]) - Azimut je Snapshot
 %   Zeichnet je Zeitpunkt Leader, Containment-Volumen, Bezierflaeche, die
 %   Drohnenkoerper aus den Mocap-Logs und je Drohne den Stoerpfeil (Richtung
 %   anim.dist_dir, sichtbar solange die Stoerung wirkt). Quelle:
@@ -9,7 +10,9 @@ arguments
     t_snap (1,:) double
     out_dir char
     ids (1,:) double = []
+    az (1,:) double = -37.5 % Azimut (skalar oder je Snapshot)
 end
+if isscalar(az), az = az * ones(size(t_snap)); end
 DATA = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
 HET  = ['C:\Users\Rakete\Documents\Drohnenversuchsstand\' ...
         'hyperbolic-2d-containment-control-with-bezier-surfaces\heterogeneous'];
@@ -20,6 +23,7 @@ ARROW_LEN = 0.4; % m
 VD_MIN    = 0.1; % Sichtbarkeitsschwelle
 ORANGE = [1, 0.5, 0];
 PURPLE = [0.55, 0, 0.8];
+LABEL_FS = 22; % Achsenlabels, auf die Schriftgroesse von fig:snapshots skaliert
 if ~isfolder(out_dir), mkdir(out_dir); end
 
 S = load(fullfile(DATA, 'swarm_ref.mat'), 'anim', 'ref');
@@ -70,10 +74,10 @@ for s = 1:n_snap
     f = figure('Color', 'w', 'Position', [100 100 900 700], 'Visible', 'off');
     ax = axes('Parent', f);
     hold(ax, 'on');  grid(ax, 'on');  axis(ax, 'equal');
-    view(ax, -37.5, 20);
-    xlabel(ax, '$x_1\,\mathrm{[m]}$', 'Interpreter', 'latex');
-    ylabel(ax, '$x_2\,\mathrm{[m]}$', 'Interpreter', 'latex');
-    zlabel(ax, '$x_3\,\mathrm{[m]}$', 'Interpreter', 'latex');
+    view(ax, az(s), 20);
+    xlabel(ax, '$x_1\,\mathrm{[m]}$', 'Interpreter', 'latex', 'FontSize', LABEL_FS);
+    ylabel(ax, '$x_2\,\mathrm{[m]}$', 'Interpreter', 'latex', 'FontSize', LABEL_FS);
+    zlabel(ax, '$x_3\,\mathrm{[m]}$', 'Interpreter', 'latex', 'FontSize', LABEL_FS);
     xlim(ax, xl);  ylim(ax, yl);  zlim(ax, zl);
     text(ax, 0.04, 0.96, sprintf('$t = %g\\,$s', t_snap(s)), ...
          'Units', 'normalized', 'Interpreter', 'latex', 'FontSize', 16, ...
@@ -83,10 +87,14 @@ for s = 1:n_snap
     patch(ax, 'Faces', cube_faces, 'Vertices', L_k, 'FaceColor', 'none', ...
           'EdgeColor', 'g', 'LineWidth', 1.5);
     X_ref = A.Pi * L_pos_snap(s, :).';
-    surf(ax, reshape(X_ref(1:num_pts), [N, M]), ...
-             reshape(X_ref(num_pts+1:2*num_pts), [N, M]), ...
-             reshape(X_ref(2*num_pts+1:3*num_pts), [N, M]), ...
-         'FaceColor', 'none', 'EdgeColor', 'b', 'EdgeAlpha', 0.4, 'LineWidth', 0.5);
+    Xs = reshape(X_ref(1:num_pts), [N, M]);
+    Ys = reshape(X_ref(num_pts+1:2*num_pts), [N, M]);
+    Zs = reshape(X_ref(2*num_pts+1:3*num_pts), [N, M]);
+    surf(ax, Xs, Ys, Zs, 'FaceColor', 'none', 'EdgeColor', 'b', ...
+         'EdgeAlpha', 0.4, 'LineWidth', 0.5);
+    % Kanten der controlled agents: theta_1 = 0 orange, theta_1 = 1 lila
+    plot3(ax, Xs(1,:), Ys(1,:), Zs(1,:), '-', 'Color', ORANGE, 'LineWidth', 2.5);
+    plot3(ax, Xs(N,:), Ys(N,:), Zs(N,:), '-', 'Color', PURPLE, 'LineWidth', 2.5);
     scatter3(ax, L_k(:,1), L_k(:,2), L_k(:,3), 100, 'r', 'filled', ...
              'MarkerEdgeColor', 'k');
 
@@ -113,7 +121,7 @@ for s = 1:n_snap
                     'AutoScale', 'off', 'Color', ORANGE, 'LineWidth', 1.8, ...
                     'MaxHeadSize', 0.8);
         end
-        % Referenzposition = Flaechenecke des verfolgten Agenten
+        % Referenzposition = Flaechenpunkt des verfolgten Agenten
         kk = (agents(ids(d), 2) - 1)*N + agents(ids(d), 1);
         p_r = [X_ref(kk); X_ref(num_pts + kk); X_ref(2*num_pts + kk)];
         plot3(ax, p_r(1), p_r(2), p_r(3), 'x', 'Color', PURPLE, ...
