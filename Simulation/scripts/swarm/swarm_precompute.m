@@ -6,6 +6,9 @@ function ref = swarm_precompute(kappa, p0_drones, cfg_extra)
 %   Ruft main_DROMA, streckt die Zeit um kappa (v/kappa, a/kappa^2, j/kappa^3),
 %   tastet auf das Ts_gcs Zeitraster ab, prüft Käfiggrenzen und schreibt
 %   data\swarm_ref.mat.
+%   Start: cfg_extra.takeoff = 'offset_fade' (Default: Agenten starten bei
+%   z_start = 0.40 m, Hoehenversatz ueber t_fade = 1.5 s ausgeblendet) oder
+%   'hold_blend' (Boden-Hold + Aufblenden, dann z_start = 0.10 setzen).
 arguments
     kappa     (1,1) double = 1.45
     p0_drones double = []
@@ -17,6 +20,7 @@ CONTAINMENT = ['C:\Users\Rakete\Documents\Drohnenversuchsstand\' ...
 DROMA_DATA = 'C:\Users\Rakete\Documents\Drohnenversuchsstand\DROMA\Simulation\data';
 % Käfig-Nutzvolumen
 CAGE = struct('x', [-1.9 1.9], 'y', [-1.2 1.2], 'z', [0 2.8]);
+Z_STAND = 0.10; % Standhoehe der Drohnen (Mocap-Marker)
 % Zulässige Envelope
 VMAX = 2.4; AMAX = 6.2;
 Ts = 0.01; % Ts_gcs
@@ -29,7 +33,8 @@ SAIL = struct('extent', [1.2 2.6 2.2], 'R_L', [0 0 1; 0 -1 0; 1 0 0], ...
               'z_offset', 1.9, 'center_leaders', true, ...
               'ground_under_agent', true, 'omega', 1.0, ...
               'a1', 5, 'b1', 6.25, 'poles_z', linspace(-2.65, -2.5, 10), ...
-              't_dist_on', Inf, 't_leader_jump', Inf);
+              't_dist_on', Inf, 't_leader_jump', Inf, ...
+              'takeoff', 'offset_fade', 'z_start', 0.40, 't_fade', 1.5);
 fn = fieldnames(SAIL);
 for k = 1:numel(fn)
     if ~isfield(cfg, fn{k}), cfg.(fn{k}) = SAIL.(fn{k}); end
@@ -59,31 +64,50 @@ for d = 1:n
     ref.j(:,:,d) = interp1(ts, res.refs.j(i_u,:,d), t, 'pchip') / kappa^3;
 end
 
-% --- Takeoff-Konditionierung: Boden-Hold + Blend ------------------------------
-%  Referenzen der theta_1 = 1 Agenten tauchen anfangs unter die Standhoehe und
-%  bewegen sich dabei in xy -> Kippkommandos am Boden. Startpose halten, bis
-%  die Referenz Z_AIR ueber dem Start liegt, dann per Smoothstep aufblenden.
-Z_AIR = 0.08; T_BLEND = 1.5;
-% Gemeinsamer Abflugzeitpunkt (spaetester Einzel-t_air) haelt die Paargeometrie
-k_air = 1;
-for d = 1:n
-    kd = find(ref.p(:,3,d) >= ref.p(1,3,d) + Z_AIR, 1);
-    if ~isempty(kd), k_air = max(k_air, kd); end
-end
-for d = 1:n
-    if k_air <= 1, continue; end
-    p0d = ref.p(1,:,d);
-    s  = min(max((t - t(k_air)) / T_BLEND, 0), 1);
-    al = s.^2 .* (3 - 2*s);
-    dal  = 6*s.*(1 - s) / T_BLEND;
-    ddal = (6 - 12*s) / T_BLEND^2 .* (s > 0 & s < 1);
-    dp = ref.p(:,:,d) - p0d;
-    ref.a(:,:,d) = ddal.*dp + 2*dal.*ref.v(:,:,d) + al.*ref.a(:,:,d);
-    ref.v(:,:,d) = dal.*dp + al.*ref.v(:,:,d);
-    ref.p(:,:,d) = p0d + al.*dp;
-    ref.j(:,:,d) = al.*ref.j(:,:,d);
-    fprintf('[swarm_precompute] Agent %d: Boden-Hold bis t = %.2f s, Blend %.1f s\n', ...
-        d, t(k_air), T_BLEND);
+% --- Takeoff-Konditionierung -------------------------------------------------
+%  'offset_fade': Agenten starten dz0 ueber der Standhoehe (cfg.z_start), der
+%                 konstante Hoehenversatz wird per Smoothstep ueber T_FADE
+%                 ausgeblendet; xy wird von t = 0 an verfolgt.
+%  'hold_blend':  Startpose halten, bis die Referenz Z_AIR ueber dem Start
+%                 liegt, dann per Smoothstep auf die Agentenreferenz aufblenden.
+switch cfg.takeoff
+    case 'offset_fade'
+        T_FADE = cfg.t_fade; dz0 = cfg.z_start - Z_STAND;
+        s  = min(t / T_FADE, 1);
+        al = s.^2 .* (3 - 2*s);
+        dal  = 6*s.*(1 - s) / T_FADE;
+        ddal = (6 - 12*s) / T_FADE^2 .* (s < 1);
+        for d = 1:n
+            ref.p(:,3,d) = ref.p(:,3,d) - dz0*(1 - al);
+            ref.v(:,3,d) = ref.v(:,3,d) + dz0*dal;
+            ref.a(:,3,d) = ref.a(:,3,d) + dz0*ddal;
+        end
+        fprintf('[swarm_precompute] Hoehenversatz %.2f m ueber %.1f s ausgeblendet\n', dz0, T_FADE);
+    case 'hold_blend'
+        Z_AIR = 0.08; T_BLEND = 1.5;
+        % Gemeinsamer Abflugzeitpunkt (spaetester Einzel-t_air) haelt die Paargeometrie
+        k_air = 1;
+        for d = 1:n
+            kd = find(ref.p(:,3,d) >= ref.p(1,3,d) + Z_AIR, 1);
+            if ~isempty(kd), k_air = max(k_air, kd); end
+        end
+        for d = 1:n
+            if k_air <= 1, continue; end
+            p0d = ref.p(1,:,d);
+            s  = min(max((t - t(k_air)) / T_BLEND, 0), 1);
+            al = s.^2 .* (3 - 2*s);
+            dal  = 6*s.*(1 - s) / T_BLEND;
+            ddal = (6 - 12*s) / T_BLEND^2 .* (s > 0 & s < 1);
+            dp = ref.p(:,:,d) - p0d;
+            ref.a(:,:,d) = ddal.*dp + 2*dal.*ref.v(:,:,d) + al.*ref.a(:,:,d);
+            ref.v(:,:,d) = dal.*dp + al.*ref.v(:,:,d);
+            ref.p(:,:,d) = p0d + al.*dp;
+            ref.j(:,:,d) = al.*ref.j(:,:,d);
+            fprintf('[swarm_precompute] Agent %d: Boden-Hold bis t = %.2f s, Blend %.1f s\n', ...
+                d, t(k_air), T_BLEND);
+        end
+    otherwise
+        error('swarm_precompute: takeoff muss ''offset_fade'' oder ''hold_blend'' sein.');
 end
 
 % --- Checks: Kaefig je Agent + Envelope ---------------------------------------
@@ -127,7 +151,9 @@ anim = struct('t_sim', t_u * kappa, 'y_sim', res.y_sim(i_u, 1:nKeep), ...
               'params', res.params, 'Pi', res.Pi, 'P_L', res.P_L, ...
               'N', res.N, 'M', res.M, 'dim_X', res.dim_X, ...
               'e_d', res.y_sim(i_u, nKeep) - res.y_sim(i_u, end), ...
-              'dist_dir', G_w / norm(G_w));
+              'dist_dir', G_w / norm(G_w), ...
+              'Pi_seg', {res.Pi_seg}, 't_seg', res.t_seg * kappa, ...
+              'events', [res.events(:, 1) * kappa, res.events(:, 2)]);
 
 save(fullfile(DROMA_DATA, 'swarm_ref.mat'), 'ref', 'anim', '-v7.3');
 fprintf('[swarm_precompute] gespeichert: %s (T = %.1f s, Ts = %g s)\n', ...
