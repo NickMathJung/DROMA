@@ -1,74 +1,75 @@
-# DROMA — quadcopter testbench (Drohnenversuchsstand)
+# DROMA — quadcopter testbench 
 
 DROMA is a testbench for small quadcopters flying indoors with the use of an 
 **OptiTrack infrared motion-capture system**. This repository contains everything 
-that makes one drone and the swarm fly. This includes the Simulink models of 
-the plant and of **two** flight controllers, the code-generation and verification 
-pipeline, the Teensy firmware for drone and ground station, the motion-capture 
-toolchain, and the flight-test documentation.
+to make one drone and also a swarm of up to four drones fly. This includes the 
+Simulink models of the plant and of **two** flight controllers, the automatic 
+code-generation of the C++ code, that is flashed onto the microcontrollers of 
+the quadcopters, and also a verification pipeline to verificate the generated 
+C++ code before flashing it. Furthermore, the Teensy firmware for drone and 
+ground station and the motion-capture toolchain.
 
-The core principle is model-based design taken all the way. This means the flight
-controller is built and simulated in Simulink, code-generated to C++, proven
-to be correct using a SiL pipeline where the response of the generated C++ 
-code is compared against the response of the model to the same input  
-(called golden tests), and flashed onto a **Teensy 4.1** on the drone. 
+The core principle is so-called model-based design. This means the flight
+controller is built and simulated in Simulink, the code is generated to C++, 
+proven to be correct using a software-in-the-loop (SiL) pipeline where the 
+output of the generated C++ code is compared against the output of the SIMULINK
+model to the same input (called golden tests), and flashed onto a **Teensy 4.1** 
+on the drone. 
 
 Three **conventions**:
 
-- The model frame is **z-up**, not NED.
+- The body frame has its **z-axis pointing up**, this can differ from some literature.
 - Every parameter is located in `Simulation/scripts/params.m` (using the
-  `scripts/init/init_*.m` functions). A number typed into a block is a bug.
-  Everything should be referenced from the MATLAB Base-Workspace.
+  `scripts/init/init_*.m` functions). A number typed into a SIMULINK block can 
+  thus be considered a bug. Everything should be referenced from the MATLAB 
+  Base-Workspace.
 - The MATLAB Function blocks are `_sl` wrappers. The actual algorithms are
-  `.m` files in `scripts/functions/` and `scripts/flatness/`. Edit those. 
-  `.slx` is binary and thus cannot be properly version controlled with Git.
+  `.m` files located in `scripts/functions/`. Edit those. 
 
 ---
 
 ## The system
 
 ```
-OptiTrack cameras --> Motive (PC, streams rigid-body pose using NatNet, Up Axis = Z)
+OptiTrack cameras --> Motive (tracking software) streams quadcopter pose using a NatNet client
         │
         V
-bench(_flat).slx      Simulink "ground control" on the PC, 100 Hz
+bench(_flat).slx = Simulink "ground control" on the PC, 100 Hz
         |
         │  USB frame
         V
-gcs_sender(_flat)     ground-station Teensy ── nRF24 radio (ch 76, 250 kbps) -->
+gcs_sender(_flat)     ground-station Teensy ── nRF24 radio (ch 76, 250 kbps) 
         |
-        |  OTA-link using nRF
+        |  
         V
-drone_hal(_flat)      drone Teensy 4.1: MPU-6050, battery ADC, generated
-                      controller class at 1 kHz, OneShot125-Protokoll -> ESCs
+drone_hal(_flat)      quadcopter with Teensy 4.1, MPU-6050, battery surveillance,
+                      controller at 1 kHz, OneShot125-Protokoll (PWM) -> ESCs
 ```
 
-The drone (m = 0.985 kg (differs between individual drones), 4S battery) is 
-tracked by the cameras. Motive streams its pose to the PC, the bench model 
-computes setpoints, the radio carries them to the drone, the drone flies, 
-the cameras measure that. Several airframes exist (`id=1`, `id=2`, `id=3`, `id=4`). 
-The firmware selects drone specific IMU mount calibration via the individual ids.
+The quadcopter (mass = 0.985 kg) is tracked by the cameras and Motive -> which streams the 
+pose to the SIMULINK model -> The bench.slx model computes setpoints -> the radio transmitter 
+sends them to the quadcopter -> the drone flies -> the cameras measure that. 
+Several quadcopters exist (`id=1`, `id=2`, `id=3`, `id=4`). 
+The firmware (on the Teensy) selects a quadcopter specific rotation matrix, which rotates the 
+IMU coordinate system, due to slightly different mounting, into the body coordinate system.
 
-Two SysML views of this structure live next to this file:
-[`DROMA_BDD.puml`](DROMA_BDD.puml) (what contains what, down to the `.m`
-functions) and [`DROMA_IBD.puml`](DROMA_IBD.puml) (signal flow, logical vs.
-physical interfaces). The IBD file holds two diagrams, one for the full
-simulation and one for the swarm on hardware. Render with PlantUML (needs Java
-+ Graphviz).
+Two SysML views of this structure are located in the workspace next to this file:
+[`DROMA_BDD.puml`](DROMA_BDD.puml) and [`DROMA_IBD.puml`](DROMA_IBD.puml). 
+Render with PlantUML (needs Java + Graphviz).
 
 ---
 
 ## Two controller variants
 
-|                    | Cascade                                   | Flatness-based                              |
-|--------------------|-------------------------------------------|---------------------------------------------|
-| Control law        | PD position (ground, 100 Hz) + geometric attitude (drone, 1 kHz) | Flatness-based tracking control (exact linearization), entirely on the drone at 1 kHz; the ground streams mocap pose + trajectory incl. feedforward (2-frame OTA protocol) |
-| Simulink models    | `quadcop.slx`, `bench.slx`, `mcu.slx`, `gcu.slx`, `link.slx` | same names with `_flat` suffix              |
-| Algorithm sources  | `scripts/functions/`                      | `scripts/flatness/`                         |
-| Firmware           | `drone_hal.cpp`, `gcs_sender.cpp`         | `drone_hal_flat.cpp`, `gcs_sender_flat.cpp` |
-| Recert pipeline    | `run_mcu_recert`, `run_mcu_arm_codegen`   | `run_mcu_flat_recert`, `run_mcu_flat_arm_codegen` |
-| Git                | flight-proven state on `main`             | developed on `feature/flatness-tracking`    |
-| Swarm              | up to four drones (`bench.slx`)           | single drone only                           |
+|                    | Cascade                                                          | Flatness-based                                                        |
+|--------------------|------------------------------------------------------------------|-----------------------------------------------------------------------|
+| Control law        | PD position control (ground stattion, 100 Hz) + geometric attitude control (on quadcopter, 1 kHz) | Flatness-based tracking control (exact linearization), entirely on the drone at 1 kHz; the ground streams mocap pose + trajectory incl. feedforward (2-frame OTA protocol) |
+| Simulink models    | `quadcop.slx`, `bench.slx`, `mcu.slx`, `gcu.slx`, `link.slx`     | same names with `_flat` suffix              |
+| Algorithm sources  | `scripts/functions/`                                             | `scripts/flatness/`                         |
+| Firmware           | `drone_hal.cpp`, `gcs_sender.cpp`                                | `drone_hal_flat.cpp`, `gcs_sender_flat.cpp` |
+| Recert pipeline    | `run_mcu_recert`, `run_mcu_arm_codegen`                          | `run_mcu_flat_recert`, `run_mcu_flat_arm_codegen` |
+| Git                | flight-proven state on `main`                                    | developed on `feature/flatness-tracking`    |
+| Swarm              | up to four drones (`bench.slx`)                                  | single drone only                           |
 
 The `_flat` family is strictly additive. The cascade stays untouched and
 flyable at all times. Drone **and** sender Teensy must always run the same
