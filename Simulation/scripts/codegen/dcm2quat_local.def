@@ -1,9 +1,0 @@
-LIBRARY dcm2quat_local.mexw64
-EXPORTS
-mexFunction
-mexfilerequiredapiversion
-emlrtMexFcnProperties
-dcm2quat_local
-dcm2quat_local_initialize
-dcm2quat_local_terminate
-dcm2quat_local_atexit

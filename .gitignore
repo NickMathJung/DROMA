@@ -24,7 +24,7 @@ Simulation/scripts/sitl/codegen/
 #     dann in MATLAB  setup_motive_path()  (legt assemblypath.txt an).
 # FUEHRENDER SLASH IST PFLICHT: ohne ihn matcht das Pattern JEDEN 'Motive'-Ordner
 # im Baum — und Git ist auf Windows case-insensitive, d.h. 'Motive/' haette auch
-# Simulation/scripts/motive/ (MotiveMocap.m!) verschluckt. '/Motive/' = nur hier.
+# Simulation/scripts/motive/ (MotiveMocapMulti.m!) verschluckt. '/Motive/' = nur hier.
 /Motive/
 
 # --- MATLAB-Nebenprodukte

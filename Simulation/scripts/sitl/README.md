@@ -20,7 +20,7 @@ Referenz-Lauf hier: **21/21 grün**, `dcm2quat` worst |dq|=1.8e-16 (Zweige 14/5/
 | D1 | ABI der Leaf-Helfer | `extern "C"`, fixed-size `double`, out-Param | bit-identisch zu MATLAB Coder → Link-Tausch statt Testumbau |
 | D2 | Matrix-Speicherordnung | **column-major** in der ABI; Golden ist **row-major** | Coder-Default ist column-major; Umrechnung isoliert in `test/csv.hpp` |
 | D3 | Leaf-Codegen-Sprache | **C** (`gen_lib_codegen.m`) | trivialer Link; Golden-Diff zertifiziert reine Numerik. Modell `mcu.slx` bleibt **C++** |
-| D4 | Golden-Toleranz | `GOLDEN_TOL=1e-9` (Default), Quat bis auf Vorzeichen | = MATLAB-vs-Golden aus `verify_quat_codegen.m`; **bewusst eng** — lose Toleranz kaschiert ULP-Divergenz |
+| D4 | Golden-Toleranz | `GOLDEN_TOL=1e-9` (Default), Quat bis auf Vorzeichen | **bewusst eng** — lose Toleranz kaschiert ULP-Divergenz |
 | D5 | Safety-Persistenz | `reset()`+`step()` | 1:1 auf Coders `*_initialize()`+`step()` abbildbar |
 | D6 | Safety-Params | `coder.Constant` (default) | kleinere ABI; laufzeitvariabel → als echtes Arg (siehe `gen_lib_codegen.m`) |
 | D7 | `mcu.slx`-Interface | ERT, C++-Klasse `MCU`, discrete `Ts_inner=1/1000`, packNGo | host-SITL-Loop instanziiert die Klasse gegen die simulierte Strecke |
@@ -31,20 +31,10 @@ Frame **z-up** und `params.m`-IST sind durchgängig respektiert; keine NED-Vorze
 
 ## Geflaggte Inkonsistenzen (Toolchain, bitte prüfen)
 
-1. **Golden-Dateiname DCM bricht die Kette.** `verify_quat_codegen.py` schreibt
-   `golden_quat.csv`, aber `verify_quat_codegen.m` liest `test_data_quat2DCM.csv`.
-   Die drei anderen (`test_data_quatmul/conj/rotate.csv`) matchen. → Der DCM-Golden
-   muss zwischen `.py` und `.m` **manuell umbenannt** werden; jeder Re-Run ohne
-   Rename testet gegen veraltete Daten. **Fix:** im `.py` `golden_quat.csv`
-   → `test_data_quat2DCM.csv` (dieser Test nutzt letzteres als kanonisch).
-2. **Handover §7-Manifest stale.** Dort heißen alle vier `golden_*.csv`; der
+1. **Handover §7-Manifest stale.** Dort heißen alle vier `golden_*.csv`; der
    Generator schreibt aber `golden_quat.csv` **und** `test_data_quat*.csv`. Namen
    im Manifest an den Generator angleichen.
-3. **Zwei Toleranzwelten.** `verify_quat_codegen.m` nutzt `tol_c=1e-6` für MEX.
-   Für den **C++**-Golden-Diff ist das zu lose (reiner Double-Codegen ohne
-   `-ffast-math` trifft ~1e-15). Hier Default `1e-9`; nur bei belegter ULP-Not
-   lockern, sonst versteckt man genau die Codegen-Bugs, die der Test fangen soll.
-4. **`quat2dcm_local` ist Rekonstruktion (Handover §5, OFFEN).** Der Referenz-Port
+2. **`quat2dcm_local` ist Rekonstruktion (Handover §5, OFFEN).** Der Referenz-Port
    nutzt dieselbe Aerospace-Formel → `Quat2Dcm_MatchesGolden` ist scharf, aber
    erst gegen das **echte** `quat2dcm_local` aus `mahony_filter`/`geo_attitude_ctrl`
    aussagekräftig. Bis dahin zertifiziert der Test nur, dass Codegen == diese Formel.

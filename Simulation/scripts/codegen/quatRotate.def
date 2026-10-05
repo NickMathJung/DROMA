@@ -1,9 +1,0 @@
-LIBRARY quatRotate.mexw64
-EXPORTS
-mexFunction
-mexfilerequiredapiversion
-emlrtMexFcnProperties
-quatRotate
-quatRotate_initialize
-quatRotate_terminate
-quatRotate_atexit

@@ -3,7 +3,7 @@ function setup_motive_path()
 %   Einmal pro MATLAB-Session aufrufen.
 %
 %   Legt auf den Pfad:
-%     scripts\motive\ -> MotiveMocap
+%     scripts\motive\ -> MotiveMocapMulti
 %     ...\Motive\OptiTrack_MATLAB_Plugin_1.1.0\Matlab\ -> natnet, quaternion
 %
 %   Das Plugin liegt ausserhalb des Repos unter DROMA\Motive\.
@@ -35,6 +35,6 @@ function setup_motive_path()
     end
 
     fprintf('setup_motive_path: OK\n');
-    fprintf('  MotiveMocap : %s\n', which('MotiveMocap'));
-    fprintf('  natnet      : %s\n', which('natnet'));
+    fprintf('  MotiveMocapMulti : %s\n', which('MotiveMocapMulti'));
+    fprintf('  natnet           : %s\n', which('natnet'));
 end

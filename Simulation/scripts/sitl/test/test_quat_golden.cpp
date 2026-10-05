@@ -1,6 +1,6 @@
 // test_quat_golden.cpp — C++-Golden-Test der Quaternion-Helfer.
 //
-// Spiegelt verify_quat_codegen.m (run_test / run_quatops) nach GoogleTest:
+// Golden-Test der Quaternion-Helfer mit GoogleTest:
 //  - Helfer(Golden-Input) == Golden-Output  (Quaternionen bis auf Vorzeichen)
 //  - Property-Round-Trips ueber Zufalls-Rotationen
 // Laeuft gegen quat_helpers_ref.cpp (Standin) ODER den generierten Code
@@ -12,8 +12,8 @@
 #include <random>
 #include <string>
 
-// Toleranz: Compile-Define GOLDEN_TOL (Default 1e-9 = MATLAB-vs-Golden aus
-// verify_quat_codegen.m). Fuer den Codegen-Diff bewusst eng lassen — eine lose
+// Toleranz: Compile-Define GOLDEN_TOL (Default 1e-9).
+// Fuer den Codegen-Diff bewusst eng lassen — eine lose
 // Toleranz versteckt genau die ULP-Divergenzen, die der Test fangen soll.
 #ifndef GOLDEN_TOL
 #define GOLDEN_TOL 1e-9
@@ -119,7 +119,6 @@ TEST(QuatGolden, QuatRotate_MatchesGolden) {
 }
 
 // -------------------------------------------------- Property-Round-Trips
-// Entspricht run_roundtrips / run_quatops-Eigenschaften in verify_quat_codegen.m.
 TEST(QuatProps, RoundTripsAndIdentities) {
     std::mt19937_64 rng(7);
     std::normal_distribution<double> N(0,1);

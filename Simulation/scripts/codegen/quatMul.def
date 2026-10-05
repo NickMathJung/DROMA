@@ -1,9 +1,0 @@
-LIBRARY quatMul.mexw64
-EXPORTS
-mexFunction
-mexfilerequiredapiversion
-emlrtMexFcnProperties
-quatMul
-quatMul_initialize
-quatMul_terminate
-quatMul_atexit
