@@ -1,18 +1,17 @@
 function traj = init_trajectory(x0_in, yaw0_in)
-%init_trajectory initializes the trajectory the quadcopter shall follow
-%   with the according dwell times between adjacent trajectories
-%   Optional x0_in/yaw0_in: Anfangs-Ursprung aus Mocap, sonst gelten die fest
-%   eingetragenen Fallback-Werte
+%init_trajectory initialisiert die Trajektorie welcher die Drohne folgen
+%   soll. Optional x0_in/yaw0_in -> Startwerte entweder mit Motive gemessen 
+%   oder beliebig vorgegeben, also mit Anfangsfehler oder ohne
 arguments (Input)
-    x0_in   (:,1) double = []   % [] => Fallback-Werte benutzen
+    x0_in   (:,1) double = [] % -> wenn leer dann Fallback auf Standardwerte   
     yaw0_in (1,1) double = 0
 end
 arguments (Output)
-    traj struct % holding parameters for the trajectory
+    traj struct % beinhaltet Parameter der Trajektorie
 end
 auto_origin = ~isempty(x0_in);
 
-if auto_origin % aus Mocap
+if auto_origin % aus Motive
     x0   = x0_in;
     yaw0 = yaw0_in;
     fprintf('Auto-Ursprung (Mocap): [%.3f %.3f %.3f] m, yaw %.1f deg\n', ...

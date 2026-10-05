@@ -3,7 +3,7 @@
 DROMA is a testbench for small quadcopters flying indoors with the use of an 
 **OptiTrack infrared motion-capture system**. This repository contains everything 
 to make one drone and also a swarm of up to four drones fly. This includes the 
-Simulink models of the plant and of **two** flight controllers, the automatic 
+Simulink models of the plant and the flight controller, the automatic 
 code-generation of the C++ code, that is flashed onto the microcontrollers of 
 the quadcopters, and also a verification pipeline to verificate the generated 
 C++ code before flashing it. Furthermore, the Teensy firmware for drone and 
@@ -34,15 +34,15 @@ Three **conventions**:
 OptiTrack cameras --> Motive (tracking software) streams quadcopter pose using a NatNet client
         │
         V
-bench(_flat).slx = Simulink "ground control" on the PC, 100 Hz
+bench.slx = Simulink "ground control" model at 100 Hz
         |
         │  USB frame
         V
-gcs_sender(_flat)     ground-station Teensy ── nRF24 radio (ch 76, 250 kbps) 
+gcs_sender = ground station Teensy 4.1, which coordinates the attached nRF24 radio (ch 76, 250 kbps) 
         |
         |  
         V
-drone_hal(_flat)      quadcopter with Teensy 4.1, MPU-6050, battery surveillance,
+drone_hal = quadcopter firmware/software with Teensy 4.1, MPU-6050, battery surveillance,
                       controller at 1 kHz, OneShot125-Protokoll (PWM) -> ESCs
 ```
 
@@ -60,22 +60,29 @@ Render with PlantUML (needs Java + Graphviz).
 
 ---
 
-## Two controller variants
+## Two controller variants exist:
 
-|                    | Cascade                                                          | Flatness-based                                                        |
-|--------------------|------------------------------------------------------------------|-----------------------------------------------------------------------|
-| Control law        | PD position control (ground stattion, 100 Hz) + geometric attitude control (on quadcopter, 1 kHz) | Flatness-based tracking control (exact linearization), entirely on the drone at 1 kHz; the ground streams mocap pose + reference position, velocity and acceleration (one 32 B OTA frame per drone) |
-| Simulink models    | `quadcop.slx`, `bench.slx`, `mcu.slx`, `gcu.slx`, `link.slx`     | same names with `_flat` suffix              |
-| Algorithm sources  | `scripts/functions/`                                             | `scripts/flatness/`                         |
-| Firmware           | `drone_hal.cpp`, `gcs_sender.cpp`                                | `drone_hal_flat.cpp`, `gcs_sender_flat.cpp` |
-| Recert pipeline    | `run_mcu_recert`, `run_mcu_arm_codegen`                          | `run_mcu_flat_recert`, `run_mcu_flat_arm_codegen` |
-| Git                | flight-proven state on `main`                                    | developed on `feature/flatness-tracking`    |
-| Swarm              | up to four drones (`bench.slx`)                                  | up to four drones (`bench_flat.slx`)        |
+**Cascade:**
+
+| Control principle | PD position control o the ground station at 100 Hz and geometric attitude control on quadcopter at 1 kHz 
+| Simulink models   | `quadcop.slx`, `bench.slx`, `mcu.slx`, `gcu.slx`, `link.slx`      
+| Algorithm location| `scripts/functions/`                                              
+| Firmware          | `drone_hal.cpp`, `gcs_sender.cpp`                                 
+| Recert pipeline   | `run_mcu_recert`, `run_mcu_arm_codegen`                                                             
+| Swarm             | up to four drones (`bench.slx`)                                   
+
+**Flatness-based:**
+
+| Control principle | Exact linearization, entirely on the drone at 1 kHz. The ground streams mocap pose + reference position, velocity and acceleration (one 32 B OTA frame per drone) 
+| Simulink models   | same names as the cascade with `_flat` suffix                     
+| Algorithm location| `scripts/flatness/`                                               
+| Firmware          | `drone_hal_flat.cpp`, `gcs_sender_flat.cpp`                       
+| Recert pipeline   | `run_mcu_flat_recert`, `run_mcu_flat_arm_codegen`                                         
+| Swarm             | up to four drones (`bench_flat.slx`)                              
 
 The `_flat` family is strictly additive. The cascade stays untouched and
 flyable at all times. Drone **and** sender Teensy must always run the same
-variant. Swarm flights currently run on the cascade. That work happens on
-`feature/swarm-ctrl`.
+variant.
 
 ---
 
@@ -84,34 +91,30 @@ variant. Swarm flights currently run on the cascade. That work happens on
 ```
 DROMA/
 ├── README.md                    you are here
-├── DROMA_BDD.puml               SysML: composition hierarchy
-├── DROMA_IBD.puml               SysML: signal flow
+├── DROMA_BDD.puml               hierarchy diagram
+├── DROMA_IBD.puml               signal flow
 ├── LICENSE
-├── Motive/                      OptiTrack side: camera calibrations (.mcal),
-│                                NatNet MATLAB plugin + DLLs, Motive quick-start guide
-└── Simulation/                  the engineering content
+├── Motive/                      OptiTrack: camera calibrations (.mcal),
+│                                NatNet MATLAB plugin, Motive quick-start guide
+└── Simulation/                  
     ├── DROMA.prj                MATLAB project, open this FIRST (paths + PreLoadFcn)
-    ├── models/                  quadcop/bench + referenced models, plus the *_flat family
+    ├── models/                  quadcop/bench + referenced models
     ├── scripts/
-    │   ├── params.m             single source of truth for every parameter
-    │   ├── setup_buses.m        Simulink bus definitions
-    │   ├── init/                init_*.m parameter builders, one per subsystem
-    │   ├── functions/           cascade algorithms (the real sources)
+    │   ├── params.m             all parameters
+    │   ├── setup_buses.m        SIMULINK bus definitions
+    │   ├── init/                init_*.m called by params.m
+    │   ├── functions/           flight control algorithms
     │   ├── flatness/            flatness controller + its init/link/eval scripts
-    │   ├── swarm/               swarm reference generation, bench InitFcn, animation
-    │   ├── motive/              NatNet path setup, mocap source block, swarm origins,
-    │   │                        IMU mount calibration
-    │   ├── sitl/                C++ golden tests, codegen automation, README.md, SITL_Runbook.md
-    │   └── test/                verify_*.m unit checks, generator of the quaternion golden vectors
-    ├── hardware/                Teensy firmware (both variants), bench tools,
-    │                            build_sketches.sh, generated ARM code (mcu_arm/, mcu_flat_arm/)
-    └── data/                    flight logs and per-flight evaluation results
+    │   ├── swarm/               virtual MAS simulation, animation
+    │   ├── motive/              NatNet path setup, MoCap related stuff, IMU mount calibration
+    │   ├── sitl/                C++ tests, codegen automation, SITL_Runbook.md (for software-in-the-loop)
+    │   └── test/                verify_*.m unit checks, generator of the quaternion test vectors
+    ├── hardware/                Teensy firmware (both variants), tools like build_sketches.sh, generated ARM code (mcu_arm/, mcu_flat_arm/)
+    └── data/                    flight logs 
         └── videos/              swarm animations (kept local, not in Git)
 ```
 
 ---
-
-
 
 **First steps:** open `Simulation/DROMA.prj` in MATLAB (sets up all paths), open
 `models/quadcop.slx`, press Run. Opening a top model triggers `params.m`, which
@@ -121,21 +124,20 @@ fills the workspace with every parameter struct the model needs.
 
 ## Workflow
 
-**Run the full simulation**: `quadcop.slx` (cascade) or `quadcop_flat.slx`.
-Everything simulated, fixed-step ode4 at 1 ms. After a bench run the workspace
-still holds the start pose of the real flight, so run `clear; params` first.
-Otherwise the simulation starts from the wrong state and diverges.
+**Run the full simulation**: `quadcop.slx` or `quadcop_flat.slx`.
+Everything simulated, fixed-step ode4 at 1 ms.
 
-**Fly on hardware**: `bench.slx` / `bench_flat.slx`. Same ground station, but
+**Fly the quadcopter**: `bench.slx` / `bench_flat.slx`. Same ground station, but
 mocap comes in live from Motive and commands go out over serial to the sender
-Teensy. Runs at 10 ms. Simulation Pacing must be 1.0x.
+Teensy. Runs at 10 ms. 
 
-**Swarm mode vs. single-drone waypoint flight**: `bench.slx` is a four-drone
-ground station. `MotiveMocapMulti` streams every rigid body listed in
-`mocap.streaming_ids` (`scripts/init/init_sensors.m`), one GCS path per entry.
-Each path builds its own 82 Byte radio frame, the four frames are concatenated
-into a single 328 B USB frame, and the sender Teensy keeps and forwards the
-freshest frame per id. Everything user-facing is addressed by **drone id**:
+**Swarm mode and waypoint flight for one quadcopter**: `bench.slx` contains four 
+quadcopter controllers -> one gcs model per quadcopter. `MotiveMocapMulti` streams 
+every rigid body listed in `mocap.streaming_ids` (`scripts/init/init_sensors.m`).
+Each gcs model builds its own 82 Byte radio frame, the four frames are concatenated
+into a single 328 B USB frame, and the sender Teensy (attached to USB) keeps and 
+forwards the freshest frame per id. 
+Lot of files require the **drone id** id as parameter:
 `init_trajectory_swarm(id)` writes `traj_id<id>`, `flight_evaluation(id)`
 saves `*_id<id>.mat`, the radio frame carries the id. Which GCS path serves
 which id follows from the order of `mocap.streaming_ids`. That list is the
