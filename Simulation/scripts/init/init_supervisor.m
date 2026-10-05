@@ -13,7 +13,7 @@ end
 % geregeltes Soft-Land
 supervisor.v_sink = 0.15; % [m/s] Soll-Sinkrate
 
-supervisor.z_ground = 0.0; % [m] z-Koordinate des Bodens
+supervisor.z_ground = 0.05; % [m] z-Koordinate des Bodens
 
 % Disarm-Marge ueber Grund: Cutoff (estop=2) bei z_est <= z_ground + margin.
 supervisor.disarm_margin = 0.1; % [m]

@@ -47,7 +47,7 @@ if TEST_S4
     traj.P      = [ x0, x0+[0;0;z_hov], x0+[0;0;0.1] ]; % Boden -> z_hov -> Boden
     traj.yaw    = [ yaw0  yaw0 ];
     traj.Tseg   = [ 3.0   3.0 ]; 
-    traj.Tdwell = [ 4.0   6.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
+    traj.Tdwell = [ 1.0   6.0   2.0 ]; % 4s arm am Boden, 6s Hover, 2s nach Landung
 end
 % ==============================================================================
 
