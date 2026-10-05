@@ -52,6 +52,7 @@ sends them to the quadcopter -> the drone flies -> the cameras measure that.
 Several quadcopters exist (`id=1`, `id=2`, `id=3`, `id=4`). 
 The firmware (on the Teensy) selects a quadcopter specific rotation matrix, which rotates the 
 IMU coordinate system, due to slightly different mounting, into the body coordinate system.
+In the flatness variant it also selects the quadcopter specific thrust factor.
 
 Two SysML views of this structure are located in the workspace next to this file:
 [`DROMA_BDD.puml`](DROMA_BDD.puml) and [`DROMA_IBD.puml`](DROMA_IBD.puml). 
@@ -63,13 +64,13 @@ Render with PlantUML (needs Java + Graphviz).
 
 |                    | Cascade                                                          | Flatness-based                                                        |
 |--------------------|------------------------------------------------------------------|-----------------------------------------------------------------------|
-| Control law        | PD position control (ground stattion, 100 Hz) + geometric attitude control (on quadcopter, 1 kHz) | Flatness-based tracking control (exact linearization), entirely on the drone at 1 kHz; the ground streams mocap pose + trajectory incl. feedforward (2-frame OTA protocol) |
+| Control law        | PD position control (ground stattion, 100 Hz) + geometric attitude control (on quadcopter, 1 kHz) | Flatness-based tracking control (exact linearization), entirely on the drone at 1 kHz; the ground streams mocap pose + reference position, velocity and acceleration (one 32 B OTA frame per drone) |
 | Simulink models    | `quadcop.slx`, `bench.slx`, `mcu.slx`, `gcu.slx`, `link.slx`     | same names with `_flat` suffix              |
 | Algorithm sources  | `scripts/functions/`                                             | `scripts/flatness/`                         |
 | Firmware           | `drone_hal.cpp`, `gcs_sender.cpp`                                | `drone_hal_flat.cpp`, `gcs_sender_flat.cpp` |
 | Recert pipeline    | `run_mcu_recert`, `run_mcu_arm_codegen`                          | `run_mcu_flat_recert`, `run_mcu_flat_arm_codegen` |
 | Git                | flight-proven state on `main`                                    | developed on `feature/flatness-tracking`    |
-| Swarm              | up to four drones (`bench.slx`)                                  | single drone only                           |
+| Swarm              | up to four drones (`bench.slx`)                                  | up to four drones (`bench_flat.slx`)        |
 
 The `_flat` family is strictly additive. The cascade stays untouched and
 flyable at all times. Drone **and** sender Teensy must always run the same
@@ -90,9 +91,6 @@ DROMA/
 │                                NatNet MATLAB plugin + DLLs, Motive quick-start guide
 └── Simulation/                  the engineering content
     ├── DROMA.prj                MATLAB project, open this FIRST (paths + PreLoadFcn)
-    ├── README.md                deep dive: simulation, codegen gates, firmware, safety
-    ├── Testmatrix_Erstflug.md   flight-test campaign, living document (German)
-    ├── Handover_Drohnenschwarm_Sim_7.md   long engineering log: locked decisions, pinouts
     ├── models/                  quadcop/bench + referenced models, plus the *_flat family
     ├── scripts/
     │   ├── params.m             single source of truth for every parameter
@@ -101,9 +99,10 @@ DROMA/
     │   ├── functions/           cascade algorithms (the real sources)
     │   ├── flatness/            flatness controller + its init/link/eval scripts
     │   ├── swarm/               swarm reference generation, bench InitFcn, animation
-    │   ├── motive/              NatNet path setup, mocap origin, IMU mount calibration
-    │   ├── sitl/                C++ golden tests, codegen automation, SITL_Runbook.md
-    │   └── test/                verify_*.m unit checks
+    │   ├── motive/              NatNet path setup, mocap source block, swarm origins,
+    │   │                        IMU mount calibration
+    │   ├── sitl/                C++ golden tests, codegen automation, README.md, SITL_Runbook.md
+    │   └── test/                verify_*.m unit checks, generator of the quaternion golden vectors
     ├── hardware/                Teensy firmware (both variants), bench tools,
     │                            build_sketches.sh, generated ARM code (mcu_arm/, mcu_flat_arm/)
     └── data/                    flight logs and per-flight evaluation results
@@ -123,7 +122,9 @@ fills the workspace with every parameter struct the model needs.
 ## Workflow
 
 **Run the full simulation**: `quadcop.slx` (cascade) or `quadcop_flat.slx`.
-Everything simulated, fixed-step ode4 at 1 ms.
+Everything simulated, fixed-step ode4 at 1 ms. After a bench run the workspace
+still holds the start pose of the real flight, so run `clear; params` first.
+Otherwise the simulation starts from the wrong state and diverges.
 
 **Fly on hardware**: `bench.slx` / `bench_flat.slx`. Same ground station, but
 mocap comes in live from Motive and commands go out over serial to the sender
@@ -146,18 +147,21 @@ decided purely by the workspace at Run.
 variant: identical Motive/selector/switch front end and the same InitFcn
 (`bench_init_fcn`), but one `gcu_flat` instance per path (model argument
 `drone_idx` = slice of the shared `traj`), a 106 B flat frame per drone
-(424 B USB frame) and `gcs_sender_flat` forwarding per id. For swarm tables
-the flat path feeds forward position, velocity and acceleration only
-(`j_ref = s_ref = 0`, zeroed in the `traj_gen_flat` wrapper of `gcu_flat`):
-the drone-side controller then acts as the asymptotic model-matching law of
-the paper w.r.t. the reference model (p_r, v_r, a_r) of the tracked agent.
-Waypoint flights keep their full jerk/snap feedforward. The procedure below applies verbatim, with
+(424 B USB frame) and `gcs_sender_flat` forwarding per id. The flat path
+feeds forward position, velocity and acceleration only, for swarm tables and
+waypoint flights alike (`j_ref = s_ref = 0`, zeroed in the `traj_gen_flat`
+wrapper of `gcu_flat`; the waypoint trajectory itself stays minimum-snap
+planned): the drone-side controller acts as the asymptotic model-matching law
+of the thesis w.r.t. the reference model (p_r, v_r, a_r). The procedure below applies verbatim, with
 `flight_evaluation_flat(id)` in step 4 (logs `mocap_pos_d`, `x_ref_d`,
 `v_ref_d`, `a_ref_d`, `mocap_quat_d` per path, saved as `*_id<id>.mat`).
-Drone **and** sender Teensy must run the flat firmware. Note the airtime:
-the flat OTA protocol needs two radio packets per drone and tick, i.e. eight
-packets per 10 ms at 250 kbps for four drones, which is close to the link
-capacity; watch the freshness rate in the first four-drone flat flight.
+Drone **and** sender Teensy must run the flat firmware. The flat OTA frame
+(32 B: id/estop/ack, seq, mocap pose, p/v/a reference, yaw) carries no jerk,
+snap or yaw rates; four drones need about 53 % airtime per 10 ms at 250 kbps.
+Without jerk and snap feedforward the tracking error grows with the jerk of
+the reference. Smooth swarm tables are fine, but the waypoint box of the
+cascade (segments of 1.9 s) is not flyable on the flat path. In simulation it
+needs segments of about 4.75 s or longer in `init_trajectory.m`.
 
 Which mode flies is decided purely by the workspace at Run:
 
@@ -263,18 +267,25 @@ Which mode flies is decided purely by the workspace at Run:
 
 **Swap in a different airframe** (e.g. `id=2` to `id=3`): set the BCD id pins
 on the drone (the firmware binary is the same for every id), measure its IMU
-mount and enter `MOUNT[id]` in `hardware/drone_hal.cpp` (procedure in the
-comment above the table, identity = not yet measured), create a Motive rigid
-body with that streaming id, weigh the airframe and enter the mass in
-`quadcop.m_id(id)` (`scripts/init/init_quadcop.m`), and update
-`mocap.streaming_ids` in `init_sensors.m`. The mass feeds the feedforward of
-that GCS path, so a wrong entry leaves a constant height offset for the
-integrator to remove.
+mount and enter `MOUNT[id]` in `hardware/drone_hal.cpp` and
+`hardware/drone_hal_flat.cpp` (procedure in the comment above the table,
+identity = not yet measured), create a Motive rigid body with that streaming
+id, weigh the airframe and enter the mass in `quadcop.m_id(id)` and the thrust
+factor in `quadcop.m_adap_id(id)` (`scripts/init/init_quadcop.m`), and update
+`mocap.streaming_ids` in `init_sensors.m`. The thrust factor is the delivered
+thrust relative to the thrust map of the firmware. The cascade feedforward of
+that GCS path uses `m_id/m_adap_id`, so a wrong entry leaves a constant height
+offset for the integrator to remove. The flatness firmware needs the same
+factor in `K_THR[id]` in `drone_hal_flat.cpp`: it scales the commanded thrust
+and is the start value of the thrust-scale estimator.
 
 **Change a parameter**: `scripts/params.m` and `scripts/init/init_*.m` (or
 `scripts/flatness/init_flatness.m`). Position gains and everything ground-side
 take effect on the next run, no flash. Anything inside `mcu(_flat).slx` is
-firmware and needs the full cycle below.
+firmware and needs the full cycle below. `supervisor.z_ground` lives on both
+sides: the ground station uses it for the soft landing, and it is compiled
+into `mcu_flat` (battery landing, height gate of integrator and thrust-scale
+estimator).
 
 **Change controller logic**: edit the `.m` source, then re-certify and flash.
 
@@ -333,8 +344,8 @@ Condensed to the rules that have bitten us.
   above 12 V.
 - **Battery health is a flight parameter.** A worn pack (high internal
   resistance) collapses under hover load and quietly ruins tracking long before
-  the latch trips. See the pre-flight blocker note in `Testmatrix_Erstflug.md`
-  and measure packs before flying.
+  the latch trips. Measure packs before flying (`--upload-batt` flashes the
+  load test).
 - **The ground station trusts the mocap stream.** If Motive loses a rigid body,
   the last valid pose is held, and the position controller keeps commanding
   against a pose that no longer moves. A drone can climb away unseen, and the
@@ -358,5 +369,3 @@ Condensed to the rules that have bitten us.
 - **Swarm references:** the hyperbolic-2d-containment repository next to
   `DROMA/`. `swarm_precompute` adds it to the path and calls `main_DROMA.m`
   there.
-
-Details and the version pins live in [`Simulation/README.md`](Simulation/README.md).
