@@ -2,8 +2,7 @@ function link_flat_params = init_link_flat(quadcop, Ts_inner, Ts_gcs)
 %init_link_flat  Link-Parameter der FLATNESS-Variante (Simulation).
 %   Kanalmodell aus Latenz, Bernoulli-Verlust und int16-Quantisierung fuer den
 %   Bus_Cmd_flat-Inhalt:
-%     int16-Teil (21x1): [mocap_pos(3); p_ref(3); v_ref(3); a_ref(3);
-%                         j_ref(3); s_ref(3); yaw_ref(3)]
+%     int16-Teil (13x1): [mocap_pos(3); p_ref(3); v_ref(3); a_ref(3); yaw(1)]
 %     quat-Teil  (1x1):  q_ext (smallest-three, uint32)
 %     flags      (2x1):  [estop; ack]
 arguments (Input)
@@ -43,12 +42,10 @@ link_flat_params.fs = [ 20; 20; 20; ... % mocap_pos [m]
                         20; 20; 20; ... % p_ref [m]
                         20; 20; 20; ... % v_ref [m/s]
                         50; 50; 50; ... % a_ref [m/s^2]
-                       200;200;200; ... % j_ref [m/s^3]
-                      2000;2000;2000; ... % s_ref [m/s^4]
-                         4; 20; 200 ]; % yaw_ref [rad; rad/s; rad/s^2]
+                         4 ]; % yaw [rad]
 
 % --- Init-Pakete --------------------------------------------------------------
-scal_init = [ quadcop.x0; quadcop.x0; zeros(15,1) ]; % mocap=p_ref=x0, Rest 0
+scal_init = [ quadcop.x0; quadcop.x0; zeros(7,1) ]; % mocap=p_ref=x0, Rest 0
 lsb_link  = double(link_flat_params.fs) / double(link_flat_params.qmax);
 link_flat_params.pkt_init = int16( min(max(round(scal_init ./ lsb_link), ...
                         double(link_flat_params.qmin)), double(link_flat_params.qmax)) );

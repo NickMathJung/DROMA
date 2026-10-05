@@ -9,13 +9,11 @@
 //
 // UNTERSCHIEDE zur Kaskaden-HAL (alles andere ist identisch):
 //   - Klasse MCU_FLAT statt MCU; Bus_Cmd_flat statt Bus_Cmd an der Grenze.
-//   - OTA: ZWEI 27-B-Frames pro Zyklus (mcu_flat_packet.hpp). Ein pktf::Assembler
-//     paart sie ueber die gemeinsame seq und gibt erst ein koherentes Kommando
-//     frei — halb-neue Saetze erreichen den Regler nie. estop/ack kommen aus
-//     JEDEM Frame sofort durch (Safety wartet nicht auf das Pairing).
+//   - OTA: ein 32-B-Frame pro Zyklus (mcu_flat_packet.hpp) mit Mocap-Pose,
+//     p_ref/v_ref/a_ref und Soll-Gier; j_ref, s_ref und die Gier-Ableitungen
+//     sind 0.
 //   - Der Positionsregler laeuft jetzt ONBOARD: die Drohne bekommt Mocap-Pose +
-//     flache Referenzen (bis Snap) statt fertiger Lage-/Schubsollwerte.
-//   - Link-Diagnose zaehlt A- und B-Frames getrennt (siehe [tick]-Zeile).
+//     Referenzen statt fertiger Lage-/Schubsollwerte.
 //
 // Festgelegte Entscheidungen:
 //   - Rate: 1 kHz Basistakt (Ts_inner=1e-3), ein step() pro Tick (SingleTasking).
@@ -34,8 +32,7 @@
 //   - Status-LED: led = 3-Zustands-Warn-FSM (0 NORMAL / 1 WARN / 2 CRIT), kein
 //        Ladebalken. Pin5 = WARN (state>=1), Pin10 = CRIT (state==2).
 //   - nRF24L01 @ SPI1 (SCK27/MOSI26/MISO1), CE14, CSN0, IRQ9. Design A:
-//        Broadcast, Auto-Ack aus, 27-Byte-Payload (beide Frame-Typen gleich
-//        gross -> statische Payload reicht), App-ID-Gate via BCD.
+//        Broadcast, Auto-Ack aus, 32-Byte-Payload, App-ID-Gate via BCD.
 //        250 kbit/s wie die Kaskade; MUSS mit gcs_sender_flat.cpp gleich sein.
 //   - Failsafe: kein gueltiges Paket seit 200 ms -> estop=2 (Hard-Kill, safety_overspeed).
 //
@@ -51,7 +48,7 @@
 #endif                     //   mit unserem Serial.printf (-> Serial.Serial.printf). Neutralisieren.
 #include <SD.h>            // Teensy-Core (SdFat); BUILTIN_SDCARD = SDIO 4-Bit
 #include "mcu_flat.h"          // generierte Klasse MCU_FLAT (ExtU/ExtY)
-#include "mcu_flat_packet.hpp" // pktf::Assembler / id_matches (single source of truth)
+#include "mcu_flat_packet.hpp" // pktf::unpack / id_matches (single source of truth)
 #include "flight_log_flat.hpp" // Blackbox-Format (single source of truth)
 
 // ---- Betriebsart ------------------------------------------------------------
@@ -145,9 +142,8 @@ static constexpr uint32_t TIMING_REPORT_TICKS = 1000; // Timing-Budget alle ~1 s
 // ------------------------------ Globals --------------------------------------
 static MCU_FLAT               g_mcu;
 static MCU_FLAT::ExtU_mcu_flat_T g_U;        // wird jeden Tick befuellt
-// Assembler haelt A- und B-Frame und gibt erst bei gleicher seq ein koherentes
-// Kommando frei; g_asm.cmd ist das letzte gueltige Kommando (ZOH).
-static pktf::Assembler   g_asm;
+// Letztes gueltiges Kommando (ZOH).
+static pktf::CmdFlat     g_cmd{};
 static double            g_gyro_bias[3] = {0,0,0};
 static uint8_t           g_own_id = 0;
 static volatile bool     g_tick = false;
@@ -198,18 +194,12 @@ static uint32_t g_log_tick_last = 0;
 
 // Link-Diagnose (BENCH): trennt "Sender emittiert nicht 100 Hz" (Windows/USB-Pacing)
 // von "auf der Luft verloren" (RF, AutoAck aus). Fenster = 1 s, ausgegeben in [tick].
-// Bei ZWEI Frames je Zyklus getrennt gezaehlt — so sieht man sofort, ob eine
-// Haelfte systematisch schlechter ankommt (Frame B ist der laengere Weg im
-// Sendezyklus und faellt bei knappem Budget zuerst aus).
-//   rxA/rxB = zugestellte A- bzw. B-Frames/s (je ~100 = Link sauber)
-//   pairs   = koherente Paare/s (das, was den Regler wirklich erreicht)
-//   gaps    = fehlende seq/s auf Frame A (Sender hat gesendet, kam nie an)
-//   maxdt   = groesster Abstand zwischen Paaren/s [ms] -> reisst das Failsafe
-static uint32_t          g_rx_a    = 0;         // zugestellte A-Frames im Fenster
-static uint32_t          g_rx_b    = 0;         // zugestellte B-Frames im Fenster
-static uint32_t          g_rx_pairs = 0;        // koherente Paare im Fenster
-static uint32_t          g_rx_gaps = 0;         // fehlende seq im Fenster (auf A)
-static uint32_t          g_rx_maxdt = 0;        // groesster Paar-Abstand [ms]
+//   rx    = zugestellte Frames/s (~100 = Link sauber)
+//   gaps  = fehlende seq/s (Sender hat gesendet, kam nie an)
+//   maxdt = groesster Abstand zwischen Frames/s [ms] -> reisst das Failsafe
+static uint32_t          g_rx      = 0;         // zugestellte Frames im Fenster
+static uint32_t          g_rx_gaps = 0;         // fehlende seq im Fenster
+static uint32_t          g_rx_maxdt = 0;        // groesster Frame-Abstand [ms]
 static uint8_t           g_last_seq = 0;
 static bool              g_seq_init = false;
 static uint32_t          g_t_prev_rx = 0;
@@ -245,12 +235,20 @@ static const double MOUNT[5][3][3] = {
     {{ 1.0000,  0.0000, -0.0021 },
      { 0.0000,  0.9999,  0.0115 },
      { 0.0021, -0.0115,  0.9999}},
-    // id=3 -- NOCH NICHT VERMESSEN
-    {{1,0,0},{0,1,0},{0,0,1}},
-    // id=4 -- NOCH NICHT VERMESSEN
-    {{1,0,0},{0,1,0},{0,0,1}},
+    // id=3 -- vermessen 2026-08-13
+    {{ 1.0000,  0.0001,  0.0031 },
+     { 0.0001,  0.9994, -0.0343 },
+     {-0.0031,  0.0343,  0.9994}},
+    // id=4 -- vermessen 2026-08-17
+    {{ 0.9999,  0.0002, -0.0152 },
+     { 0.0002,  0.9995,  0.0304 },
+     { 0.0152, -0.0304,  0.9994}},
 };
 static const double (*g_R_mount)[3] = MOUNT[0];   // sichere Identitaet bis setup() die BCD-id kennt
+
+// Schubfaktor je Drohne (BCD-id) = quadcop.m_adap_id
+static const double K_THR[5] = { 1.00, 1.20, 1.03, 1.24, 1.20 };
+static double g_k_thr = K_THR[0];
 
 static void apply_mount(double v[3]) {
     const double (*R)[3] = g_R_mount;
@@ -311,39 +309,25 @@ static void drive_leds(uint8_t state) {
 }
 
 // ------------------------------ nRF ------------------------------------------
-// Broadcast pollen: nur Pakete mit passender ID annehmen (Design A). Jeder Frame
-// geht in den Assembler; der gibt erst bei A+B mit gleicher seq ein koherentes
-// Kommando frei (g_asm.cmd). estop/ack uebernimmt er aus jedem Frame sofort.
-//
-// WICHTIG fuer das Failsafe: g_t_last_rx wird nur von einem VOLLSTAENDIGEN Paar
-// gesetzt. Kaeme dauerhaft nur eine Haelfte an, wuerde der Regler auf einem
-// halben Kommandosatz stehen — dann soll das 200-ms-Failsafe greifen, nicht ein
-// Einzelframe den Link "am Leben" halten.
+// Broadcast pollen: nur Pakete mit passender ID annehmen (Design A).
 static void nrf_poll() {
     uint8_t buf[pktf::SIZE];
     while (g_radio.available()) {
         g_radio.read(buf, pktf::SIZE);
         if (!pktf::id_matches(buf, g_own_id)) continue;  // Fremdpaket verwerfen
-        bool is_b = pktf::is_frame_b(buf);
         uint8_t seq = pktf::seq_of(buf);
-        if (is_b) ++g_rx_b; else ++g_rx_a;
+        if (g_seq_init) g_rx_gaps += (uint8_t)(seq - g_last_seq - 1);
+        g_last_seq = seq; g_seq_init = true;
 
-        // seq-Luecken auf Frame A zaehlen (ein A pro Zyklus = Sender-Takt).
-        if (!is_b) {
-            if (g_seq_init) g_rx_gaps += (uint8_t)(seq - g_last_seq - 1);
-            g_last_seq = seq; g_seq_init = true;
+        pktf::unpack(buf, g_cmd);
+        uint32_t now = millis();
+        if (g_rx) {
+            uint32_t dt = now - g_t_prev_rx;
+            if (dt > g_rx_maxdt) g_rx_maxdt = dt;
         }
-
-        if (g_asm.feed(buf)) {                           // koherentes Paar
-            uint32_t now = millis();
-            if (g_rx_pairs) {
-                uint32_t dt = now - g_t_prev_rx;
-                if (dt > g_rx_maxdt) g_rx_maxdt = dt;
-            }
-            g_t_prev_rx = now;
-            ++g_rx_pairs;
-            g_t_last_rx = now;                           // nur ein Paar haelt den Link
-        }
+        g_t_prev_rx = now;
+        ++g_rx;
+        g_t_last_rx = now;
     }
 }
 
@@ -605,6 +589,10 @@ void setup() {
 
     g_own_id = read_bcd_id();
     g_R_mount = MOUNT[(g_own_id < 5) ? g_own_id : 0];   // per-Drohne Montage-Offset (Identitaet falls unbekannt/unvermessen)
+    g_k_thr   = K_THR[(g_own_id < 5) ? g_own_id : 0];
+#ifdef HAL_REPORT
+    Serial.printf("[boot] 2b id=%u k_thr=%.2f\n", (unsigned)g_own_id, g_k_thr);
+#endif
 
     // nRF Broadcast, Auto-Ack aus (Design A) auf SPI1 (26/1/27 = Default-SPI1-Pins).
     // Auf dem Teensy die SPI1-Pins explizit setzen und SPI1.begin() vor
@@ -624,11 +612,9 @@ void setup() {
     SPI1.begin();
     bool nrf_ok = g_radio.begin(&SPI1);
     g_radio.setAutoAck(false);
-    g_radio.setPayloadSize(pktf::SIZE);                      // 27 B, A und B gleich gross
+    g_radio.setPayloadSize(pktf::SIZE);                      // 32 B
     g_radio.setDataRate(RF24_250KBPS);                       // ~10 dB Empfindlichkeit gegen den
-                                                             // ~63%-On-Air-Verlust (S-3); bleibt
-                                                             // auch bei 2 Frames/Zyklus (~46%
-                                                             // Kanalauslastung bei 2 Drohnen).
+                                                             // ~63%-On-Air-Verlust (S-3).
                                                              // MUSS mit gcs_sender_flat.cpp gleich sein!
     g_radio.setChannel(76);                                  // == gcs_sender.cpp (GS + 3 Drohnen teilen)
     g_radio.openReadingPipe(1, NRF_BCAST_ADDR);
@@ -649,8 +635,8 @@ void setup() {
 #endif
     estimate_gyro_bias();
 
-    // Init-Kommando = sicher (kein Schub), bis das erste koherente Paar kommt.
-    g_asm = pktf::Assembler{};                               // alles 0, have_a/have_b false
+    // Init-Kommando = sicher (kein Schub), bis das erste Paket kommt.
+    g_cmd = pktf::CmdFlat{};                                 // alles 0
     // q_ext bleibt bewusst das NULL-Quaternion: vor dem ersten Paket gibt es
     // keine gueltige Mocap-Referenz. Der Mahony faellt damit auf Accel-only
     // zurueck, statt sich auf eine vorgetaeuschte waagerechte Lage einzurasten.
@@ -660,7 +646,7 @@ void setup() {
     // mocap_pos und p_ref bleiben ebenfalls 0. Das ist unkritisch, weil estop=2
     // den Kill haelt, bis der Link steht: der Flachheitsregler rechnet zwar auf
     // einem Nullzustand, seine Ausgaenge werden aber vom Kill-Gate genullt.
-    g_asm.cmd.estop = 2;                                     // bis Link steht: gekillt
+    g_cmd.estop = 2;                                         // bis Link steht: gekillt
     g_t_last_rx = 0;
 
     g_mcu.initialize();   // seit der Spannungskorrektur nicht mehr statisch:
@@ -702,11 +688,11 @@ void loop() {
     for (int k=0;k<3;++k) g_U.Bus_IMU_k.imu_gyro[k] = gyro[k] - g_gyro_bias[k];
     for (int k=0;k<3;++k) g_U.Bus_IMU_k.imu_acc[k]  = acc[k];
 
-    // 2) Bus_Cmd_flat: letztes koherentes Kommandopaar (ZOH); Watchdog -> Hard-Kill
+    // 2) Bus_Cmd_flat: letztes Kommando (ZOH); Watchdog -> Hard-Kill
     const bool link_lost = (millis() - g_t_last_rx > LINK_TIMEOUT_MS);
-    if (link_lost) g_asm.cmd.estop = 2;
+    if (link_lost) g_cmd.estop = 2;
     g_log_flags = (uint8_t)((g_log_flags & ~0x01u) | (link_lost ? 0x01u : 0x00u));
-    const pktf::CmdFlat& c = g_asm.cmd;
+    const pktf::CmdFlat& c = g_cmd;
     for (int k=0;k<3;++k) g_U.Bus_Cmd_flat_l.mocap_pos[k] = c.mocap_pos[k];
     for (int k=0;k<4;++k) g_U.Bus_Cmd_flat_l.q_ext[k]     = c.q_ext[k];
     for (int k=0;k<3;++k) g_U.Bus_Cmd_flat_l.p_ref[k]     = c.p_ref[k];
@@ -727,6 +713,9 @@ void loop() {
     //     das Re-Armen gesperrt. Geloest wird ausschliesslich ueber Bus_Cmd.ack.
     //     So drehen die Propeller beim Akkuwechsel garantiert nicht an.
     g_U.btn_ack = (digitalRead(PIN_BTN) == LOW);
+
+    // 3c) k_thr: Schubfaktor je Drohne
+    g_U.k_thr = g_k_thr;
 
     // 4) Ein step()
     g_mcu.setExternalInputs(&g_U);
@@ -822,13 +811,12 @@ void loop() {
     if (dt > TICK_US) ++g_tick_overruns;
     if (++g_tick_count >= TIMING_REPORT_TICKS) {
         Serial.printf("[tick] max=%lu us, overruns=%lu / %lu | "
-                      "rxA=%lu rxB=%lu pairs=%lu gaps=%lu (emit=%lu) maxdt=%lums\n",
+                      "rx=%lu gaps=%lu (emit=%lu) maxdt=%lums\n",
                       (unsigned long)g_tick_dt_max, (unsigned long)g_tick_overruns,
                       (unsigned long)g_tick_count,
-                      (unsigned long)g_rx_a, (unsigned long)g_rx_b,
-                      (unsigned long)g_rx_pairs, (unsigned long)g_rx_gaps,
-                      (unsigned long)(g_rx_a + g_rx_gaps), (unsigned long)g_rx_maxdt);
+                      (unsigned long)g_rx, (unsigned long)g_rx_gaps,
+                      (unsigned long)(g_rx + g_rx_gaps), (unsigned long)g_rx_maxdt);
         g_tick_dt_max = 0; g_tick_overruns = 0; g_tick_count = 0;
-        g_rx_a = 0; g_rx_b = 0; g_rx_pairs = 0; g_rx_gaps = 0; g_rx_maxdt = 0;
+        g_rx = 0; g_rx_gaps = 0; g_rx_maxdt = 0;
     }
 }

@@ -1,8 +1,9 @@
 function [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params)
 %#codegen
 % link_tx_flat  TX-Seite des Funkkanals (GCS->Drohne), FLATNESS-Variante @ Ts_gcs.
-%   Vektoren: [mocap_pos; p_ref; v_ref; a_ref; j_ref; s_ref; yaw_ref] -> int16
-%   (21x1), saturiert. q_ext -> smallest-three (uint32). flags: [estop; ack].
+%   Vektoren: [mocap_pos; p_ref; v_ref; a_ref; yaw] -> int16 (13x1), saturiert.
+%   j_ref, s_ref und die Gier-Ableitungen werden nicht uebertragen.
+%   q_ext -> smallest-three (uint32). flags: [estop; ack].
 %   Bernoulli-Paketverlust (xorshift32): bei Verlust ganzes Paket halten (ZOH).
 %   Zusaetzlich hold_every: jedes N-te Paket deterministisch halten.
 %
@@ -11,27 +12,25 @@ function [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params)
     persistent last_i16 last_q last_flags rs init_done ctr
     if isempty(init_done)
         ctr = 0;
-        last_i16   = reshape(int16(link_flat_params.pkt_init(1:21)), 21, 1);
+        last_i16   = reshape(int16(link_flat_params.pkt_init(1:13)), 13, 1);
         last_q     = uint32(link_flat_params.q_init(1));
         last_flags = double(link_flat_params.flags_init);
         rs         = uint32(link_flat_params.seed);
         init_done  = true;
     end
 
-    % --- int16-Teil: 21x1 ---
+    % --- int16-Teil: 13x1 ---
     v = [ reshape(double(cmd_in.mocap_pos), 3, 1); ...
           reshape(double(cmd_in.p_ref),     3, 1); ...
           reshape(double(cmd_in.v_ref),     3, 1); ...
           reshape(double(cmd_in.a_ref),     3, 1); ...
-          reshape(double(cmd_in.j_ref),     3, 1); ...
-          reshape(double(cmd_in.s_ref),     3, 1); ...
-          reshape(double(cmd_in.yaw_ref),   3, 1) ];
-    fs   = reshape(double(link_flat_params.fs), 21, 1);
+          double(cmd_in.yaw_ref(1)) ];
+    fs   = reshape(double(link_flat_params.fs), 13, 1);
     qmax = double(link_flat_params.qmax);
     qmin = double(link_flat_params.qmin);
     lsb  = fs / qmax;
     qi      = min(max(round(v ./ lsb), qmin), qmax);
-    i16_now = reshape(int16(qi), 21, 1);
+    i16_now = reshape(int16(qi), 13, 1);
 
     % --- q_ext: smallest-three (scalar-first [w x y z]) ---
     q_now = pack_quat_sm3(reshape(double(cmd_in.q_ext), 4, 1));
@@ -58,7 +57,7 @@ function [pkt_i16, pkt_q, flags] = link_tx_flat(cmd_in, link_flat_params)
         last_flags = flags_now;
     end
 
-    pkt_i16 = reshape(last_i16, 21, 1);
+    pkt_i16 = reshape(last_i16, 13, 1);
     pkt_q   = last_q;
     flags   = reshape(last_flags, 2, 1);
 end

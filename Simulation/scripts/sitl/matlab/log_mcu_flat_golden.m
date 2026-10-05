@@ -3,14 +3,14 @@
 %  an der mcu_flat-Grenze als breite CSV auf dem Basisraster Ts_inner.
 %
 %  Spaltennamen = ExtU/ExtY-Feldpfade:
-%     in:  Bus_IMU, Bus_Cmd_flat, batt_count, btn_ack
+%     in:  Bus_IMU, Bus_Cmd_flat, batt_count, btn_ack, k_thr
 %     out: rotor_cmd, led, throttle
 %
 %  --- Anpassen ---
 TOP_MODEL = 'quadcop_flat';
 MCU_BLOCK = 'quadcop_flat/mcu_flat_ref';
 T_STOP    = 5.0;                  % [s] Simulationsdauer
-IN_NAMES  = {'Bus_IMU','Bus_Cmd_flat','batt_count','btn_ack'};
+IN_NAMES  = {'Bus_IMU','Bus_Cmd_flat','batt_count','btn_ack','k_thr'};
 % dbg = [k_hat; F; aint(3); u_fb_raw(3)]
 OUT_NAMES = {'rotor_cmd','led','throttle','dbg'};
 OUT_CSV   = fullfile(fileparts(mfilename('fullpath')),'..','data','golden_mcu_flat_io.csv');

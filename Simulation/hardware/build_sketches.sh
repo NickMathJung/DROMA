@@ -13,7 +13,7 @@
 #
 # FLATNESS-Variante (Flachheitsregelung, eigener Satz Sketches — die Kaskade
 # oben bleibt unangetastet und jederzeit flashbar):
-#   ./build_sketches.sh --upload-sender-flat       # Sende-Teensy (2-Frame-OTA)
+#   ./build_sketches.sh --upload-sender-flat       # Sende-Teensy (1-Frame-OTA)
 #   ./build_sketches.sh --upload-drone-flat-bench  # / -thrust / -flight
 # ACHTUNG: Sender und Drohne muessen ZUSAMMEN passen — beide Kaskade oder beide
 # Flatness. Die OTA-Formate sind inkompatibel (29 B vs 2x27 B).

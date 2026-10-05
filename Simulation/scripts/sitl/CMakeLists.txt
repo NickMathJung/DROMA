@@ -123,7 +123,7 @@ target_link_libraries(test_link_codec PRIVATE GTest::gtest_main)
 gtest_discover_tests(test_link_codec)
 
 # --- Flatness-Codec-Cross-Check: MATLAB link_tx_flat/link_rx_flat == C++ pktf
-# (include/mcu_flat_packet.hpp, 2-Frame-OTA) gegen dump_link_flat_codec_golden.m.
+# (include/mcu_flat_packet.hpp, 1-Frame-OTA) gegen dump_link_flat_codec_golden.m.
 add_executable(test_link_flat_codec test/test_link_flat_codec.cpp)
 target_include_directories(test_link_flat_codec PRIVATE include test)
 target_compile_definitions(test_link_flat_codec PRIVATE GOLDEN_DIR="${GOLDEN_DIR}")

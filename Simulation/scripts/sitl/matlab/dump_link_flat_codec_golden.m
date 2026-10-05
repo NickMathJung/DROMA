@@ -3,11 +3,12 @@
 %  link_tx_flat -> link_rx_flat gejagt.
 %
 %  Zwei Vergleichsebenen:
-%    L1 (Wire):   tx_i16[21], tx_q, flags  bit-exakt.
+%    L1 (Wire):   tx_i16[13], tx_q, flags  bit-exakt.
 %    L2 (decode): rx_* : Vektoren bit-exakt, q_ext tol 1e-12.
 %
 %  int16-Reihenfolge im tx_i16:
-%    [mocap_pos(3) | p_ref(3) | v_ref(3) | a_ref(3) | j_ref(3) | s_ref(3) | yaw_ref(3)]
+%    [mocap_pos(3) | p_ref(3) | v_ref(3) | a_ref(3) | yaw(1)]
+%  j_ref, s_ref und die Gier-Ableitungen werden nicht uebertragen (rx = 0).
 
 here        = fileparts(mfilename('fullpath'));
 scriptsRoot = fullfile(here, '..', '..');            % .../scripts
@@ -20,6 +21,7 @@ Ts_inner         = 1e-3;
 quadcop          = init_quadcop();
 link_flat_params = init_link_flat(quadcop, Ts_inner);
 link_flat_params.pdrop = 0;                          % Codec isolieren
+link_flat_params.hold_period = 0;                    % kein deterministisches Halten
 clear link_tx_flat                                   % persistente ZOH-States leeren
 
 qI = [1 0 0 0];
@@ -45,7 +47,7 @@ C(end+1) = mkf('near_half', [0 0 1], [r2 r2 0 0], [0 0 1], Z3,Z3,Z3,Z3, Z3, 0, f
 % -- 3) Mocap-Dropout: q_ext = 0 -> reserviertes Codewort 0 --
 C(end+1) = mkf('mocap_invalid', [0 0 1], [0 0 0 0], [0 0 1], Z3,Z3,Z3,Z3, Z3, 0, false);
 
-% -- 4) int16-Saettigung je Feld jenseits fs=[20,20,20,50,200,2000,(4,20,200)] --
+% -- 4) int16-Saettigung je Feld jenseits fs=[20,20,20,50,4]; j/s/Gier-Ableitungen fallen weg --
 C(end+1) = mkf('sat_moc', [30 -30 25], qI, [0 0 1], Z3,Z3,Z3,Z3, Z3, 0, false);
 C(end+1) = mkf('sat_p',   [0 0 1], qI, [30 -30 25], Z3,Z3,Z3,Z3, Z3, 0, false);
 C(end+1) = mkf('sat_v',   [0 0 1], qI, [0 0 1], [30 -30 25], Z3,Z3,Z3, Z3, 0, false);
@@ -101,7 +103,7 @@ if ~isfolder(fileparts(outCsv)); mkdir(fileparts(outCsv)); end
 hdr = [ {'id'}, ...
     strc('in_moc',3), strc('in_qe',4), strc('in_p',3), strc('in_v',3), strc('in_a',3), ...
     strc('in_j',3), strc('in_s',3), strc('in_yaw',3), strc('in_estop'), strc('in_ack'), ...
-    strc('tx_i16',21), strc('tx_q'), strc('tx_flags',2), ...
+    strc('tx_i16',13), strc('tx_q'), strc('tx_flags',2), ...
     strc('rx_moc',3), strc('rx_qe',4), strc('rx_p',3), strc('rx_v',3), strc('rx_a',3), ...
     strc('rx_j',3), strc('rx_s',3), strc('rx_yaw',3), strc('rx_estop'), strc('rx_ack') ];
 

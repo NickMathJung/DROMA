@@ -5,7 +5,7 @@
 // gcsf::parse (gcs_frame_flat.hpp) parst die Bytes und muss die float32-
 // gerundeten Bus_Cmd_flat-Werte + id exakt rekonstruieren. Zusaetzlich:
 // CRC/Sync fangen Korruption, und der USB->OTA-Vollpfad (parse -> pktf::pack ->
-// Assembler) liefert dieselben Werte wie ein direkter pktf-Round-Trip.
+// pktf::unpack) liefert die float32-gerundeten Werte bis auf die Quantisierung.
 #include "gcs_frame_flat.hpp"
 #include "mcu_flat_packet.hpp"
 #include "csv.hpp"
@@ -87,9 +87,9 @@ TEST(GcsFrameFlat, RejectsCorruption) {
 }
 
 // Vollpfad wie im Sende-Teensy: USB-Frame -> gcsf::parse -> widen -> pktf::pack
-// -> beide Frames durch den Assembler. Muss dasselbe liefern wie ein direkter
-// pktf-Round-Trip auf den float32-gerundeten Werten. Faengt Reihenfolge-/
-// Feldzuordnungsfehler in gcs_sender_flat.cpp::widen().
+// -> pktf::unpack. Jedes uebertragene Feld muss bis auf ein halbes lsb beim
+// Eingang landen. Faengt Reihenfolge-/Feldzuordnungsfehler in
+// gcs_sender_flat.cpp::widen().
 TEST(GcsFrameFlat, UsbToOtaFullPath) {
     auto rows = sitl::read_csv(gpath("gcs_frame_flat_golden.csv"));
     ASSERT_FALSE(rows.empty());
@@ -111,35 +111,30 @@ TEST(GcsFrameFlat, UsbToOtaFullPath) {
         for (int i = 0; i < 3; ++i) c.yaw_ref[i]   = g.yaw_ref[i];
         c.estop = g.estop; c.ack = (g.ack != 0);
 
-        uint8_t bufA[pktf::SIZE], bufB[pktf::SIZE];
-        pktf::pack(c, id, /*seq=*/42, bufA, bufB);
+        uint8_t buf2[pktf::SIZE];
+        pktf::pack(c, id, /*seq=*/42, buf2);
+        pktf::CmdFlat d{};
+        pktf::unpack(buf2, d);
 
-        // Empfaengerseite: Assembler muss beim Paar genau ein Kommando freigeben.
-        pktf::Assembler asmb;
-        EXPECT_FALSE(asmb.feed(bufA));
-        ASSERT_TRUE (asmb.feed(bufB));
-
-        // Referenz: direkter Round-Trip ohne Assembler.
-        pktf::CmdFlat ref{};
-        pktf::unpack_a(bufA, ref);
-        pktf::unpack_b(bufB, ref);
-
-        auto same3 = [&](const double a[3], const double b[3], const char* nm) {
-            for (int i = 0; i < 3; ++i) EXPECT_EQ(a[i], b[i]) << nm << i;
+        // Uebertragene Felder: Abweichung <= lsb/2 (sonst Saettigung am Rand).
+        auto near3 = [&](const double in[3], const double out[3], double fs, const char* nm) {
+            for (int i = 0; i < 3; ++i) {
+                if (std::fabs(in[i]) >= fs) continue;
+                EXPECT_LE(std::fabs(in[i] - out[i]), 0.5 * fs / 32767.0 + 1e-12) << nm << i;
+            }
         };
-        same3(ref.mocap_pos, asmb.cmd.mocap_pos, "moc");
-        same3(ref.p_ref,     asmb.cmd.p_ref,     "p");
-        same3(ref.v_ref,     asmb.cmd.v_ref,     "v");
-        same3(ref.a_ref,     asmb.cmd.a_ref,     "a");
-        same3(ref.j_ref,     asmb.cmd.j_ref,     "j");
-        same3(ref.s_ref,     asmb.cmd.s_ref,     "s");
-        same3(ref.yaw_ref,   asmb.cmd.yaw_ref,   "yaw");
-        for (int i = 0; i < 4; ++i) EXPECT_EQ(ref.q_ext[i], asmb.cmd.q_ext[i]) << "qe" << i;
-        EXPECT_EQ(ref.estop, asmb.cmd.estop);
-        EXPECT_EQ(ref.ack,   asmb.cmd.ack);
+        near3(c.mocap_pos, d.mocap_pos, pktf::FS_MOC,  "moc");
+        near3(c.p_ref,     d.p_ref,     pktf::FS_PREF, "p");
+        near3(c.v_ref,     d.v_ref,     pktf::FS_VREF, "v");
+        near3(c.a_ref,     d.a_ref,     pktf::FS_AREF, "a");
+        if (std::fabs(c.yaw_ref[0]) < pktf::FS_YAW)
+            EXPECT_LE(std::fabs(c.yaw_ref[0] - d.yaw_ref[0]), 0.5 * pktf::FS_YAW / 32767.0 + 1e-12) << "yaw";
+        for (int i = 0; i < 3; ++i) { EXPECT_EQ(0.0, d.j_ref[i]); EXPECT_EQ(0.0, d.s_ref[i]); }
+        EXPECT_EQ(c.estop, d.estop);
+        EXPECT_EQ(c.ack,   d.ack);
 
         // id-Gate: nur die adressierte Drohne nimmt das Paket an.
-        EXPECT_TRUE (pktf::id_matches(bufA, id));
-        EXPECT_FALSE(pktf::id_matches(bufA, static_cast<uint8_t>(id ^ 0x01)));
+        EXPECT_TRUE (pktf::id_matches(buf2, id));
+        EXPECT_FALSE(pktf::id_matches(buf2, static_cast<uint8_t>(id ^ 0x01)));
     }
 }

@@ -1,7 +1,7 @@
 // mcu_flat_io.hpp — Adapter Golden-CSV <-> generierte MCU_FLAT-ABI (mcu_flat.h).
 // Pendant zu mcu_io.hpp (Kaskade). Die einzige Stelle, die gegen den Coder-
 // Output abgeglichen werden muss: die Feldnamen unten
-// (ExtU: Bus_IMU_k / Bus_Cmd_flat_l / batt_count / btn_ack ;
+// (ExtU: Bus_IMU_k / Bus_Cmd_flat_l / batt_count / btn_ack / k_thr ;
 //  ExtY: rotor_cmd[4] / led / throttle[4]).
 // Eigener Namespace sitl_flat, damit test_mcu_model (Kaskade) und
 // test_mcu_flat_model nie um Symbole konkurrieren.
@@ -79,6 +79,7 @@ inline void wire_inputs(MCU_FLAT::ExtU_mcu_flat_T& u, const NamedCsv& g, std::si
     u.Bus_Cmd_flat_l.ack   = (g.get(r, "Bus_Cmd_flat.ack.1") != 0.0);
     u.batt_count           = g.get(r, "batt_count.1");
     u.btn_ack              = g.has("btn_ack.1") ? (g.get(r, "btn_ack.1") != 0.0) : false;
+    u.k_thr                = g.get(r, "k_thr.1");
 }
 
 // --- ExtY rotor_cmd vs Golden -> groesste Abweichung ------------------------

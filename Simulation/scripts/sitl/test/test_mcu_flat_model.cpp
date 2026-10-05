@@ -45,6 +45,7 @@ static void wire_hover(MCU_FLAT::ExtU_mcu_flat_T& u) {
     u.Bus_Cmd_flat_l.ack = false;
     u.batt_count = 944.0;                          // ~15.74 V -> Batterie NORMAL
     u.btn_ack = false;
+    u.k_thr = 1.0;
 }
 
 TEST(McuFlatGolden, RotorCmdMatchesGolden) {
