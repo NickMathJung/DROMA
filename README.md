@@ -139,7 +139,7 @@ into a single 328 B USB frame, and the sender Teensy (attached to USB) keeps and
 forwards the freshest frame per id. 
 Lot of files require the **drone id** id as parameter:
 `init_trajectory_swarm(id)` writes `traj_id<id>`, `flight_evaluation(id)`
-saves `*_id<id>.mat`, the radio frame carries the id. Which GCS path serves
+saves `*_id<id>.mat`, the radio frame carries the id. Which gcs model serves
 which id follows from the order of `mocap.streaming_ids`. That list is the
 only place where the mapping is set, and the model instance parameters follow
 it, so flying other drones does not touch the model. Which mode flies is
@@ -161,9 +161,8 @@ Drone **and** sender Teensy must run the flat firmware. The flat OTA frame
 (32 B: id/estop/ack, seq, mocap pose, p/v/a reference, yaw) carries no jerk,
 snap or yaw rates; four drones need about 53 % airtime per 10 ms at 250 kbps.
 Without jerk and snap feedforward the tracking error grows with the jerk of
-the reference. Smooth swarm tables are fine, but the waypoint box of the
-cascade (segments of 1.9 s) is not flyable on the flat path. In simulation it
-needs segments of about 4.75 s or longer in `init_trajectory.m`.
+the reference. Smooth trajectories are fine, but the box of the cascade 
+(segments of 1.5 s) is not flyable for the drone with exact feedback linearization.
 
 Which mode flies is decided purely by the workspace at Run:
 
