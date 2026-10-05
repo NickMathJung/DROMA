@@ -34,6 +34,7 @@ traj.P = [wayp1, wayp2, wayp3, wayp4, wayp5, wayp6, wayp7];
 traj.yaw    = [ yaw0   yaw0   yaw0   yaw0   yaw0   yaw0];
 
 % Bewegungsdauer je Segment (N-1 Werte) [s]
+% traj.Tseg   = [ 2.0  2.5  2.5  2.5  2.5  2.0 ];
 traj.Tseg   = [ 2.0  1.5  1.5  1.5  1.5  2.0 ];
 
 % Rastdauer je Wegpunkt (N Werte)  -- erster Wert = Anfangs-Hover
